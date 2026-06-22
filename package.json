@@ -1,0 +1,167 @@
+{
+  "name": "ide-agent",
+  "displayName": "Ide Agent",
+  "description": "AI inline completion for IEC 61131-3 Structured Text.",
+  "version": "0.0.1",
+  "publisher": "ide-agent",
+  "license": "UNLICENSED",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:st",
+    "onLanguage:iecst",
+    "onLanguage:plc-st",
+    "onLanguage:plc_st",
+    "onLanguage:structured-text",
+    "onLanguage:structuredtext",
+    "onView:ide-agent.configView",
+    "onCommand:ide-agent.openPanel",
+    "onCommand:ide-agent.triggerCompletion",
+    "onCommand:ide-agent.showLogs"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "ide-agent",
+          "title": "Ide Agent",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "ide-agent": [
+        {
+          "type": "webview",
+          "id": "ide-agent.configView",
+          "name": "ST Completion"
+        }
+      ]
+    },
+    "languages": [
+      {
+        "id": "st",
+        "aliases": [
+          "Structured Text",
+          "ST"
+        ],
+        "extensions": [
+          ".st",
+          ".ST",
+          ".iecst"
+        ]
+      }
+    ],
+    "configuration": {
+      "title": "Ide Agent",
+      "properties": {
+        "ide-agent.llm.provider": {
+          "type": "string",
+          "default": "siliconflow",
+          "enum": [
+            "siliconflow",
+            "anthropic-compatible"
+          ],
+          "description": "LLM provider used by ST inline completion."
+        },
+        "ide-agent.llm.siliconflowModel": {
+          "type": "string",
+          "default": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+          "description": "SiliconFlow model name."
+        },
+        "ide-agent.llm.siliconflowBaseUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Optional SiliconFlow base URL. Defaults to https://api.siliconflow.cn/v1."
+        },
+        "ide-agent.llm.anthropicCompatibleModel": {
+          "type": "string",
+          "default": "MiniMax-M1",
+          "description": "Anthropic-compatible model name."
+        },
+        "ide-agent.llm.anthropicCompatibleBaseUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Optional Anthropic-compatible base URL. Defaults to https://api.minimax.io/anthropic."
+        },
+        "ide-agent.completion.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable AI inline completion for Structured Text files."
+        },
+        "ide-agent.completion.automatic": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically request ST completions in likely code positions."
+        },
+        "ide-agent.completion.debug": {
+          "type": "boolean",
+          "default": true,
+          "description": "Write completion diagnostics to the Ide Agent output channel."
+        },
+        "ide-agent.completion.maxContextLines": {
+          "type": "number",
+          "default": 140,
+          "minimum": 30,
+          "maximum": 800,
+          "description": "Maximum lines before the cursor sent to the model."
+        },
+        "ide-agent.completion.maxAfterLines": {
+          "type": "number",
+          "default": 30,
+          "minimum": 0,
+          "maximum": 300,
+          "description": "Maximum lines after the cursor sent to the model."
+        },
+        "ide-agent.completion.maxCompletionLines": {
+          "type": "number",
+          "default": 16,
+          "minimum": 1,
+          "maximum": 120,
+          "description": "Maximum lines accepted from AI completion."
+        },
+        "ide-agent.completion.requestTimeoutMs": {
+          "type": "number",
+          "default": 20000,
+          "minimum": 3000,
+          "maximum": 120000,
+          "description": "LLM request timeout in milliseconds."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "ide-agent.openPanel",
+        "title": "Ide Agent: Open Panel",
+        "category": "Ide Agent"
+      },
+      {
+        "command": "ide-agent.triggerCompletion",
+        "title": "Ide Agent: Trigger ST Completion",
+        "category": "Ide Agent"
+      },
+      {
+        "command": "ide-agent.showLogs",
+        "title": "Ide Agent: Show Logs",
+        "category": "Ide Agent"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.2.2",
+    "typescript": "^5.3.0"
+  }
+}

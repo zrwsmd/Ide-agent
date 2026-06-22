@@ -1,0 +1,26 @@
+export type ProviderId = 'siliconflow' | 'anthropic-compatible';
+
+export type LLMRole = 'system' | 'user' | 'assistant';
+
+export interface LLMMessage {
+  role: LLMRole;
+  content: string;
+}
+
+export interface LLMOptions {
+  temperature?: number;
+  maxTokens?: number;
+  stopSequences?: string[];
+  timeoutMs?: number;
+}
+
+export interface LLMConfig {
+  provider: ProviderId;
+  apiKey: string;
+  model: string;
+  baseUrl?: string;
+}
+
+export interface LLMAdapter {
+  complete(messages: LLMMessage[], options?: LLMOptions): Promise<string>;
+}
