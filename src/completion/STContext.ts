@@ -1,4 +1,3 @@
-import * as path from 'path';
 import * as vscode from 'vscode';
 
 export type STRegion = 'declaration' | 'code' | 'unknown';
@@ -103,7 +102,7 @@ export function isStructuredTextDocument(document: vscode.TextDocument): boolean
     return false;
   }
 
-  return ST_FILE_EXTENSIONS.has(path.extname(document.fileName).toLowerCase());
+  return ST_FILE_EXTENSIONS.has(getFileExtension(document.fileName).toLowerCase());
 }
 
 export function buildSTCompletionContext(
@@ -123,7 +122,7 @@ export function buildSTCompletionContext(
   const currentLinePrefix = currentLine.slice(0, position.character);
 
   return {
-    fileName: path.basename(document.fileName || document.uri.toString()),
+    fileName: getBaseName(document.fileName || document.uri.toString()),
     languageId: document.languageId,
     region: detectRegion(document, position),
     line: position.line + 1,
@@ -329,4 +328,18 @@ function isPrimitiveType(typeName: string): boolean {
     .toUpperCase();
 
   return PRIMITIVE_ST_TYPES.has(normalized);
+}
+
+function getFileExtension(fileName: string): string {
+  const baseName = getBaseName(fileName);
+  const dotIndex = baseName.lastIndexOf('.');
+
+  return dotIndex >= 0 ? baseName.slice(dotIndex) : '';
+}
+
+function getBaseName(fileName: string): string {
+  const normalized = fileName.replace(/\\/g, '/');
+  const slashIndex = normalized.lastIndexOf('/');
+
+  return slashIndex >= 0 ? normalized.slice(slashIndex + 1) : normalized;
 }
