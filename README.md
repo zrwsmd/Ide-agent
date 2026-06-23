@@ -7,6 +7,7 @@ Ide Agent is a small VS Code extension for AI inline completion in IEC 61131-3 S
 - Adds an `Ide Agent` activity bar panel.
 - Registers Structured Text files (`.st`, `.ST`, `.iecst`).
 - Provides inline ghost-text completion from an LLM.
+- Predicts a preview LD/FBD graph completion patch from the active ST file and a diagram JSON snapshot.
 - Supports SiliconFlow and Anthropic-compatible providers.
 - Stores API keys in VS Code Secret Storage.
 - Logs completion decisions in the `Ide Agent` output channel.
@@ -32,7 +33,16 @@ Useful commands:
 
 - `Ide Agent: Open Panel`
 - `Ide Agent: Trigger ST Completion`
+- `Ide Agent: Predict LD/FBD Graph Completion`
 - `Ide Agent: Show Logs`
+
+The first graph prediction prototype reads the diagram JSON from:
+
+```text
+D:\generate-plc-20250422\src\a.json
+```
+
+It sends the active ST file plus a compressed diagram summary to the selected LLM and copies the returned frontend preview patch JSON to the clipboard. The full request/response trace is written to the `Ide Agent` output channel.
 
 ## Settings
 

@@ -21,6 +21,7 @@
     "onView:ide-agent.configView",
     "onCommand:ide-agent.openPanel",
     "onCommand:ide-agent.triggerCompletion",
+    "onCommand:ide-agent.predictGraphCompletion",
     "onCommand:ide-agent.showLogs"
   ],
   "main": "./dist/extension.js",
@@ -143,6 +144,11 @@
       {
         "command": "ide-agent.triggerCompletion",
         "title": "Ide Agent: Trigger ST Completion",
+        "category": "Ide Agent"
+      },
+      {
+        "command": "ide-agent.predictGraphCompletion",
+        "title": "Ide Agent: Predict LD/FBD Graph Completion",
         "category": "Ide Agent"
       },
       {

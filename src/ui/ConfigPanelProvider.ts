@@ -40,11 +40,13 @@ type PanelMessage =
   | { type: 'save'; payload: PanelSavePayload }
   | { type: 'clearApiKey'; provider?: string }
   | { type: 'triggerCompletion' }
+  | { type: 'triggerGraphCompletion' }
   | { type: 'showLogs' };
 
 interface ConfigPanelCallbacks {
   onConfigChanged: () => void;
   onTriggerCompletion: () => Promise<void>;
+  onTriggerGraphCompletion: () => Promise<unknown>;
   onShowLogs: () => void;
 }
 
@@ -101,6 +103,9 @@ export class ConfigPanelProvider implements vscode.WebviewViewProvider {
         return;
       case 'triggerCompletion':
         await this.callbacks.onTriggerCompletion();
+        return;
+      case 'triggerGraphCompletion':
+        await this.callbacks.onTriggerGraphCompletion();
         return;
       case 'showLogs':
         this.callbacks.onShowLogs();
@@ -298,6 +303,10 @@ export class ConfigPanelProvider implements vscode.WebviewViewProvider {
       margin-top: 14px;
     }
 
+    .actions button.wide {
+      grid-column: 1 / -1;
+    }
+
     button {
       min-height: 30px;
       padding: 5px 9px;
@@ -372,6 +381,7 @@ export class ConfigPanelProvider implements vscode.WebviewViewProvider {
     <button id="save">Save</button>
     <button id="clearKey" class="secondary">Clear Key</button>
     <button id="trigger" class="secondary">Trigger</button>
+    <button id="graphPredict" class="secondary wide">Graph Predict</button>
     <button id="logs" class="secondary">Logs</button>
   </div>
 
@@ -395,6 +405,7 @@ export class ConfigPanelProvider implements vscode.WebviewViewProvider {
       save: document.getElementById('save'),
       clearKey: document.getElementById('clearKey'),
       trigger: document.getElementById('trigger'),
+      graphPredict: document.getElementById('graphPredict'),
       logs: document.getElementById('logs'),
       status: document.getElementById('status')
     };
@@ -439,6 +450,10 @@ export class ConfigPanelProvider implements vscode.WebviewViewProvider {
       setStatus('Clearing...');
     });
     els.trigger.addEventListener('click', () => vscode.postMessage({ type: 'triggerCompletion' }));
+    els.graphPredict.addEventListener('click', () => {
+      vscode.postMessage({ type: 'triggerGraphCompletion' });
+      setStatus('Predicting graph...');
+    });
     els.logs.addEventListener('click', () => vscode.postMessage({ type: 'showLogs' }));
 
     vscode.postMessage({ type: 'ready' });

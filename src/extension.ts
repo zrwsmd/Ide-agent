@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { ST_DOCUMENT_SELECTOR } from './completion/STContext';
 import { STInlineCompletionProvider } from './completion/STInlineCompletionProvider';
+import { GraphCompletionService } from './graph/GraphCompletionService';
 import { createLLMAdapter, getDefaultBaseUrl } from './llm/LLMFactory';
 import { LLMAdapter, LLMConfig, ProviderId } from './llm/types';
 import { ConfigPanelProvider } from './ui/ConfigPanelProvider';
@@ -24,11 +25,16 @@ export function activate(context: vscode.ExtensionContext): void {
     () => getActiveLLMAdapter(context),
     outputChannel
   );
+  const graphCompletionService = new GraphCompletionService(
+    () => getActiveLLMAdapter(context),
+    outputChannel
+  );
   const configPanelProvider = new ConfigPanelProvider(context, {
     onConfigChanged: () => {
       cachedAdapter = undefined;
     },
     onTriggerCompletion: triggerCompletion,
+    onTriggerGraphCompletion: () => graphCompletionService.predictFromActiveEditor(),
     onShowLogs: () => outputChannel?.show(true),
   });
 
@@ -38,10 +44,11 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.languages.registerInlineCompletionItemProvider(ST_DOCUMENT_SELECTOR, provider),
     vscode.commands.registerCommand('ide-agent.openPanel', () => vscode.commands.executeCommand(`${ConfigPanelProvider.viewType}.focus`)),
     vscode.commands.registerCommand('ide-agent.triggerCompletion', triggerCompletion),
+    vscode.commands.registerCommand('ide-agent.predictGraphCompletion', () => graphCompletionService.predictFromActiveEditor()),
     vscode.commands.registerCommand('ide-agent.showLogs', () => outputChannel?.show(true))
   );
 
-  outputChannel.appendLine(`[${new Date().toISOString()}] UI panel and ST inline completion provider registered`);
+  outputChannel.appendLine(`[${new Date().toISOString()}] UI panel, ST inline completion provider, and graph prediction command registered`);
 }
 
 export function deactivate(): void {
