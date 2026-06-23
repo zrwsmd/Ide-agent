@@ -154,14 +154,22 @@ function buildGraphCompletionPrompt(
     'Match the visual focus in the image to the most likely node in the topology by variable label and surrounding connections.',
     'The screenshot selection is more important than any generic insertion point in the topology.',
     'Do not explain your reasoning. Do not include long natural-language suggestions.',
-    'Only say which existing node is focused and what type of graph node should be added after it.',
-    'The matchedNodeId and afterNodeId must be ids from the realSelectableNodes list only.',
+    'Return 2 to 4 alternative graph suggestions when useful.',
+    'Every suggestion must be centered on recognizedFocus.matchedNodeId.',
+    'Set suggestions[].anchorNodeId equal to recognizedFocus.matchedNodeId.',
+    'For seriesAfter, functionBlockAfter, and outputCoil suggestions, set afterNodeId equal to recognizedFocus.matchedNodeId.',
+    'For parallelBranch suggestions, set parallelToNodeId equal to recognizedFocus.matchedNodeId and clearly describe the element placed in parallel.',
+    'Parallel suggestions must say whether the parallel element is a contact, negatedContact, functionBlock, coil, or another explicit element.',
+    'Do not suggest graph edits far away from the selected node.',
+    'Suggestions may include adding a node in series after the selected node, adding a parallel branch around it, adding a function block after it, or adding an output coil where valid.',
+    'For every suggestion, only say where it applies and what type of graph node/structure should be added.',
+    'The matchedNodeId, anchorNodeId, afterNodeId, parallelToNodeId, branchFromNodeId, branchToNodeId, and insertBeforeNodeId must be ids from the realSelectableNodes list only when non-empty.',
     'Allowed suggestion node types: contact, negatedContact, risingContact, fallingContact, coil, setCoil, resetCoil, functionBlock, branch.',
   ].join('\n');
 
   const outputSchema = {
     schemaVersion: 'ide-agent.graph-completion.v1',
-    action: 'suggestAfterNode | noSuggestion',
+    action: 'suggestGraphCompletions | noSuggestion',
     segmentId: 'segment id from diagram summary',
     confidence: 0.0,
     recognizedFocus: {
@@ -171,17 +179,30 @@ function buildGraphCompletionPrompt(
       matchedVar: 'variable name, or empty string',
       confidence: 0.0,
     },
-    suggestion: {
-      afterNodeId: 'existing node id after which the frontend should preview insertion',
-      afterNodeVar: 'variable of the after node, or empty string',
-      addNodeType: 'contact | coil | functionBlock | branch | ...',
-      addNodeTypeLabel: '触点 | 线圈 | 功能块 | 分支',
-      addBlockType: 'TON | CTD | RS | empty unless addNodeType is functionBlock',
-      insertBeforeNodeId: 'optional next existing node id, or empty string',
-    },
-    frontendHint: {
-      text: 'short Chinese sentence only, for example: 在 d 触点后添加功能块',
-    },
+    suggestions: [
+      {
+        id: 'option-1',
+        mode: 'seriesAfter | parallelBranch | functionBlockAfter | outputCoil | other',
+        anchorNodeId: 'must equal recognizedFocus.matchedNodeId',
+        anchorNodeVar: 'must equal recognizedFocus.matchedVar when available',
+        afterNodeId: 'existing node id after which the frontend should preview insertion',
+        afterNodeVar: 'variable of the after node, or empty string',
+        addNodeType: 'contact | coil | functionBlock | branch | ...',
+        addNodeTypeLabel: '触点 | 线圈 | 功能块 | 分支',
+        addBlockType: 'TON | CTD | RS | empty unless addNodeType is functionBlock',
+        insertBeforeNodeId: 'optional next existing node id, or empty string',
+        parallelToNodeId: 'required only for parallelBranch; must equal recognizedFocus.matchedNodeId',
+        branchFromNodeId: 'optional branch start node id for parallel suggestions, or empty string',
+        branchToNodeId: 'optional branch merge/end node id for parallel suggestions, or empty string',
+        parallelElement: {
+          addNodeType: 'contact | negatedContact | functionBlock | coil | ...',
+          addNodeTypeLabel: '触点 | 常闭触点 | 功能块 | 线圈 | ...',
+          addBlockType: 'TON | CTD | RS | empty unless addNodeType is functionBlock',
+        },
+        confidence: 0.0,
+        frontendHint: 'short Chinese sentence, for example: 在 d 触点后串联一个触点 or 给 d 触点并联一个功能块',
+      },
+    ],
   };
 
   const userPrompt = [
@@ -205,7 +226,7 @@ function buildGraphCompletionPrompt(
     'Required output JSON shape:',
     JSON.stringify(outputSchema, null, 2),
     '',
-    'Return only JSON. Keep frontendHint.text short. Do not include fields named reason, explanation, preview, or connections.',
+    'Return only JSON. Keep each suggestions[].frontendHint short. Do not include fields named reason, explanation, preview, or connections.',
   ].join('\n');
 
   const userContent: LLMMessage['content'] = screenshot
@@ -323,22 +344,94 @@ function logGraphPredictionSummary(jsonText: string, log: (message: string) => v
       `var=${asString(focus?.matchedVar) || '(unknown)'}`,
       `confidence=${formatConfidence(focus?.confidence)}`,
     ].join(' ');
-    const suggestionText = [
-      `afterNodeId=${asString(suggestion?.afterNodeId) || '(unknown)'}`,
-      `afterNodeVar=${asString(suggestion?.afterNodeVar) || '(unknown)'}`,
-      `addNodeType=${asString(suggestion?.addNodeType) || '(unknown)'}`,
-      `addNodeTypeLabel=${asString(suggestion?.addNodeTypeLabel) || '(unknown)'}`,
-      `insertBeforeNodeId=${asString(suggestion?.insertBeforeNodeId) || '(none)'}`,
-    ].join(' ');
+    const suggestions = getSuggestions(parsed);
+    const focusNodeId = asString(focus?.matchedNodeId);
 
     log(`AI recognized graph focus: ${focusText}`);
-    log(`AI graph suggestion: ${suggestionText}`);
+    log(`AI graph suggestions count=${suggestions.length}`);
+    suggestions.forEach((suggestion, index) => {
+      const suggestionText = [
+        `#${index + 1}`,
+        `mode=${asString(suggestion.mode) || '(unknown)'}`,
+        `anchorNodeId=${asString(suggestion.anchorNodeId) || '(unknown)'}`,
+        `anchorNodeVar=${asString(suggestion.anchorNodeVar) || '(unknown)'}`,
+        `afterNodeId=${asString(suggestion.afterNodeId) || '(unknown)'}`,
+        `afterNodeVar=${asString(suggestion.afterNodeVar) || '(unknown)'}`,
+        `parallelToNodeId=${asString(suggestion.parallelToNodeId) || '(none)'}`,
+        `branchFromNodeId=${asString(suggestion.branchFromNodeId) || '(none)'}`,
+        `branchToNodeId=${asString(suggestion.branchToNodeId) || '(none)'}`,
+        `addNodeType=${asString(suggestion.addNodeType) || '(unknown)'}`,
+        `addNodeTypeLabel=${asString(suggestion.addNodeTypeLabel) || '(unknown)'}`,
+        `addBlockType=${asString(suggestion.addBlockType) || '(none)'}`,
+        `parallelElement=${formatParallelElement(suggestion.parallelElement)}`,
+        `insertBeforeNodeId=${asString(suggestion.insertBeforeNodeId) || '(none)'}`,
+        `confidence=${formatConfidence(suggestion.confidence)}`,
+      ].join(' ');
+      log(`AI graph suggestion: ${suggestionText}`);
+      const warning = getSuggestionFocusWarning(focusNodeId, suggestion);
+      if (warning) {
+        log(`AI graph warning: suggestion #${index + 1} ${warning}`);
+      }
+    });
     if (isInternalGraphNodeKind(asString(focus?.matchedNodeType)) || isInternalGraphNodeId(asString(focus?.matchedNodeId))) {
       log('AI graph warning: recognized focus is an internal/placeholder node; result should be ignored or retried with a tighter screenshot crop.');
     }
   } catch (error) {
     log(`AI graph summary parse failed: ${formatUnknownError(error)}`);
   }
+}
+
+function getSuggestions(parsed: Record<string, unknown>): Record<string, unknown>[] {
+  const suggestions = parsed.suggestions;
+  if (Array.isArray(suggestions)) {
+    return suggestions
+      .map(asRecord)
+      .filter((item): item is Record<string, unknown> => Boolean(item));
+  }
+
+  const legacySuggestion = asRecord(parsed.suggestion);
+  return legacySuggestion ? [legacySuggestion] : [];
+}
+
+function getSuggestionFocusWarning(focusNodeId: string, suggestion: Record<string, unknown>): string {
+  if (!focusNodeId) {
+    return '';
+  }
+
+  const mode = asString(suggestion.mode);
+  const anchorNodeId = asString(suggestion.anchorNodeId);
+  const afterNodeId = asString(suggestion.afterNodeId);
+  const parallelToNodeId = asString(suggestion.parallelToNodeId);
+
+  if (anchorNodeId && anchorNodeId !== focusNodeId) {
+    return `anchorNodeId=${anchorNodeId} does not match recognized focus ${focusNodeId}`;
+  }
+
+  if (mode === 'parallelBranch') {
+    if (parallelToNodeId && parallelToNodeId !== focusNodeId) {
+      return `parallelToNodeId=${parallelToNodeId} does not match recognized focus ${focusNodeId}`;
+    }
+    return '';
+  }
+
+  if (afterNodeId && afterNodeId !== focusNodeId) {
+    return `afterNodeId=${afterNodeId} does not match recognized focus ${focusNodeId}`;
+  }
+
+  return '';
+}
+
+function formatParallelElement(value: unknown): string {
+  const element = asRecord(value);
+  if (!element) {
+    return '(none)';
+  }
+
+  return [
+    asString(element.addNodeType) || 'unknown',
+    asString(element.addNodeTypeLabel) || 'unknown',
+    asString(element.addBlockType) || '',
+  ].filter(Boolean).join('/');
 }
 
 function isInternalGraphNodeKind(kind: string): boolean {
