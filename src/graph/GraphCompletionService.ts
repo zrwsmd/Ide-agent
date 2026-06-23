@@ -155,19 +155,20 @@ function buildGraphCompletionPrompt(
     'The screenshot selection is more important than any generic insertion point in the topology.',
     'Do not explain your reasoning. Do not include long natural-language suggestions.',
     'Return 2 to 4 alternative graph suggestions when useful.',
-    'Every suggestion must be centered on recognizedFocus.matchedNodeId.',
-    'Set suggestions[].anchorNodeId equal to recognizedFocus.matchedNodeId.',
-    'For seriesAfter, functionBlockAfter, and outputCoil suggestions, set afterNodeId equal to recognizedFocus.matchedNodeId.',
-    'For parallelBranch suggestions, set parallelToNodeId equal to recognizedFocus.matchedNodeId and clearly describe the element placed in parallel.',
-    'Parallel suggestions must say whether the parallel element is a contact, negatedContact, functionBlock, coil, or another explicit element.',
-    'Do not suggest graph edits far away from the selected node.',
-    'Suggestions may include adding a node in series after the selected node, adding a parallel branch around it, adding a function block after it, or adding an output coil where valid.',
-    'For every suggestion, only say where it applies and what type of graph node/structure should be added.',
+    'Use IEC 61131-3 LD/FBD semantics to judge legal adjacent edits; do not copy a fixed template of suggestions.',
+    'Evaluate the selected node and its immediate neighbors in the topology: predecessor nodes, successor nodes, branch split/merge points, and function block ports.',
+    'Every suggestion must be centered on recognizedFocus.matchedNodeId, but the legal placement may be before it, after it, parallel with it, around it as a branch, or on a nearby function block port.',
+    'Each suggestion must include placement.relationToFocus and placement.positionText.',
+    'placement.positionText must explicitly say the location in Chinese, for example: "在 c 触点前串联一个常开触点", "在 c 触点后串联一个功能块", "与 c 触点并联一个常闭触点", or "围绕 c 触点添加一个并联功能块分支".',
+    'Do not use vague wording like "给 c 触点添加触点" because it does not say before, after, or parallel.',
+    'For parallel suggestions, clearly say whether the parallel element is a contact, negatedContact, functionBlock, coil, or another explicit element.',
+    'Do not suggest graph edits far away from the selected node unless IEC 61131 topology makes that the nearest legal output position.',
+    'For every suggestion, only say the legal adjacent placement and what exact graph element should be added.',
     'Do not return vague element descriptions like just "contact".',
     'Every suggestion must include newElement with an exact nodeType, displayLabel, variableSource, variableName, dataType, and userInputRequired flag.',
     'If the variable name cannot be inferred with confidence, set variableSource to "userInput", variableName to an empty string, and userInputRequired to true.',
     'For function blocks, include blockType and instanceSource. If the instance is unknown, set instanceSource to "userInput".',
-    'The matchedNodeId, anchorNodeId, afterNodeId, parallelToNodeId, branchFromNodeId, branchToNodeId, and insertBeforeNodeId must be ids from the realSelectableNodes list only when non-empty.',
+    'The matchedNodeId, anchorNodeId, afterNodeId, parallelToNodeId, branchFromNodeId, branchToNodeId, insertAfterNodeId, and insertBeforeNodeId must be ids from the realSelectableNodes list only when non-empty.',
     'Allowed suggestion node types: contact, negatedContact, risingContact, fallingContact, coil, setCoil, resetCoil, functionBlock, branch.',
   ].join('\n');
 
@@ -189,6 +190,18 @@ function buildGraphCompletionPrompt(
         mode: 'seriesAfter | parallelBranch | functionBlockAfter | outputCoil | other',
         anchorNodeId: 'must equal recognizedFocus.matchedNodeId',
         anchorNodeVar: 'must equal recognizedFocus.matchedVar when available',
+        placement: {
+          relationToFocus: 'beforeSelected | afterSelected | parallelWithSelected | branchAroundSelected | attachToInputPort | attachToOutputPort | nearRungOutput',
+          anchorNodeId: 'must equal recognizedFocus.matchedNodeId',
+          anchorNodeVar: 'must equal recognizedFocus.matchedVar when available',
+          insertAfterNodeId: 'node after which the new element is inserted, or empty string',
+          insertBeforeNodeId: 'node before which the new element is inserted, or empty string',
+          parallelToNodeId: 'required only when relationToFocus is parallelWithSelected or branchAroundSelected',
+          branchFromNodeId: 'optional branch start node id, or empty string',
+          branchToNodeId: 'optional branch merge/end node id, or empty string',
+          portName: 'optional function block port name, or empty string',
+          positionText: 'short Chinese text that explicitly says before/after/parallel/branch/port location',
+        },
         afterNodeId: 'existing node id after which the frontend should preview insertion',
         afterNodeVar: 'variable of the after node, or empty string',
         addNodeType: 'contact | coil | functionBlock | branch | ...',
@@ -369,6 +382,7 @@ function logGraphPredictionSummary(jsonText: string, log: (message: string) => v
       const suggestionText = [
         `#${index + 1}`,
         `mode=${asString(suggestion.mode) || '(unknown)'}`,
+        `placement=${formatPlacement(suggestion.placement)}`,
         `anchorNodeId=${asString(suggestion.anchorNodeId) || '(unknown)'}`,
         `anchorNodeVar=${asString(suggestion.anchorNodeVar) || '(unknown)'}`,
         `afterNodeId=${asString(suggestion.afterNodeId) || '(unknown)'}`,
@@ -392,6 +406,10 @@ function logGraphPredictionSummary(jsonText: string, log: (message: string) => v
       const elementWarning = getNewElementWarning(suggestion);
       if (elementWarning) {
         log(`AI graph warning: suggestion #${index + 1} ${elementWarning}`);
+      }
+      const placementWarning = getPlacementWarning(suggestion);
+      if (placementWarning) {
+        log(`AI graph warning: suggestion #${index + 1} ${placementWarning}`);
       }
     });
     if (isInternalGraphNodeKind(asString(focus?.matchedNodeType)) || isInternalGraphNodeId(asString(focus?.matchedNodeId))) {
@@ -497,6 +515,45 @@ function getNewElementWarning(suggestion: Record<string, unknown>): string {
 
   if (nodeType === 'functionBlock' && !asString(element.blockType)) {
     return 'newElement.blockType is missing for functionBlock';
+  }
+
+  return '';
+}
+
+function formatPlacement(value: unknown): string {
+  const placement = asRecord(value);
+  if (!placement) {
+    return '(missing)';
+  }
+
+  return [
+    asString(placement.relationToFocus) || 'unknown',
+    `after=${asString(placement.insertAfterNodeId) || '(none)'}`,
+    `before=${asString(placement.insertBeforeNodeId) || '(none)'}`,
+    `parallelTo=${asString(placement.parallelToNodeId) || '(none)'}`,
+    `text=${asString(placement.positionText) || '(empty)'}`,
+  ].join('/');
+}
+
+function getPlacementWarning(suggestion: Record<string, unknown>): string {
+  const placement = asRecord(suggestion.placement);
+  if (!placement) {
+    return 'placement is missing; suggestion does not say before/after/parallel location clearly';
+  }
+
+  const relation = asString(placement.relationToFocus);
+  const positionText = asString(placement.positionText);
+
+  if (!relation) {
+    return 'placement.relationToFocus is missing';
+  }
+
+  if (!positionText) {
+    return 'placement.positionText is missing';
+  }
+
+  if (!/(前|后|并联|分支|端口|输入|输出)/.test(positionText)) {
+    return `placement.positionText is vague: ${positionText}`;
   }
 
   return '';
