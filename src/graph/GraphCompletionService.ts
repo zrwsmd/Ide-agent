@@ -101,7 +101,7 @@ export class GraphCompletionService {
       return undefined;
     }
 
-    const jsonText = extractJsonText(rawText);
+    const jsonText = normalizeGraphPredictionJson(extractJsonText(rawText));
     if (!jsonText) {
       this.log('graph prediction failed: LLM did not return JSON');
       void vscode.window.showWarningMessage('Ide Agent: graph prediction did not return JSON. Check Ide Agent logs.');
@@ -158,17 +158,19 @@ function buildGraphCompletionPrompt(
     'Use IEC 61131-3 LD/FBD semantics to judge legal adjacent edits; do not copy a fixed template of suggestions.',
     'Evaluate the selected node and its immediate neighbors in the topology: predecessor nodes, successor nodes, branch split/merge points, and function block ports.',
     'Every suggestion must be centered on recognizedFocus.matchedNodeId, but the legal placement may be before it, after it, parallel with it, around it as a branch, or on a nearby function block port.',
-    'Each suggestion must include placement.relationToFocus and placement.positionText.',
-    'placement.positionText must explicitly say the location in Chinese, for example: "在 c 触点前串联一个常开触点", "在 c 触点后串联一个功能块", "与 c 触点并联一个常闭触点", or "围绕 c 触点添加一个并联功能块分支".',
+    'Each suggestion must include placement.relationToFocus, placement.text, and addElement.',
+    'Use placement for all location and anchor fields. Do not duplicate those ids at the suggestion top level.',
+    'Use addElement for all new graph element fields. Do not also return newElement, addNodeType, addNodeTypeLabel, addBlockType, or parallelElement.',
+    'placement.text must explicitly say the location in Chinese, for example: "在 c 触点前串联一个常开触点", "在 c 触点后串联一个功能块", "与 c 触点并联一个常闭触点", or "围绕 c 触点添加一个并联功能块分支".',
     'Do not use vague wording like "给 c 触点添加触点" because it does not say before, after, or parallel.',
     'For parallel suggestions, clearly say whether the parallel element is a contact, negatedContact, functionBlock, coil, or another explicit element.',
     'Do not suggest graph edits far away from the selected node unless IEC 61131 topology makes that the nearest legal output position.',
     'For every suggestion, only say the legal adjacent placement and what exact graph element should be added.',
     'Do not return vague element descriptions like just "contact".',
-    'Every suggestion must include newElement with an exact nodeType, displayLabel, variableSource, variableName, dataType, and userInputRequired flag.',
+    'Every suggestion must include addElement with an exact nodeType, displayLabel, variableSource, variableName, dataType, and userInputRequired flag.',
     'If the variable name cannot be inferred with confidence, set variableSource to "userInput", variableName to an empty string, and userInputRequired to true.',
     'For function blocks, include blockType and instanceSource. If the instance is unknown, set instanceSource to "userInput".',
-    'The matchedNodeId, anchorNodeId, afterNodeId, parallelToNodeId, branchFromNodeId, branchToNodeId, insertAfterNodeId, and insertBeforeNodeId must be ids from the realSelectableNodes list only when non-empty.',
+    'The matchedNodeId and every non-empty placement node id must be ids from the realSelectableNodes list.',
     'Allowed suggestion node types: contact, negatedContact, risingContact, fallingContact, coil, setCoil, resetCoil, functionBlock, branch.',
   ].join('\n');
 
@@ -188,8 +190,7 @@ function buildGraphCompletionPrompt(
       {
         id: 'option-1',
         mode: 'seriesAfter | parallelBranch | functionBlockAfter | outputCoil | other',
-        anchorNodeId: 'must equal recognizedFocus.matchedNodeId',
-        anchorNodeVar: 'must equal recognizedFocus.matchedVar when available',
+        confidence: 0.0,
         placement: {
           relationToFocus: 'beforeSelected | afterSelected | parallelWithSelected | branchAroundSelected | attachToInputPort | attachToOutputPort | nearRungOutput',
           anchorNodeId: 'must equal recognizedFocus.matchedNodeId',
@@ -200,14 +201,9 @@ function buildGraphCompletionPrompt(
           branchFromNodeId: 'optional branch start node id, or empty string',
           branchToNodeId: 'optional branch merge/end node id, or empty string',
           portName: 'optional function block port name, or empty string',
-          positionText: 'short Chinese text that explicitly says before/after/parallel/branch/port location',
+          text: 'short Chinese text that explicitly says before/after/parallel/branch/port location',
         },
-        afterNodeId: 'existing node id after which the frontend should preview insertion',
-        afterNodeVar: 'variable of the after node, or empty string',
-        addNodeType: 'contact | coil | functionBlock | branch | ...',
-        addNodeTypeLabel: '触点 | 线圈 | 功能块 | 分支',
-        addBlockType: 'TON | CTD | RS | empty unless addNodeType is functionBlock',
-        newElement: {
+        addElement: {
           nodeType: 'contact | negatedContact | risingContact | fallingContact | coil | setCoil | resetCoil | functionBlock',
           displayLabel: '常开触点 | 常闭触点 | 上升沿触点 | 下降沿触点 | 线圈 | 置位线圈 | 复位线圈 | 功能块',
           variableSource: 'existingVariable | inferredNewVariable | userInput',
@@ -218,18 +214,6 @@ function buildGraphCompletionPrompt(
           instanceSource: 'existingInstance | inferredNewInstance | userInput | empty unless nodeType is functionBlock',
           instanceName: 'function block instance name, or empty string',
         },
-        insertBeforeNodeId: 'optional next existing node id, or empty string',
-        parallelToNodeId: 'required only for parallelBranch; must equal recognizedFocus.matchedNodeId',
-        branchFromNodeId: 'optional branch start node id for parallel suggestions, or empty string',
-        branchToNodeId: 'optional branch merge/end node id for parallel suggestions, or empty string',
-        parallelElement: {
-          addNodeType: 'contact | negatedContact | functionBlock | coil | ...',
-          addNodeTypeLabel: '触点 | 常闭触点 | 功能块 | 线圈 | ...',
-          addBlockType: 'TON | CTD | RS | empty unless addNodeType is functionBlock',
-          newElement: 'same structure as suggestions[].newElement',
-        },
-        confidence: 0.0,
-        frontendHint: 'short Chinese sentence, for example: 在 d 触点后串联一个触点 or 给 d 触点并联一个功能块',
       },
     ],
   };
@@ -255,7 +239,7 @@ function buildGraphCompletionPrompt(
     'Required output JSON shape:',
     JSON.stringify(outputSchema, null, 2),
     '',
-    'Return only JSON. Keep each suggestions[].frontendHint short. Do not include fields named reason, explanation, preview, or connections.',
+    'Return only JSON. Do not include duplicate or legacy fields named suggestion, reason, explanation, preview, connections, frontendHint, afterNodeId, afterNodeVar, addNodeType, addNodeTypeLabel, addBlockType, newElement, insertBeforeNodeId, parallelToNodeId, branchFromNodeId, branchToNodeId, or parallelElement at suggestions[] top level.',
   ].join('\n');
 
   const userContent: LLMMessage['content'] = screenshot
@@ -361,6 +345,117 @@ function extractJsonText(rawText: string): string {
   }
 }
 
+function normalizeGraphPredictionJson(jsonText: string): string {
+  if (!jsonText) {
+    return '';
+  }
+
+  try {
+    const parsed = JSON.parse(jsonText) as Record<string, unknown>;
+    const rawSuggestions = getSuggestions(parsed);
+    const normalizedSuggestions = rawSuggestions.map(normalizeSuggestion);
+
+    const normalized = {
+      schemaVersion: asString(parsed.schemaVersion) || 'ide-agent.graph-completion.v1',
+      action: asString(parsed.action) || (normalizedSuggestions.length ? 'suggestGraphCompletions' : 'noSuggestion'),
+      segmentId: asString(parsed.segmentId),
+      confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0,
+      recognizedFocus: asRecord(parsed.recognizedFocus) || {
+        visualElement: '',
+        matchedNodeId: '',
+        matchedNodeType: '',
+        matchedVar: '',
+        confidence: 0,
+      },
+      suggestions: normalizedSuggestions,
+    };
+
+    return JSON.stringify(normalized, null, 2);
+  } catch {
+    return jsonText;
+  }
+}
+
+function normalizeSuggestion(suggestion: Record<string, unknown>, index: number): Record<string, unknown> {
+  const placement = normalizePlacement(suggestion);
+  const addElement = normalizeAddElement(suggestion);
+
+  return {
+    id: asString(suggestion.id) || `option-${index + 1}`,
+    mode: asString(suggestion.mode) || inferSuggestionMode(placement),
+    confidence: typeof suggestion.confidence === 'number' ? suggestion.confidence : 0,
+    placement,
+    addElement,
+  };
+}
+
+function normalizePlacement(suggestion: Record<string, unknown>): Record<string, unknown> {
+  const placement = asRecord(suggestion.placement) || {};
+
+  return {
+    relationToFocus: asString(placement.relationToFocus) || inferRelationToFocus(suggestion),
+    anchorNodeId: asString(placement.anchorNodeId) || asString(suggestion.anchorNodeId),
+    anchorNodeVar: asString(placement.anchorNodeVar) || asString(suggestion.anchorNodeVar),
+    insertAfterNodeId: asString(placement.insertAfterNodeId) || asString(suggestion.afterNodeId),
+    insertBeforeNodeId: asString(placement.insertBeforeNodeId) || asString(suggestion.insertBeforeNodeId),
+    parallelToNodeId: asString(placement.parallelToNodeId) || asString(suggestion.parallelToNodeId),
+    branchFromNodeId: asString(placement.branchFromNodeId) || asString(suggestion.branchFromNodeId),
+    branchToNodeId: asString(placement.branchToNodeId) || asString(suggestion.branchToNodeId),
+    portName: asString(placement.portName),
+    text: asString(placement.text) || asString(placement.positionText) || asString(suggestion.frontendHint),
+  };
+}
+
+function normalizeAddElement(suggestion: Record<string, unknown>): Record<string, unknown> {
+  const addElement = asRecord(suggestion.addElement)
+    || asRecord(suggestion.newElement)
+    || asRecord(asRecord(suggestion.parallelElement)?.newElement)
+    || {};
+  const parallelElement = asRecord(suggestion.parallelElement);
+
+  return {
+    nodeType: asString(addElement.nodeType) || asString(suggestion.addNodeType) || asString(parallelElement?.addNodeType),
+    displayLabel: asString(addElement.displayLabel) || asString(suggestion.addNodeTypeLabel) || asString(parallelElement?.addNodeTypeLabel),
+    variableSource: asString(addElement.variableSource) || 'userInput',
+    variableName: asString(addElement.variableName),
+    dataType: asString(addElement.dataType),
+    userInputRequired: typeof addElement.userInputRequired === 'boolean' ? addElement.userInputRequired : true,
+    blockType: asString(addElement.blockType) || asString(suggestion.addBlockType) || asString(parallelElement?.addBlockType),
+    instanceSource: asString(addElement.instanceSource),
+    instanceName: asString(addElement.instanceName),
+  };
+}
+
+function inferSuggestionMode(placement: Record<string, unknown>): string {
+  const relation = asString(placement.relationToFocus);
+  if (relation === 'parallelWithSelected' || relation === 'branchAroundSelected') {
+    return 'parallelBranch';
+  }
+  if (relation === 'attachToInputPort' || relation === 'attachToOutputPort') {
+    return 'functionBlockPort';
+  }
+  if (relation === 'nearRungOutput') {
+    return 'outputCoil';
+  }
+
+  return 'seriesAfter';
+}
+
+function inferRelationToFocus(suggestion: Record<string, unknown>): string {
+  const mode = asString(suggestion.mode);
+  if (mode === 'parallelBranch') {
+    return 'parallelWithSelected';
+  }
+  if (mode === 'outputCoil') {
+    return 'nearRungOutput';
+  }
+  if (asString(suggestion.insertBeforeNodeId)) {
+    return 'beforeSelected';
+  }
+
+  return 'afterSelected';
+}
+
 function logGraphPredictionSummary(jsonText: string, log: (message: string) => void): void {
   try {
     const parsed = JSON.parse(jsonText) as Record<string, unknown>;
@@ -383,19 +478,7 @@ function logGraphPredictionSummary(jsonText: string, log: (message: string) => v
         `#${index + 1}`,
         `mode=${asString(suggestion.mode) || '(unknown)'}`,
         `placement=${formatPlacement(suggestion.placement)}`,
-        `anchorNodeId=${asString(suggestion.anchorNodeId) || '(unknown)'}`,
-        `anchorNodeVar=${asString(suggestion.anchorNodeVar) || '(unknown)'}`,
-        `afterNodeId=${asString(suggestion.afterNodeId) || '(unknown)'}`,
-        `afterNodeVar=${asString(suggestion.afterNodeVar) || '(unknown)'}`,
-        `parallelToNodeId=${asString(suggestion.parallelToNodeId) || '(none)'}`,
-        `branchFromNodeId=${asString(suggestion.branchFromNodeId) || '(none)'}`,
-        `branchToNodeId=${asString(suggestion.branchToNodeId) || '(none)'}`,
-        `addNodeType=${asString(suggestion.addNodeType) || '(unknown)'}`,
-        `addNodeTypeLabel=${asString(suggestion.addNodeTypeLabel) || '(unknown)'}`,
-        `addBlockType=${asString(suggestion.addBlockType) || '(none)'}`,
-        `newElement=${formatNewElement(suggestion.newElement)}`,
-        `parallelElement=${formatParallelElement(suggestion.parallelElement)}`,
-        `insertBeforeNodeId=${asString(suggestion.insertBeforeNodeId) || '(none)'}`,
+        `addElement=${formatAddElement(getSuggestionAddElement(suggestion))}`,
         `confidence=${formatConfidence(suggestion.confidence)}`,
       ].join(' ');
       log(`AI graph suggestion: ${suggestionText}`);
@@ -403,7 +486,7 @@ function logGraphPredictionSummary(jsonText: string, log: (message: string) => v
       if (warning) {
         log(`AI graph warning: suggestion #${index + 1} ${warning}`);
       }
-      const elementWarning = getNewElementWarning(suggestion);
+      const elementWarning = getAddElementWarning(suggestion);
       if (elementWarning) {
         log(`AI graph warning: suggestion #${index + 1} ${elementWarning}`);
       }
@@ -438,42 +521,31 @@ function getSuggestionFocusWarning(focusNodeId: string, suggestion: Record<strin
   }
 
   const mode = asString(suggestion.mode);
-  const anchorNodeId = asString(suggestion.anchorNodeId);
-  const afterNodeId = asString(suggestion.afterNodeId);
-  const parallelToNodeId = asString(suggestion.parallelToNodeId);
+  const placement = asRecord(suggestion.placement);
+  const anchorNodeId = asString(placement?.anchorNodeId) || asString(suggestion.anchorNodeId);
+  const insertAfterNodeId = asString(placement?.insertAfterNodeId) || asString(suggestion.afterNodeId);
+  const relationToFocus = asString(placement?.relationToFocus);
+  const parallelToNodeId = asString(placement?.parallelToNodeId) || asString(suggestion.parallelToNodeId);
 
   if (anchorNodeId && anchorNodeId !== focusNodeId) {
     return `anchorNodeId=${anchorNodeId} does not match recognized focus ${focusNodeId}`;
   }
 
-  if (mode === 'parallelBranch') {
+  if (mode === 'parallelBranch' || relationToFocus === 'parallelWithSelected' || relationToFocus === 'branchAroundSelected') {
     if (parallelToNodeId && parallelToNodeId !== focusNodeId) {
       return `parallelToNodeId=${parallelToNodeId} does not match recognized focus ${focusNodeId}`;
     }
     return '';
   }
 
-  if (afterNodeId && afterNodeId !== focusNodeId) {
-    return `afterNodeId=${afterNodeId} does not match recognized focus ${focusNodeId}`;
+  if (relationToFocus === 'afterSelected' && insertAfterNodeId && insertAfterNodeId !== focusNodeId) {
+    return `placement.insertAfterNodeId=${insertAfterNodeId} does not match recognized focus ${focusNodeId}`;
   }
 
   return '';
 }
 
-function formatParallelElement(value: unknown): string {
-  const element = asRecord(value);
-  if (!element) {
-    return '(none)';
-  }
-
-  return [
-    asString(element.addNodeType) || 'unknown',
-    asString(element.addNodeTypeLabel) || 'unknown',
-    asString(element.addBlockType) || '',
-  ].filter(Boolean).join('/');
-}
-
-function formatNewElement(value: unknown): string {
+function formatAddElement(value: unknown): string {
   const element = asRecord(value);
   if (!element) {
     return '(missing)';
@@ -489,10 +561,14 @@ function formatNewElement(value: unknown): string {
   ].join('/');
 }
 
-function getNewElementWarning(suggestion: Record<string, unknown>): string {
-  const element = asRecord(suggestion.newElement);
+function getSuggestionAddElement(suggestion: Record<string, unknown>): Record<string, unknown> | undefined {
+  return asRecord(suggestion.addElement) || asRecord(suggestion.newElement);
+}
+
+function getAddElementWarning(suggestion: Record<string, unknown>): string {
+  const element = getSuggestionAddElement(suggestion);
   if (!element) {
-    return 'newElement is missing; suggestion may be too vague for frontend rendering';
+    return 'addElement is missing; suggestion may be too vague for frontend rendering';
   }
 
   const nodeType = asString(element.nodeType);
@@ -502,19 +578,19 @@ function getNewElementWarning(suggestion: Record<string, unknown>): string {
   const variableName = asString(element.variableName);
 
   if (!nodeType || !displayLabel) {
-    return 'newElement.nodeType/displayLabel is missing';
+    return 'addElement.nodeType/displayLabel is missing';
   }
 
   if (!variableSource) {
-    return 'newElement.variableSource is missing';
+    return 'addElement.variableSource is missing';
   }
 
   if (!userInputRequired && !variableName && nodeType !== 'functionBlock') {
-    return 'newElement.variableName is empty but userInputRequired is false';
+    return 'addElement.variableName is empty but userInputRequired is false';
   }
 
   if (nodeType === 'functionBlock' && !asString(element.blockType)) {
-    return 'newElement.blockType is missing for functionBlock';
+    return 'addElement.blockType is missing for functionBlock';
   }
 
   return '';
@@ -531,7 +607,7 @@ function formatPlacement(value: unknown): string {
     `after=${asString(placement.insertAfterNodeId) || '(none)'}`,
     `before=${asString(placement.insertBeforeNodeId) || '(none)'}`,
     `parallelTo=${asString(placement.parallelToNodeId) || '(none)'}`,
-    `text=${asString(placement.positionText) || '(empty)'}`,
+    `text=${asString(placement.text) || asString(placement.positionText) || '(empty)'}`,
   ].join('/');
 }
 
@@ -542,18 +618,18 @@ function getPlacementWarning(suggestion: Record<string, unknown>): string {
   }
 
   const relation = asString(placement.relationToFocus);
-  const positionText = asString(placement.positionText);
+  const positionText = asString(placement.text) || asString(placement.positionText);
 
   if (!relation) {
     return 'placement.relationToFocus is missing';
   }
 
   if (!positionText) {
-    return 'placement.positionText is missing';
+    return 'placement.text is missing';
   }
 
   if (!/(前|后|并联|分支|端口|输入|输出)/.test(positionText)) {
-    return `placement.positionText is vague: ${positionText}`;
+    return `placement.text is vague: ${positionText}`;
   }
 
   return '';
