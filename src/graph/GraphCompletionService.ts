@@ -163,6 +163,10 @@ function buildGraphCompletionPrompt(
     'Do not suggest graph edits far away from the selected node.',
     'Suggestions may include adding a node in series after the selected node, adding a parallel branch around it, adding a function block after it, or adding an output coil where valid.',
     'For every suggestion, only say where it applies and what type of graph node/structure should be added.',
+    'Do not return vague element descriptions like just "contact".',
+    'Every suggestion must include newElement with an exact nodeType, displayLabel, variableSource, variableName, dataType, and userInputRequired flag.',
+    'If the variable name cannot be inferred with confidence, set variableSource to "userInput", variableName to an empty string, and userInputRequired to true.',
+    'For function blocks, include blockType and instanceSource. If the instance is unknown, set instanceSource to "userInput".',
     'The matchedNodeId, anchorNodeId, afterNodeId, parallelToNodeId, branchFromNodeId, branchToNodeId, and insertBeforeNodeId must be ids from the realSelectableNodes list only when non-empty.',
     'Allowed suggestion node types: contact, negatedContact, risingContact, fallingContact, coil, setCoil, resetCoil, functionBlock, branch.',
   ].join('\n');
@@ -190,6 +194,17 @@ function buildGraphCompletionPrompt(
         addNodeType: 'contact | coil | functionBlock | branch | ...',
         addNodeTypeLabel: '触点 | 线圈 | 功能块 | 分支',
         addBlockType: 'TON | CTD | RS | empty unless addNodeType is functionBlock',
+        newElement: {
+          nodeType: 'contact | negatedContact | risingContact | fallingContact | coil | setCoil | resetCoil | functionBlock',
+          displayLabel: '常开触点 | 常闭触点 | 上升沿触点 | 下降沿触点 | 线圈 | 置位线圈 | 复位线圈 | 功能块',
+          variableSource: 'existingVariable | inferredNewVariable | userInput',
+          variableName: 'exact variable name, or empty string when userInputRequired is true',
+          dataType: 'BOOL | INT | TIME | function block type | empty if unknown',
+          userInputRequired: true,
+          blockType: 'TON | CTD | RS | empty unless nodeType is functionBlock',
+          instanceSource: 'existingInstance | inferredNewInstance | userInput | empty unless nodeType is functionBlock',
+          instanceName: 'function block instance name, or empty string',
+        },
         insertBeforeNodeId: 'optional next existing node id, or empty string',
         parallelToNodeId: 'required only for parallelBranch; must equal recognizedFocus.matchedNodeId',
         branchFromNodeId: 'optional branch start node id for parallel suggestions, or empty string',
@@ -198,6 +213,7 @@ function buildGraphCompletionPrompt(
           addNodeType: 'contact | negatedContact | functionBlock | coil | ...',
           addNodeTypeLabel: '触点 | 常闭触点 | 功能块 | 线圈 | ...',
           addBlockType: 'TON | CTD | RS | empty unless addNodeType is functionBlock',
+          newElement: 'same structure as suggestions[].newElement',
         },
         confidence: 0.0,
         frontendHint: 'short Chinese sentence, for example: 在 d 触点后串联一个触点 or 给 d 触点并联一个功能块',
@@ -363,6 +379,7 @@ function logGraphPredictionSummary(jsonText: string, log: (message: string) => v
         `addNodeType=${asString(suggestion.addNodeType) || '(unknown)'}`,
         `addNodeTypeLabel=${asString(suggestion.addNodeTypeLabel) || '(unknown)'}`,
         `addBlockType=${asString(suggestion.addBlockType) || '(none)'}`,
+        `newElement=${formatNewElement(suggestion.newElement)}`,
         `parallelElement=${formatParallelElement(suggestion.parallelElement)}`,
         `insertBeforeNodeId=${asString(suggestion.insertBeforeNodeId) || '(none)'}`,
         `confidence=${formatConfidence(suggestion.confidence)}`,
@@ -371,6 +388,10 @@ function logGraphPredictionSummary(jsonText: string, log: (message: string) => v
       const warning = getSuggestionFocusWarning(focusNodeId, suggestion);
       if (warning) {
         log(`AI graph warning: suggestion #${index + 1} ${warning}`);
+      }
+      const elementWarning = getNewElementWarning(suggestion);
+      if (elementWarning) {
+        log(`AI graph warning: suggestion #${index + 1} ${elementWarning}`);
       }
     });
     if (isInternalGraphNodeKind(asString(focus?.matchedNodeType)) || isInternalGraphNodeId(asString(focus?.matchedNodeId))) {
@@ -432,6 +453,53 @@ function formatParallelElement(value: unknown): string {
     asString(element.addNodeTypeLabel) || 'unknown',
     asString(element.addBlockType) || '',
   ].filter(Boolean).join('/');
+}
+
+function formatNewElement(value: unknown): string {
+  const element = asRecord(value);
+  if (!element) {
+    return '(missing)';
+  }
+
+  return [
+    asString(element.nodeType) || 'unknown',
+    asString(element.displayLabel) || 'unknown',
+    `var=${asString(element.variableName) || '(empty)'}`,
+    `varSource=${asString(element.variableSource) || '(unknown)'}`,
+    `input=${String(Boolean(element.userInputRequired))}`,
+    `block=${asString(element.blockType) || '(none)'}`,
+  ].join('/');
+}
+
+function getNewElementWarning(suggestion: Record<string, unknown>): string {
+  const element = asRecord(suggestion.newElement);
+  if (!element) {
+    return 'newElement is missing; suggestion may be too vague for frontend rendering';
+  }
+
+  const nodeType = asString(element.nodeType);
+  const displayLabel = asString(element.displayLabel);
+  const variableSource = asString(element.variableSource);
+  const userInputRequired = Boolean(element.userInputRequired);
+  const variableName = asString(element.variableName);
+
+  if (!nodeType || !displayLabel) {
+    return 'newElement.nodeType/displayLabel is missing';
+  }
+
+  if (!variableSource) {
+    return 'newElement.variableSource is missing';
+  }
+
+  if (!userInputRequired && !variableName && nodeType !== 'functionBlock') {
+    return 'newElement.variableName is empty but userInputRequired is false';
+  }
+
+  if (nodeType === 'functionBlock' && !asString(element.blockType)) {
+    return 'newElement.blockType is missing for functionBlock';
+  }
+
+  return '';
 }
 
 function isInternalGraphNodeKind(kind: string): boolean {
