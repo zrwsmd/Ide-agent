@@ -41,12 +41,14 @@ type PanelMessage =
   | { type: 'clearApiKey'; provider?: string }
   | { type: 'triggerCompletion' }
   | { type: 'triggerGraphCompletion' }
+  | { type: 'triggerGraphCompletionWithScreenshot' }
   | { type: 'showLogs' };
 
 interface ConfigPanelCallbacks {
   onConfigChanged: () => void;
   onTriggerCompletion: () => Promise<void>;
   onTriggerGraphCompletion: () => Promise<unknown>;
+  onTriggerGraphCompletionWithScreenshot: () => Promise<unknown>;
   onShowLogs: () => void;
 }
 
@@ -106,6 +108,9 @@ export class ConfigPanelProvider implements vscode.WebviewViewProvider {
         return;
       case 'triggerGraphCompletion':
         await this.callbacks.onTriggerGraphCompletion();
+        return;
+      case 'triggerGraphCompletionWithScreenshot':
+        await this.callbacks.onTriggerGraphCompletionWithScreenshot();
         return;
       case 'showLogs':
         this.callbacks.onShowLogs();
@@ -382,6 +387,7 @@ export class ConfigPanelProvider implements vscode.WebviewViewProvider {
     <button id="clearKey" class="secondary">Clear Key</button>
     <button id="trigger" class="secondary">Trigger</button>
     <button id="graphPredict" class="secondary wide">Graph Predict</button>
+    <button id="graphPredictImage" class="secondary wide">Graph Predict + Image</button>
     <button id="logs" class="secondary">Logs</button>
   </div>
 
@@ -406,6 +412,7 @@ export class ConfigPanelProvider implements vscode.WebviewViewProvider {
       clearKey: document.getElementById('clearKey'),
       trigger: document.getElementById('trigger'),
       graphPredict: document.getElementById('graphPredict'),
+      graphPredictImage: document.getElementById('graphPredictImage'),
       logs: document.getElementById('logs'),
       status: document.getElementById('status')
     };
@@ -453,6 +460,10 @@ export class ConfigPanelProvider implements vscode.WebviewViewProvider {
     els.graphPredict.addEventListener('click', () => {
       vscode.postMessage({ type: 'triggerGraphCompletion' });
       setStatus('Predicting graph...');
+    });
+    els.graphPredictImage.addEventListener('click', () => {
+      vscode.postMessage({ type: 'triggerGraphCompletionWithScreenshot' });
+      setStatus('Selecting image...');
     });
     els.logs.addEventListener('click', () => vscode.postMessage({ type: 'showLogs' }));
 

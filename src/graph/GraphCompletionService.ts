@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { DEFAULT_DIAGRAM_JSON_PATH, DiagramSummary, loadDiagramSummary } from '../diagram/DiagramSummary';
 import { LLMAdapter, LLMMessage } from '../llm/types';
+import { loadLastScreenshot, pickScreenshot, ScreenshotContext } from './ScreenshotContext';
 
 type LLMAdapterGetter = () => Promise<LLMAdapter | null>;
 
@@ -17,7 +18,7 @@ export class GraphCompletionService {
     private readonly outputChannel: vscode.OutputChannel
   ) {}
 
-  async predictFromActiveEditor(): Promise<GraphCompletionResult | undefined> {
+  async predictFromActiveEditor(options: { includeScreenshot?: boolean } = {}): Promise<GraphCompletionResult | undefined> {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
       this.log('graph prediction skipped: no active editor');
@@ -32,9 +33,30 @@ export class GraphCompletionService {
       character: editor.selection.active.character + 1,
     };
     const diagramPath = DEFAULT_DIAGRAM_JSON_PATH;
+    let screenshot: ScreenshotContext | undefined;
 
     this.log(`graph prediction requested file=${document.fileName || document.uri.toString()} line=${cursor.line} column=${cursor.character}`);
     this.log(`loading diagram json path=${diagramPath}`);
+
+    if (options.includeScreenshot) {
+      try {
+        screenshot = await pickScreenshot();
+      } catch (error) {
+        this.log(`graph screenshot skipped: ${formatUnknownError(error)}`);
+        void vscode.window.showWarningMessage(`Ide Agent: failed to read screenshot. ${formatErrorMessage(error)}`);
+      }
+
+      if (!screenshot) {
+        this.log('graph prediction cancelled: no screenshot selected');
+        return undefined;
+      }
+    } else {
+      try {
+        screenshot = await loadLastScreenshot();
+      } catch (error) {
+        this.log(`graph last screenshot ignored: ${formatUnknownError(error)}`);
+      }
+    }
 
     let summary: DiagramSummary;
     try {
@@ -48,6 +70,11 @@ export class GraphCompletionService {
     this.log(
       `diagram summary pou=${summary.pouName || '(unknown)'} segments=${summary.segments.length} variables=${summary.variableCount} nodes=${summary.segments.map((segment) => segment.nodeCount).join(',')}`
     );
+    if (screenshot) {
+      this.log(`using screenshot path=${screenshot.path} mediaType=${screenshot.mediaType}`);
+    } else {
+      this.log('using text-only graph prediction; no screenshot context available');
+    }
 
     const llmAdapter = await this.getLLMAdapter();
     if (!llmAdapter) {
@@ -56,7 +83,7 @@ export class GraphCompletionService {
       return undefined;
     }
 
-    const messages = buildGraphCompletionPrompt(stCode, summary, cursor, document.fileName || document.uri.toString());
+    const messages = buildGraphCompletionPrompt(stCode, summary, cursor, document.fileName || document.uri.toString(), screenshot);
     let rawText = '';
 
     try {
@@ -109,7 +136,8 @@ function buildGraphCompletionPrompt(
   stCode: string,
   diagramSummary: DiagramSummary,
   cursor: { line: number; character: number },
-  fileName: string
+  fileName: string,
+  screenshot: ScreenshotContext | undefined
 ): LLMMessage[] {
   const compactDiagram = compactForPrompt(diagramSummary);
   const systemPrompt = [
@@ -119,6 +147,8 @@ function buildGraphCompletionPrompt(
     'The JSON must describe a preview patch the frontend can render, not ST code.',
     'Use existing segmentId and node ids from the topology when choosing insertion positions.',
     'Prefer IEC 61131 valid LD/FBD elements: contact, negatedContact, risingContact, fallingContact, coil, setCoil, resetCoil, FBDCompartment, branch.',
+    'If an image is provided, use visible selection markers such as red boxes or highlights to identify the current graph focus.',
+    'Match the visual focus in the image to the most likely node in the topology by variable label and surrounding connections.',
     'If an editRect insertion point exists, prefer using it as the suggested insertion location unless the ST context clearly points elsewhere.',
     'Do not invent impossible connections. When unsure, create a conservative single contact or function block preview before the final coil.',
   ].join('\n');
@@ -129,6 +159,12 @@ function buildGraphCompletionPrompt(
     segmentId: 'segment id from diagram summary',
     confidence: 0.0,
     reason: 'short reason in Chinese',
+    recognizedFocus: {
+      visualElement: 'element recognized from screenshot, such as d contact',
+      matchedNodeId: 'node id from diagram summary, or empty string',
+      matchedVar: 'variable name, or empty string',
+      confidence: 0.0,
+    },
     target: {
       insertionPointId: 'editRect/branchRect id if available',
       insertAfterNodeId: 'existing source node id',
@@ -181,15 +217,34 @@ function buildGraphCompletionPrompt(
     JSON.stringify(compactDiagram, null, 2),
     '</DIAGRAM_SUMMARY_JSON>',
     '',
+    screenshot
+      ? `A LD/FBD screenshot is attached. Use it to locate the current red-box/selected visual focus. Screenshot path: ${screenshot.path}`
+      : 'No screenshot is attached. Use ST code and diagram topology only.',
+    '',
     'Required output JSON shape:',
     JSON.stringify(outputSchema, null, 2),
     '',
     'Return only the JSON preview patch.',
   ].join('\n');
 
+  const userContent: LLMMessage['content'] = screenshot
+    ? [
+        {
+          type: 'text',
+          text: userPrompt,
+        },
+        {
+          type: 'image_url',
+          image_url: {
+            url: screenshot.dataUrl,
+          },
+        },
+      ]
+    : userPrompt;
+
   return [
     { role: 'system', content: systemPrompt },
-    { role: 'user', content: userPrompt },
+    { role: 'user', content: userContent },
   ];
 }
 

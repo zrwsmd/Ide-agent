@@ -34,6 +34,7 @@ Useful commands:
 - `Ide Agent: Open Panel`
 - `Ide Agent: Trigger ST Completion`
 - `Ide Agent: Predict LD/FBD Graph Completion`
+- `Ide Agent: Predict LD/FBD Graph Completion With Screenshot`
 - `Ide Agent: Show Logs`
 
 The first graph prediction prototype reads the diagram JSON from:
@@ -43,6 +44,8 @@ D:\generate-plc-20250422\src\a.json
 ```
 
 It sends the active ST file plus a compressed diagram summary to the selected LLM and copies the returned frontend preview patch JSON to the clipboard. The full request/response trace is written to the `Ide Agent` output channel.
+
+Use `Graph Predict + Image` or `Ide Agent: Predict LD/FBD Graph Completion With Screenshot` to attach a ladder/FBD screenshot. The screenshot is sent as a multimodal image input so the model can use red boxes or visual selection markers as graph focus hints. This requires a vision-capable model/provider.
 
 ## Settings
 

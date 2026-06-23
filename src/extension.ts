@@ -35,6 +35,7 @@ export function activate(context: vscode.ExtensionContext): void {
     },
     onTriggerCompletion: triggerCompletion,
     onTriggerGraphCompletion: () => graphCompletionService.predictFromActiveEditor(),
+    onTriggerGraphCompletionWithScreenshot: () => graphCompletionService.predictFromActiveEditor({ includeScreenshot: true }),
     onShowLogs: () => outputChannel?.show(true),
   });
 
@@ -45,6 +46,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('ide-agent.openPanel', () => vscode.commands.executeCommand(`${ConfigPanelProvider.viewType}.focus`)),
     vscode.commands.registerCommand('ide-agent.triggerCompletion', triggerCompletion),
     vscode.commands.registerCommand('ide-agent.predictGraphCompletion', () => graphCompletionService.predictFromActiveEditor()),
+    vscode.commands.registerCommand('ide-agent.predictGraphCompletionWithScreenshot', () => graphCompletionService.predictFromActiveEditor({ includeScreenshot: true })),
     vscode.commands.registerCommand('ide-agent.showLogs', () => outputChannel?.show(true))
   );
 

@@ -2,9 +2,24 @@ export type ProviderId = 'siliconflow' | 'anthropic-compatible';
 
 export type LLMRole = 'system' | 'user' | 'assistant';
 
+export interface LLMTextPart {
+  type: 'text';
+  text: string;
+}
+
+export interface LLMImageUrlPart {
+  type: 'image_url';
+  image_url: {
+    url: string;
+  };
+}
+
+export type LLMContentPart = LLMTextPart | LLMImageUrlPart;
+export type LLMMessageContent = string | LLMContentPart[];
+
 export interface LLMMessage {
   role: LLMRole;
-  content: string;
+  content: LLMMessageContent;
 }
 
 export interface LLMOptions {

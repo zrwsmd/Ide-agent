@@ -1,6 +1,7 @@
-import * as vscode from 'vscode';
+import * as vscode from "vscode";
 
-export const DEFAULT_DIAGRAM_JSON_PATH = 'D:\\generate-plc-20250422\\src\\a.json';
+export const DEFAULT_DIAGRAM_JSON_PATH =
+  "C:\\Users\\Administrator\\.vscode\\extensions\\ytak.devuni-ide-vscode-1.0.21\\tool\\iec-runtime-gen-run\\.depworkspace\\transLd.txt";
 
 export interface DiagramVariableSummary {
   name: string;
@@ -58,31 +59,38 @@ export interface DiagramSummary {
 }
 
 export async function loadDiagramSummary(
-  sourcePath: string = DEFAULT_DIAGRAM_JSON_PATH
+  sourcePath: string = DEFAULT_DIAGRAM_JSON_PATH,
 ): Promise<DiagramSummary> {
-  const rawBytes = await vscode.workspace.fs.readFile(vscode.Uri.file(sourcePath));
-  const rawText = new TextDecoder('utf-8').decode(rawBytes);
+  const rawBytes = await vscode.workspace.fs.readFile(
+    vscode.Uri.file(sourcePath),
+  );
+  const rawText = new TextDecoder("utf-8").decode(rawBytes);
   const parsed = JSON.parse(rawText) as unknown;
 
   return summarizeDiagramJson(parsed, sourcePath);
 }
 
-export function summarizeDiagramJson(parsed: unknown, sourcePath: string): DiagramSummary {
+export function summarizeDiagramJson(
+  parsed: unknown,
+  sourcePath: string,
+): DiagramSummary {
   const roots = Array.isArray(parsed) ? parsed : [parsed];
   const root = asRecord(roots[0]);
 
   if (!root) {
-    throw new Error('Diagram JSON is empty or not an object.');
+    throw new Error("Diagram JSON is empty or not an object.");
   }
 
   const variables = asArray(root.variableList)
     .map(asRecord)
     .filter((item): item is Record<string, unknown> => Boolean(item))
-    .map((item): DiagramVariableSummary => ({
-      name: asString(item.name),
-      type: asString(item.type),
-      scope: asString(item.scope),
-    }))
+    .map(
+      (item): DiagramVariableSummary => ({
+        name: asString(item.name),
+        type: asString(item.type),
+        scope: asString(item.scope),
+      }),
+    )
     .filter((item) => item.name.length > 0);
 
   const segments = asArray(root.segmentList)
@@ -100,30 +108,36 @@ export function summarizeDiagramJson(parsed: unknown, sourcePath: string): Diagr
   };
 }
 
-function summarizeSegment(segment: Record<string, unknown>): DiagramSegmentSummary {
+function summarizeSegment(
+  segment: Record<string, unknown>,
+): DiagramSegmentSummary {
   const nodesObj = asRecord(segment.nodesObj) ?? {};
   const nodes = Object.entries(nodesObj)
     .map(([nodeId, node]) => summarizeNode(nodeId, asRecord(node)))
     .filter((item): item is DiagramNodeSummary => Boolean(item));
   const labelById = new Map(nodes.map((node) => [node.id, labelNode(node)]));
   const edges = nodes.flatMap((node) =>
-    node.to.map((targetId): DiagramEdgeSummary => ({
-      from: node.id,
-      to: targetId,
-      fromLabel: labelById.get(node.id) ?? node.id,
-      toLabel: labelById.get(targetId) ?? targetId,
-    }))
+    node.to.map(
+      (targetId): DiagramEdgeSummary => ({
+        from: node.id,
+        to: targetId,
+        fromLabel: labelById.get(node.id) ?? node.id,
+        toLabel: labelById.get(targetId) ?? targetId,
+      }),
+    ),
   );
   const insertionPoints = nodes
-    .filter((node) => node.kind === 'editRect' || node.kind === 'branchRect')
-    .map((node): DiagramInsertionPointSummary => ({
-      id: node.id,
-      kind: node.kind,
-      from: node.from,
-      to: node.to,
-      fromLabels: node.from.map((id) => labelById.get(id) ?? id),
-      toLabels: node.to.map((id) => labelById.get(id) ?? id),
-    }));
+    .filter((node) => node.kind === "editRect" || node.kind === "branchRect")
+    .map(
+      (node): DiagramInsertionPointSummary => ({
+        id: node.id,
+        kind: node.kind,
+        from: node.from,
+        to: node.to,
+        fromLabels: node.from.map((id) => labelById.get(id) ?? id),
+        toLabels: node.to.map((id) => labelById.get(id) ?? id),
+      }),
+    );
 
   return {
     segmentId: asString(segment.id),
@@ -136,7 +150,10 @@ function summarizeSegment(segment: Record<string, unknown>): DiagramSegmentSumma
   };
 }
 
-function summarizeNode(nodeId: string, node: Record<string, unknown> | undefined): DiagramNodeSummary | undefined {
+function summarizeNode(
+  nodeId: string,
+  node: Record<string, unknown> | undefined,
+): DiagramNodeSummary | undefined {
   if (!node) {
     return undefined;
   }
@@ -146,7 +163,7 @@ function summarizeNode(nodeId: string, node: Record<string, unknown> | undefined
   const child = asRecord(node.childrenNode);
   const summary: DiagramNodeSummary = {
     id: asString(node.id) || nodeId,
-    kind: type || 'unknown',
+    kind: type || "unknown",
     from: stringArray(node.sourceIds),
     to: stringArray(node.targetIds),
   };
@@ -161,14 +178,17 @@ function summarizeNode(nodeId: string, node: Record<string, unknown> | undefined
     const childVarName = asRecord(child.varName);
     summary.blockType = asString(child.type);
     summary.instance = childVarName ? asString(childVarName.value) : undefined;
-    summary.inputs = summarizePorts(child.portInputs, ['EN']);
-    summary.outputs = summarizePorts(child.portOutputs, ['ENO']);
+    summary.inputs = summarizePorts(child.portInputs, ["EN"]);
+    summary.outputs = summarizePorts(child.portOutputs, ["ENO"]);
   }
 
   return summary;
 }
 
-function summarizePorts(value: unknown, ignoredNames: string[]): Record<string, string> {
+function summarizePorts(
+  value: unknown,
+  ignoredNames: string[],
+): Record<string, string> {
   const result: Record<string, string> = {};
 
   for (const port of asArray(value)) {
@@ -189,9 +209,9 @@ function summarizePorts(value: unknown, ignoredNames: string[]): Record<string, 
 }
 
 function labelNode(node: DiagramNodeSummary): string {
-  if (node.kind === 'FBDCompartment') {
-    const instance = node.instance ? `(${node.instance})` : '';
-    return `${node.blockType || 'FB'}${instance}`;
+  if (node.kind === "FBDCompartment") {
+    const instance = node.instance ? `(${node.instance})` : "";
+    return `${node.blockType || "FB"}${instance}`;
   }
 
   if (node.var) {
@@ -202,7 +222,7 @@ function labelNode(node: DiagramNodeSummary): string {
 }
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
-  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+  if (typeof value === "object" && value !== null && !Array.isArray(value)) {
     return value as Record<string, unknown>;
   }
 
@@ -214,13 +234,17 @@ function asArray(value: unknown): unknown[] {
 }
 
 function asString(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : '';
+  return typeof value === "string" ? value.trim() : "";
 }
 
 function asOptionalNumber(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : undefined;
 }
 
 function stringArray(value: unknown): string[] {
-  return asArray(value).filter((item): item is string => typeof item === 'string');
+  return asArray(value).filter(
+    (item): item is string => typeof item === "string",
+  );
 }
