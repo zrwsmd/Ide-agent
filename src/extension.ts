@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { ST_DOCUMENT_SELECTOR } from './completion/STContext';
 import { STInlineCompletionProvider } from './completion/STInlineCompletionProvider';
 import { GraphCompletionService } from './graph/GraphCompletionService';
+import { LocalGraphSuggestionService } from './graph/LocalGraphSuggestionService';
 import { createLLMAdapter, getDefaultBaseUrl } from './llm/LLMFactory';
 import { LLMAdapter, LLMConfig, ProviderId } from './llm/types';
 import { ConfigPanelProvider } from './ui/ConfigPanelProvider';
@@ -29,11 +30,13 @@ export function activate(context: vscode.ExtensionContext): void {
     () => getActiveLLMAdapter(context),
     outputChannel
   );
+  const localGraphSuggestionService = new LocalGraphSuggestionService(outputChannel);
   const configPanelProvider = new ConfigPanelProvider(context, {
     onConfigChanged: () => {
       cachedAdapter = undefined;
     },
     onTriggerCompletion: triggerCompletion,
+    onTriggerLocalGraphSuggestions: () => localGraphSuggestionService.suggestFromActiveEditor(),
     onTriggerGraphCompletion: () => graphCompletionService.predictFromActiveEditor(),
     onTriggerGraphCompletionWithScreenshot: () => graphCompletionService.predictFromActiveEditor({ includeScreenshot: true }),
     onShowLogs: () => outputChannel?.show(true),
@@ -45,6 +48,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.languages.registerInlineCompletionItemProvider(ST_DOCUMENT_SELECTOR, provider),
     vscode.commands.registerCommand('ide-agent.openPanel', () => vscode.commands.executeCommand(`${ConfigPanelProvider.viewType}.focus`)),
     vscode.commands.registerCommand('ide-agent.triggerCompletion', triggerCompletion),
+    vscode.commands.registerCommand('ide-agent.localGraphSuggestions', () => localGraphSuggestionService.suggestFromActiveEditor()),
     vscode.commands.registerCommand('ide-agent.predictGraphCompletion', () => graphCompletionService.predictFromActiveEditor()),
     vscode.commands.registerCommand('ide-agent.predictGraphCompletionWithScreenshot', () => graphCompletionService.predictFromActiveEditor({ includeScreenshot: true })),
     vscode.commands.registerCommand('ide-agent.showLogs', () => outputChannel?.show(true))

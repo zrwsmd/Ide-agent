@@ -21,6 +21,7 @@
     "onView:ide-agent.configView",
     "onCommand:ide-agent.openPanel",
     "onCommand:ide-agent.triggerCompletion",
+    "onCommand:ide-agent.localGraphSuggestions",
     "onCommand:ide-agent.predictGraphCompletion",
     "onCommand:ide-agent.predictGraphCompletionWithScreenshot",
     "onCommand:ide-agent.showLogs"
@@ -145,6 +146,11 @@
       {
         "command": "ide-agent.triggerCompletion",
         "title": "Ide Agent: Trigger ST Completion",
+        "category": "Ide Agent"
+      },
+      {
+        "command": "ide-agent.localGraphSuggestions",
+        "title": "Ide Agent: Local LD/FBD Suggestions",
         "category": "Ide Agent"
       },
       {

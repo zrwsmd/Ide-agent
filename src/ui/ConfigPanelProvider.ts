@@ -40,6 +40,7 @@ type PanelMessage =
   | { type: 'save'; payload: PanelSavePayload }
   | { type: 'clearApiKey'; provider?: string }
   | { type: 'triggerCompletion' }
+  | { type: 'triggerLocalGraphSuggestions' }
   | { type: 'triggerGraphCompletion' }
   | { type: 'triggerGraphCompletionWithScreenshot' }
   | { type: 'showLogs' };
@@ -47,6 +48,7 @@ type PanelMessage =
 interface ConfigPanelCallbacks {
   onConfigChanged: () => void;
   onTriggerCompletion: () => Promise<void>;
+  onTriggerLocalGraphSuggestions: () => Promise<unknown>;
   onTriggerGraphCompletion: () => Promise<unknown>;
   onTriggerGraphCompletionWithScreenshot: () => Promise<unknown>;
   onShowLogs: () => void;
@@ -105,6 +107,9 @@ export class ConfigPanelProvider implements vscode.WebviewViewProvider {
         return;
       case 'triggerCompletion':
         await this.callbacks.onTriggerCompletion();
+        return;
+      case 'triggerLocalGraphSuggestions':
+        await this.callbacks.onTriggerLocalGraphSuggestions();
         return;
       case 'triggerGraphCompletion':
         await this.callbacks.onTriggerGraphCompletion();
@@ -386,6 +391,7 @@ export class ConfigPanelProvider implements vscode.WebviewViewProvider {
     <button id="save">Save</button>
     <button id="clearKey" class="secondary">Clear Key</button>
     <button id="trigger" class="secondary">Trigger</button>
+    <button id="localGraphSuggest" class="secondary wide">Local Graph Suggest</button>
     <button id="graphPredict" class="secondary wide">Graph Predict</button>
     <button id="graphPredictImage" class="secondary wide">Graph Predict + Image</button>
     <button id="logs" class="secondary">Logs</button>
@@ -411,6 +417,7 @@ export class ConfigPanelProvider implements vscode.WebviewViewProvider {
       save: document.getElementById('save'),
       clearKey: document.getElementById('clearKey'),
       trigger: document.getElementById('trigger'),
+      localGraphSuggest: document.getElementById('localGraphSuggest'),
       graphPredict: document.getElementById('graphPredict'),
       graphPredictImage: document.getElementById('graphPredictImage'),
       logs: document.getElementById('logs'),
@@ -457,6 +464,10 @@ export class ConfigPanelProvider implements vscode.WebviewViewProvider {
       setStatus('Clearing...');
     });
     els.trigger.addEventListener('click', () => vscode.postMessage({ type: 'triggerCompletion' }));
+    els.localGraphSuggest.addEventListener('click', () => {
+      vscode.postMessage({ type: 'triggerLocalGraphSuggestions' });
+      setStatus('Generating local suggestions...');
+    });
     els.graphPredict.addEventListener('click', () => {
       vscode.postMessage({ type: 'triggerGraphCompletion' });
       setStatus('Predicting graph...');
