@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { DEFAULT_DIAGRAM_JSON_PATH, DiagramNodeSummary, DiagramSummary, loadDiagramSummary } from '../diagram/DiagramSummary';
+import { DEFAULT_DIAGRAM_JSON_PATH, DiagramNodeSummary, DiagramSegmentSummary, DiagramSummary, loadDiagramSummary } from '../diagram/DiagramSummary';
 import { LLMAdapter, LLMMessage } from '../llm/types';
 import { loadLastScreenshot, pickScreenshot, ScreenshotContext } from './ScreenshotContext';
 
@@ -101,7 +101,7 @@ export class GraphCompletionService {
       return undefined;
     }
 
-    const jsonText = normalizeGraphPredictionJson(extractJsonText(rawText));
+    const jsonText = normalizeGraphPredictionJson(extractJsonText(rawText), summary, (message) => this.log(message));
     if (!jsonText) {
       this.log('graph prediction failed: LLM did not return JSON');
       void vscode.window.showWarningMessage('Ide Agent: graph prediction did not return JSON. Check Ide Agent logs.');
@@ -155,6 +155,11 @@ function buildGraphCompletionPrompt(
     'The screenshot selection is more important than any generic insertion point in the topology.',
     'Do not explain your reasoning. Do not include long natural-language suggestions.',
     'Return 2 to 4 alternative graph suggestions when useful.',
+    'The diagram summary includes displayName/typeLabel/graphState/neighbors. Use those display names in placement.text.',
+    'If a node variable is "???" or empty, refer to it by displayName such as "未命名1 常开触点" or "未命名2 上升沿"; never output "???" in user-facing text.',
+    'Use exact Chinese type labels: contact=常开触点, negatedContact=常闭触点, risingContact=上升沿, fallingContact=下降沿, coil=线圈, setCoil=置位线圈, resetCoil=复位线圈.',
+    'If graphState.isPartialGraph is true, prioritize suggestions near the selected node/insertion point that complete the graph with a legal output node.',
+    'Never expose internal placeholder ids or names such as edit-node-rect, start-node-line, end-node-line, editRect, branchRect, startLine, or endLine in placement.text.',
     'Use IEC 61131-3 LD/FBD semantics to judge legal adjacent edits; do not copy a fixed template of suggestions.',
     'Evaluate the selected node and its immediate neighbors in the topology: predecessor nodes, successor nodes, branch split/merge points, and function block ports.',
     'Every suggestion must be centered on recognizedFocus.matchedNodeId, but the legal placement may be before it, after it, parallel with it, around it as a branch, or on a nearby function block port.',
@@ -271,14 +276,23 @@ function compactForPrompt(summary: DiagramSummary, omitInsertionPoints: boolean)
     variables: summary.variables,
     segments: summary.segments.map((segment) => ({
       segmentId: segment.segmentId,
+      graphState: analyzeSegment(segment),
       size: {
         width: segment.width,
         height: segment.height,
       },
-      insertionPoints: omitInsertionPoints ? [] : segment.insertionPoints,
-      realSelectableNodes: filterSelectableNodes(segment.nodes, omitInsertionPoints).map((node) => ({
+      insertionPoints: omitInsertionPoints
+        ? []
+        : segment.insertionPoints.map((point) => ({
+            ...point,
+            fromDisplayNames: point.from.map((nodeId) => neighborDisplayText(segment, [nodeId], 'backward')).filter(Boolean),
+            toDisplayNames: point.to.map((nodeId) => neighborDisplayText(segment, [nodeId], 'forward')).filter(Boolean),
+          })),
+      realSelectableNodes: filterSelectableNodes(segment.nodes).map((node) => ({
         id: node.id,
         kind: node.kind,
+        displayName: nodeLabel(segment, node),
+        typeLabel: elementKindLabel(node.kind),
         var: node.var,
         dataType: node.dataType,
         blockType: node.blockType,
@@ -287,27 +301,27 @@ function compactForPrompt(summary: DiagramSummary, omitInsertionPoints: boolean)
         outputs: node.outputs,
         from: node.from,
         to: node.to,
+        neighbors: {
+          left: neighborDisplayText(segment, node.from, 'backward'),
+          right: neighborDisplayText(segment, node.to, 'forward'),
+        },
       })),
-      edges: segment.edges.filter((edge) => isSelectableNodeId(edge.from, segment.nodes, omitInsertionPoints) && isSelectableNodeId(edge.to, segment.nodes, omitInsertionPoints)),
+      edges: segment.edges.filter((edge) => isSelectableNodeId(edge.from, segment.nodes) && isSelectableNodeId(edge.to, segment.nodes)),
     })),
   };
 }
 
-function filterSelectableNodes(nodes: DiagramNodeSummary[], strictRealOnly: boolean): DiagramNodeSummary[] {
-  if (!strictRealOnly) {
-    return nodes;
-  }
-
+function filterSelectableNodes(nodes: DiagramNodeSummary[]): DiagramNodeSummary[] {
   return nodes.filter((node) => isRealGraphElementKind(node.kind));
 }
 
-function isSelectableNodeId(nodeId: string, nodes: DiagramNodeSummary[], strictRealOnly: boolean): boolean {
+function isSelectableNodeId(nodeId: string, nodes: DiagramNodeSummary[]): boolean {
   const node = nodes.find((item) => item.id === nodeId);
   if (!node) {
     return false;
   }
 
-  return !strictRealOnly || isRealGraphElementKind(node.kind);
+  return isRealGraphElementKind(node.kind);
 }
 
 function isRealGraphElementKind(kind: string): boolean {
@@ -321,6 +335,219 @@ function isRealGraphElementKind(kind: string): boolean {
     'resetCoil',
     'FBDCompartment',
   ].includes(kind);
+}
+
+function analyzeSegment(segment: DiagramSegmentSummary): Record<string, boolean> {
+  const hasLogicNode = segment.nodes.some((node) => isContactKind(node.kind) || node.kind === 'FBDCompartment');
+  const hasOutputNode = segment.nodes.some((node) => isOutputNodeKind(node.kind));
+
+  return {
+    hasLogicNode,
+    hasOutputNode,
+    isPartialGraph: hasLogicNode && !hasOutputNode,
+  };
+}
+
+function findNode(segment: DiagramSegmentSummary, nodeId: string): DiagramNodeSummary | undefined {
+  return segment.nodes.find((node) => node.id === nodeId);
+}
+
+function findNodeById(summary: DiagramSummary, nodeId: string): DiagramNodeSummary | undefined {
+  for (const segment of summary.segments) {
+    const node = findNode(segment, nodeId);
+    if (node) {
+      return node;
+    }
+  }
+
+  return undefined;
+}
+
+function findSegmentByNodeId(summary: DiagramSummary, nodeId: string): DiagramSegmentSummary | undefined {
+  return summary.segments.find((segment) => Boolean(findNode(segment, nodeId)));
+}
+
+function findSegmentByAnyNodeId(summary: DiagramSummary, nodeIds: string[]): DiagramSegmentSummary | undefined {
+  return summary.segments.find((segment) => nodeIds.some((nodeId) => Boolean(nodeId && findNode(segment, nodeId))));
+}
+
+function neighborDisplayText(segment: DiagramSegmentSummary, nodeIds: string[] | undefined, direction: 'forward' | 'backward'): string {
+  const labels = (nodeIds ?? [])
+    .map((nodeId) => findNearestDisplayNode(segment, nodeId, direction))
+    .filter((node): node is DiagramNodeSummary => Boolean(node))
+    .map((node) => nodeLabel(segment, node));
+
+  return [...new Set(labels)].join(' / ');
+}
+
+function findNearestDisplayNode(
+  segment: DiagramSegmentSummary,
+  nodeId: string,
+  direction: 'forward' | 'backward'
+): DiagramNodeSummary | undefined {
+  const visited = new Set<string>();
+  const queue = [nodeId];
+
+  while (queue.length > 0) {
+    const currentId = queue.shift();
+    if (!currentId || visited.has(currentId)) {
+      continue;
+    }
+
+    visited.add(currentId);
+    const node = findNode(segment, currentId);
+    if (!node) {
+      continue;
+    }
+
+    if (isRealGraphElementKind(node.kind)) {
+      return node;
+    }
+
+    queue.push(...(direction === 'forward' ? node.to : node.from));
+  }
+
+  return undefined;
+}
+
+function nodeLabel(segment: DiagramSegmentSummary, node: DiagramNodeSummary): string {
+  if (node.kind === 'FBDCompartment') {
+    const instance = displayNodeName(segment, node);
+    return instance ? `${node.blockType || '功能块'} ${instance} 功能块` : `${node.blockType || '功能块'} 功能块`;
+  }
+
+  if (isCoilKind(node.kind)) {
+    return `${displayNodeName(segment, node)} ${elementKindLabel(node.kind)}`;
+  }
+
+  if (isContactKind(node.kind)) {
+    return `${displayNodeName(segment, node)} ${elementKindLabel(node.kind)}`;
+  }
+
+  return displayNodeName(segment, node);
+}
+
+function displayNodeName(segment: DiagramSegmentSummary, node: DiagramNodeSummary): string {
+  const rawName = (node.var || node.instance || '').trim();
+  if (rawName && !isUnnamedPlaceholder(rawName)) {
+    return rawName;
+  }
+
+  const index = unnamedNodeIndex(segment, node);
+  return index > 0 ? `未命名${index}` : '未命名';
+}
+
+function unnamedNodeIndex(segment: DiagramSegmentSummary, targetNode: DiagramNodeSummary): number {
+  const unnamedNodes = segment.nodes
+    .filter((node) => isRealGraphElementKind(node.kind))
+    .filter((node) => isUnnamedPlaceholder(node.var || node.instance || ''))
+    .sort(compareDisplayOrder);
+
+  return unnamedNodes.findIndex((node) => node.id === targetNode.id) + 1;
+}
+
+function compareDisplayOrder(a: DiagramNodeSummary, b: DiagramNodeSummary): number {
+  const ay = a.y ?? Number.POSITIVE_INFINITY;
+  const by = b.y ?? Number.POSITIVE_INFINITY;
+  if (ay !== by) {
+    return ay - by;
+  }
+
+  const ax = a.x ?? Number.POSITIVE_INFINITY;
+  const bx = b.x ?? Number.POSITIVE_INFINITY;
+  if (ax !== bx) {
+    return ax - bx;
+  }
+
+  return (a.order ?? 0) - (b.order ?? 0);
+}
+
+function elementKindLabel(kind: string): string {
+  switch (kind) {
+    case 'contact':
+      return '常开触点';
+    case 'negatedContact':
+      return '常闭触点';
+    case 'risingContact':
+      return '上升沿';
+    case 'fallingContact':
+      return '下降沿';
+    case 'coil':
+      return '线圈';
+    case 'setCoil':
+      return '置位线圈';
+    case 'resetCoil':
+      return '复位线圈';
+    case 'functionBlock':
+    case 'FBDCompartment':
+      return '功能块';
+    default:
+      return kind;
+  }
+}
+
+function normalizeElementDisplayLabel(nodeType: string, fallback: string): string {
+  const label = elementKindLabel(nodeType);
+  return label && label !== nodeType ? label : fallback;
+}
+
+function isContactKind(kind: string): boolean {
+  return ['contact', 'negatedContact', 'risingContact', 'fallingContact'].includes(kind);
+}
+
+function isCoilKind(kind: string): boolean {
+  return ['coil', 'setCoil', 'resetCoil'].includes(kind);
+}
+
+function isOutputNodeKind(kind: string): boolean {
+  return isCoilKind(kind) || kind === 'FBDCompartment';
+}
+
+function isOutputSuggestion(nodeType: string): boolean {
+  return isCoilKind(nodeType) || nodeType === 'functionBlock' || nodeType === 'FBDCompartment';
+}
+
+function hasDownstreamOutputNode(segment: DiagramSegmentSummary, startNodeId: string): boolean {
+  const visited = new Set<string>();
+  const queue = [...(findNode(segment, startNodeId)?.to ?? [])];
+
+  while (queue.length > 0) {
+    const nodeId = queue.shift();
+    if (!nodeId || visited.has(nodeId)) {
+      continue;
+    }
+
+    visited.add(nodeId);
+    const node = findNode(segment, nodeId);
+    if (!node) {
+      continue;
+    }
+
+    if (isOutputNodeKind(node.kind)) {
+      return true;
+    }
+
+    queue.push(...node.to);
+  }
+
+  return false;
+}
+
+function normalizeMaybePlaceholder(value: string): string {
+  return isUnnamedPlaceholder(value) ? '' : value;
+}
+
+function isUnnamedPlaceholder(value: string): boolean {
+  const trimmed = value.trim();
+  return !trimmed || trimmed === '???';
+}
+
+function replaceAll(value: string, search: string, replacement: string): string {
+  return search ? value.split(search).join(replacement) : value;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function extractJsonText(rawText: string): string {
@@ -345,7 +572,11 @@ function extractJsonText(rawText: string): string {
   }
 }
 
-function normalizeGraphPredictionJson(jsonText: string): string {
+function normalizeGraphPredictionJson(
+  jsonText: string,
+  summary: DiagramSummary,
+  log?: (message: string) => void
+): string {
   if (!jsonText) {
     return '';
   }
@@ -353,20 +584,17 @@ function normalizeGraphPredictionJson(jsonText: string): string {
   try {
     const parsed = JSON.parse(jsonText) as Record<string, unknown>;
     const rawSuggestions = getSuggestions(parsed);
-    const normalizedSuggestions = rawSuggestions.map(normalizeSuggestion);
+    const normalizedFocus = normalizeRecognizedFocus(asRecord(parsed.recognizedFocus), summary);
+    const normalizedSuggestions = rawSuggestions
+      .map((suggestion, index) => normalizeSuggestion(suggestion, index, summary, normalizedFocus))
+      .filter((suggestion) => !isInvalidGraphSuggestion(suggestion, summary, log));
 
     const normalized = {
       schemaVersion: asString(parsed.schemaVersion) || 'ide-agent.graph-completion.v1',
       action: asString(parsed.action) || (normalizedSuggestions.length ? 'suggestGraphCompletions' : 'noSuggestion'),
       segmentId: asString(parsed.segmentId),
       confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0,
-      recognizedFocus: asRecord(parsed.recognizedFocus) || {
-        visualElement: '',
-        matchedNodeId: '',
-        matchedNodeType: '',
-        matchedVar: '',
-        confidence: 0,
-      },
+      recognizedFocus: normalizedFocus,
       suggestions: normalizedSuggestions,
     };
 
@@ -376,8 +604,13 @@ function normalizeGraphPredictionJson(jsonText: string): string {
   }
 }
 
-function normalizeSuggestion(suggestion: Record<string, unknown>, index: number): Record<string, unknown> {
-  const placement = normalizePlacement(suggestion);
+function normalizeSuggestion(
+  suggestion: Record<string, unknown>,
+  index: number,
+  summary: DiagramSummary,
+  focus: Record<string, unknown>
+): Record<string, unknown> {
+  const placement = normalizePlacement(suggestion, summary, focus);
   const addElement = normalizeAddElement(suggestion);
 
   return {
@@ -389,20 +622,49 @@ function normalizeSuggestion(suggestion: Record<string, unknown>, index: number)
   };
 }
 
-function normalizePlacement(suggestion: Record<string, unknown>): Record<string, unknown> {
+function normalizePlacement(
+  suggestion: Record<string, unknown>,
+  summary: DiagramSummary,
+  focus: Record<string, unknown>
+): Record<string, unknown> {
   const placement = asRecord(suggestion.placement) || {};
+  const anchorNodeId = asString(placement.anchorNodeId) || asString(suggestion.anchorNodeId) || asString(focus.matchedNodeId);
+  const anchorNode = findNodeById(summary, anchorNodeId);
+  const rawInsertAfterNodeId = asString(placement.insertAfterNodeId) || asString(suggestion.afterNodeId);
+  const rawInsertBeforeNodeId = asString(placement.insertBeforeNodeId) || asString(suggestion.insertBeforeNodeId);
+  const rawParallelToNodeId = asString(placement.parallelToNodeId) || asString(suggestion.parallelToNodeId);
+  const segment = anchorNode ? findSegmentByNodeId(summary, anchorNode.id) : findSegmentByAnyNodeId(summary, [
+    rawInsertAfterNodeId,
+    rawInsertBeforeNodeId,
+    rawParallelToNodeId,
+  ]);
+  const insertAfterNodeId = normalizePlacementNodeId(segment, rawInsertAfterNodeId, 'backward');
+  const insertBeforeNodeId = normalizePlacementNodeId(segment, rawInsertBeforeNodeId, 'forward');
+  const parallelToNodeId = normalizePlacementNodeId(segment, rawParallelToNodeId, 'forward');
+  const text = cleanPlacementText(
+    asString(placement.text) || asString(placement.positionText) || asString(suggestion.frontendHint),
+    summary,
+    segment,
+  );
 
   return {
     relationToFocus: asString(placement.relationToFocus) || inferRelationToFocus(suggestion),
-    anchorNodeId: asString(placement.anchorNodeId) || asString(suggestion.anchorNodeId),
-    anchorNodeVar: asString(placement.anchorNodeVar) || asString(suggestion.anchorNodeVar),
-    insertAfterNodeId: asString(placement.insertAfterNodeId) || asString(suggestion.afterNodeId),
-    insertBeforeNodeId: asString(placement.insertBeforeNodeId) || asString(suggestion.insertBeforeNodeId),
-    parallelToNodeId: asString(placement.parallelToNodeId) || asString(suggestion.parallelToNodeId),
-    branchFromNodeId: asString(placement.branchFromNodeId) || asString(suggestion.branchFromNodeId),
-    branchToNodeId: asString(placement.branchToNodeId) || asString(suggestion.branchToNodeId),
+    anchorNodeId,
+    anchorNodeVar: normalizeMaybePlaceholder(asString(placement.anchorNodeVar) || asString(suggestion.anchorNodeVar)),
+    insertAfterNodeId,
+    insertBeforeNodeId,
+    parallelToNodeId,
+    branchFromNodeId: normalizePlacementNodeId(segment, asString(placement.branchFromNodeId) || asString(suggestion.branchFromNodeId), 'backward'),
+    branchToNodeId: normalizePlacementNodeId(segment, asString(placement.branchToNodeId) || asString(suggestion.branchToNodeId), 'forward'),
     portName: asString(placement.portName),
-    text: asString(placement.text) || asString(placement.positionText) || asString(suggestion.frontendHint),
+    text: text || inferPlacementText(summary, segment, {
+      relationToFocus: asString(placement.relationToFocus) || inferRelationToFocus(suggestion),
+      anchorNodeId,
+      insertAfterNodeId,
+      insertBeforeNodeId,
+      parallelToNodeId,
+      addElement: normalizeAddElement(suggestion),
+    }),
   };
 }
 
@@ -415,9 +677,12 @@ function normalizeAddElement(suggestion: Record<string, unknown>): Record<string
 
   return {
     nodeType: asString(addElement.nodeType) || asString(suggestion.addNodeType) || asString(parallelElement?.addNodeType),
-    displayLabel: asString(addElement.displayLabel) || asString(suggestion.addNodeTypeLabel) || asString(parallelElement?.addNodeTypeLabel),
+    displayLabel: normalizeElementDisplayLabel(
+      asString(addElement.nodeType) || asString(suggestion.addNodeType) || asString(parallelElement?.addNodeType),
+      asString(addElement.displayLabel) || asString(suggestion.addNodeTypeLabel) || asString(parallelElement?.addNodeTypeLabel),
+    ),
     variableSource: asString(addElement.variableSource) || 'userInput',
-    variableName: asString(addElement.variableName),
+    variableName: normalizeMaybePlaceholder(asString(addElement.variableName)),
     dataType: asString(addElement.dataType),
     userInputRequired: typeof addElement.userInputRequired === 'boolean' ? addElement.userInputRequired : true,
     blockType: asString(addElement.blockType) || asString(suggestion.addBlockType) || asString(parallelElement?.addBlockType),
@@ -454,6 +719,200 @@ function inferRelationToFocus(suggestion: Record<string, unknown>): string {
   }
 
   return 'afterSelected';
+}
+
+function normalizeRecognizedFocus(
+  focus: Record<string, unknown> | undefined,
+  summary: DiagramSummary
+): Record<string, unknown> {
+  const matchedNodeId = asString(focus?.matchedNodeId);
+  const node = findNodeById(summary, matchedNodeId) || inferFocusNodeFromText(summary, [
+    asString(focus?.visualElement),
+    asString(focus?.matchedNodeType),
+    asString(focus?.matchedVar),
+  ]);
+  const segment = node ? findSegmentByNodeId(summary, node.id) : undefined;
+
+  return {
+    visualElement: node && segment ? nodeLabel(segment, node) : cleanPlacementText(asString(focus?.visualElement), summary, segment),
+    matchedNodeId: node?.id ?? matchedNodeId,
+    matchedNodeType: node?.kind ?? asString(focus?.matchedNodeType),
+    matchedVar: normalizeMaybePlaceholder(node?.var ?? node?.instance ?? asString(focus?.matchedVar)),
+    confidence: typeof focus?.confidence === 'number' ? focus.confidence : 0,
+  };
+}
+
+function inferFocusNodeFromText(
+  summary: DiagramSummary,
+  values: string[],
+): DiagramNodeSummary | undefined {
+  const text = values.filter(Boolean).join(' ').toLowerCase();
+  if (!text) {
+    return undefined;
+  }
+
+  const realNodes = summary.segments.flatMap((segment) =>
+    segment.nodes.filter((node) => isRealGraphElementKind(node.kind)),
+  );
+
+  const exactNamed = realNodes.find((node) =>
+    [node.var, node.instance]
+      .map((value) => value?.toLowerCase())
+      .some((value) => Boolean(value && new RegExp(`(^|\\W)${escapeRegExp(value)}(\\W|$)`).test(text))),
+  );
+  if (exactNamed) {
+    return exactNamed;
+  }
+
+  const blockTypeMatches = realNodes.filter((node) =>
+    node.kind === 'FBDCompartment' &&
+    Boolean(node.blockType && new RegExp(`(^|\\W)${escapeRegExp(node.blockType.toLowerCase())}(\\W|$)`).test(text)),
+  );
+  if (blockTypeMatches.length === 1) {
+    return blockTypeMatches[0];
+  }
+
+  const kindMatches = realNodes.filter((node) =>
+    elementKindLabel(node.kind).toLowerCase() &&
+    text.includes(elementKindLabel(node.kind).toLowerCase()),
+  );
+  return kindMatches.length === 1 ? kindMatches[0] : undefined;
+}
+
+function isInvalidGraphSuggestion(
+  suggestion: Record<string, unknown>,
+  summary: DiagramSummary,
+  log?: (message: string) => void
+): boolean {
+  const placement = asRecord(suggestion.placement) || {};
+  const ids = [
+    asString(placement.anchorNodeId),
+    asString(placement.insertAfterNodeId),
+    asString(placement.insertBeforeNodeId),
+    asString(placement.parallelToNodeId),
+    asString(placement.branchFromNodeId),
+    asString(placement.branchToNodeId),
+  ].filter(Boolean);
+
+  if (ids.some((id) => isInternalGraphNodeId(id))) {
+    log?.(`graph post-process removed suggestion with internal node id: ${ids.join(',')}`);
+    return true;
+  }
+
+  const addElement = asRecord(suggestion.addElement) || {};
+  const addNodeType = asString(addElement.nodeType);
+  const afterNodeId = asString(placement.insertAfterNodeId) || asString(placement.anchorNodeId);
+  const segment = findSegmentByAnyNodeId(summary, ids);
+  if (segment && isOutputSuggestion(addNodeType) && afterNodeId && hasDownstreamOutputNode(segment, afterNodeId)) {
+    log?.(`graph post-process removed output suggestion because downstream already has output node after=${afterNodeId}`);
+    return true;
+  }
+
+  return false;
+}
+
+function inferPlacementText(
+  summary: DiagramSummary,
+  segment: DiagramSegmentSummary | undefined,
+  input: {
+    relationToFocus: string;
+    anchorNodeId: string;
+    insertAfterNodeId: string;
+    insertBeforeNodeId: string;
+    parallelToNodeId: string;
+    addElement: Record<string, unknown>;
+  },
+): string {
+  const resolvedSegment = segment || findSegmentByAnyNodeId(summary, [
+    input.anchorNodeId,
+    input.insertAfterNodeId,
+    input.insertBeforeNodeId,
+    input.parallelToNodeId,
+  ]);
+  const elementLabel = normalizeElementDisplayLabel(asString(input.addElement.nodeType), asString(input.addElement.displayLabel)) || '节点';
+  if (!resolvedSegment) {
+    return `添加一个${elementLabel}`;
+  }
+
+  const anchor = findNode(resolvedSegment, input.anchorNodeId);
+  const after = findNode(resolvedSegment, input.insertAfterNodeId);
+  const before = findNode(resolvedSegment, input.insertBeforeNodeId);
+  const parallel = findNode(resolvedSegment, input.parallelToNodeId);
+
+  if (input.relationToFocus === 'parallelWithSelected' || input.relationToFocus === 'branchAroundSelected') {
+    const target = parallel || anchor;
+    return target ? `与${nodeLabel(resolvedSegment, target)}并联一个${elementLabel}` : `并联一个${elementLabel}`;
+  }
+
+  if (after && before) {
+    return `在${nodeLabel(resolvedSegment, after)}和${nodeLabel(resolvedSegment, before)}之间插入一个${elementLabel}`;
+  }
+
+  if (after) {
+    return `在${nodeLabel(resolvedSegment, after)}后添加一个${elementLabel}`;
+  }
+
+  if (before) {
+    return `在${nodeLabel(resolvedSegment, before)}前添加一个${elementLabel}`;
+  }
+
+  if (anchor) {
+    return `在${nodeLabel(resolvedSegment, anchor)}附近添加一个${elementLabel}`;
+  }
+
+  return `添加一个${elementLabel}`;
+}
+
+function cleanPlacementText(
+  text: string,
+  summary: DiagramSummary,
+  segment?: DiagramSegmentSummary,
+): string {
+  let result = text;
+  if (!result) {
+    return '';
+  }
+
+  const segments = segment ? [segment] : summary.segments;
+  for (const item of segments) {
+    for (const node of item.nodes) {
+      const label = nodeLabel(item, node);
+      result = replaceAll(result, node.id, label);
+      const rawName = node.var || node.instance || '';
+      if (isUnnamedPlaceholder(rawName)) {
+        result = result.replace(/\?\?\?/g, displayNodeName(item, node));
+      }
+    }
+  }
+
+  result = result
+    .replace(/\bedit-node-rect\b/gi, '当前位置')
+    .replace(/\bstart-node-line\b/gi, '起点')
+    .replace(/\bend-node-line-[\w-]*\b/gi, '末尾')
+    .replace(/\beditRect\b/gi, '当前位置')
+    .replace(/\bbranchRect\b/gi, '分支位置')
+    .replace(/\bstartLine\b/gi, '起点')
+    .replace(/\bendLine\b/gi, '末尾');
+
+  return result.trim();
+}
+
+function normalizePlacementNodeId(
+  segment: DiagramSegmentSummary | undefined,
+  nodeId: string,
+  direction: 'forward' | 'backward'
+): string {
+  if (!nodeId || !segment) {
+    return nodeId;
+  }
+
+  const node = findNode(segment, nodeId);
+  if (!node || isRealGraphElementKind(node.kind)) {
+    return nodeId;
+  }
+
+  const nearest = findNearestDisplayNode(segment, nodeId, direction);
+  return nearest?.id ?? '';
 }
 
 function logGraphPredictionSummary(jsonText: string, log: (message: string) => void): void {
