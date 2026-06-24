@@ -1,4 +1,4 @@
-import * as vscode from 'vscode';
+import * as vscode from "vscode";
 import {
   DEFAULT_DIAGRAM_JSON_PATH,
   DiagramInsertionPointSummary,
@@ -6,7 +6,7 @@ import {
   DiagramSegmentSummary,
   DiagramSummary,
   loadDiagramSummary,
-} from '../diagram/DiagramSummary';
+} from "../diagram/DiagramSummary";
 
 export interface LocalGraphSuggestionOptions {
   selectedNodeId?: string;
@@ -26,7 +26,7 @@ interface FocusContext {
   segment: DiagramSegmentSummary;
   node?: DiagramNodeSummary;
   insertionPoint?: DiagramInsertionPointSummary;
-  source: 'provided' | 'manualInput' | 'quickPick' | 'fallback';
+  source: "provided" | "manualInput" | "quickPick" | "fallback";
 }
 
 interface LocalSuggestion {
@@ -61,26 +61,35 @@ interface LocalSuggestion {
 export class LocalGraphSuggestionService {
   constructor(private readonly outputChannel: vscode.OutputChannel) {}
 
-  async suggestFromActiveEditor(options: LocalGraphSuggestionOptions = {}): Promise<LocalGraphSuggestionResult | undefined> {
+  async suggestFromActiveEditor(
+    options: LocalGraphSuggestionOptions = {},
+  ): Promise<LocalGraphSuggestionResult | undefined> {
     const editor = vscode.window.activeTextEditor;
-    const activeFile = editor?.document.fileName || editor?.document.uri.toString() || '(none)';
+    const activeFile =
+      editor?.document.fileName || editor?.document.uri.toString() || "(none)";
     const diagramPath = DEFAULT_DIAGRAM_JSON_PATH;
 
-    this.log(`local graph suggestions requested activeFile=${activeFile} focus=${formatFocusOptions(options)}`);
+    this.log(
+      `local graph suggestions requested activeFile=${activeFile} focus=${formatFocusOptions(options)}`,
+    );
     this.log(`loading diagram json path=${diagramPath}`);
 
     let summary: DiagramSummary;
     try {
       summary = await loadDiagramSummary(diagramPath);
     } catch (error) {
-      this.log(`local graph suggestions failed: cannot load diagram json: ${formatUnknownError(error)}`);
-      void vscode.window.showErrorMessage(`Ide Agent: failed to read diagram JSON. ${formatErrorMessage(error)}`);
+      this.log(
+        `local graph suggestions failed: cannot load diagram json: ${formatUnknownError(error)}`,
+      );
+      void vscode.window.showErrorMessage(
+        `Ide Agent: failed to read diagram JSON. ${formatErrorMessage(error)}`,
+      );
       return undefined;
     }
 
     const focus = await resolveFocus(summary, options);
     if (!focus) {
-      this.log('local graph suggestions cancelled: no focus selected');
+      this.log("local graph suggestions cancelled: no focus selected");
       return undefined;
     }
 
@@ -88,17 +97,19 @@ export class LocalGraphSuggestionService {
     const jsonText = JSON.stringify(payload, null, 2);
 
     this.log(
-      `local graph focus source=${focus.source} nodeId=${getFocusId(focus)} type=${getFocusType(focus)} var=${getFocusVar(focus) || '(none)'}`
+      `local graph focus source=${focus.source} nodeId=${getFocusId(focus)} type=${getFocusType(focus)} var=${getFocusVar(focus) || "(none)"}`,
     );
     this.log(`local graph suggestions count=${payload.suggestions.length}`);
     for (const [index, suggestion] of payload.suggestions.entries()) {
       this.log(
-        `local graph suggestion #${index + 1} mode=${suggestion.mode} placement=${suggestion.placement.text} add=${suggestion.addElement.displayLabel}`
+        `local graph suggestion #${index + 1} mode=${suggestion.mode} placement=${suggestion.placement.text} add=${suggestion.addElement.displayLabel}`,
       );
     }
     this.log(`local graph suggestions JSON=${jsonText}`);
     void vscode.env.clipboard.writeText(jsonText);
-    void vscode.window.showInformationMessage('Ide Agent: local graph suggestions copied to clipboard.');
+    void vscode.window.showInformationMessage(
+      "Ide Agent: local graph suggestions copied to clipboard.",
+    );
 
     return {
       diagramPath,
@@ -114,7 +125,10 @@ export class LocalGraphSuggestionService {
   }
 }
 
-function buildLocalPayload(summary: DiagramSummary, focus: FocusContext): {
+function buildLocalPayload(
+  summary: DiagramSummary,
+  focus: FocusContext,
+): {
   schemaVersion: string;
   action: string;
   source: string;
@@ -126,9 +140,9 @@ function buildLocalPayload(summary: DiagramSummary, focus: FocusContext): {
   const suggestions = buildSuggestions(focus);
 
   return {
-    schemaVersion: 'ide-agent.graph-completion.v1',
-    action: suggestions.length ? 'suggestGraphCompletions' : 'noSuggestion',
-    source: 'local-rules',
+    schemaVersion: "ide-agent.graph-completion.v1",
+    action: suggestions.length ? "suggestGraphCompletions" : "noSuggestion",
+    source: "local-rules",
     segmentId: focus.segment.segmentId,
     confidence: suggestions.length ? 1 : 0,
     recognizedFocus: {
@@ -151,7 +165,7 @@ function buildSuggestions(focus: FocusContext): LocalSuggestion[] {
     addInsertionPointSuggestions(suggestions, focus);
   } else if (focus.node && isContactKind(focus.node.kind)) {
     addContactSuggestions(suggestions, focus);
-  } else if (focus.node?.kind === 'FBDCompartment') {
+  } else if (focus.node?.kind === "FBDCompartment") {
     addFunctionBlockSuggestions(suggestions, focus);
   } else if (focus.node && isCoilKind(focus.node.kind)) {
     addCoilSuggestions(suggestions, focus);
@@ -163,7 +177,10 @@ function buildSuggestions(focus: FocusContext): LocalSuggestion[] {
   }));
 }
 
-function addContactSuggestions(suggestions: LocalSuggestion[], focus: FocusContext): void {
+function addContactSuggestions(
+  suggestions: LocalSuggestion[],
+  focus: FocusContext,
+): void {
   const node = focus.node;
   if (!node) {
     return;
@@ -171,24 +188,24 @@ function addContactSuggestions(suggestions: LocalSuggestion[], focus: FocusConte
 
   suggestions.push(
     makeSuggestion(focus, {
-      mode: 'seriesBefore',
-      relationToFocus: 'beforeSelected',
+      mode: "seriesBefore",
+      relationToFocus: "beforeSelected",
       insertAfterNodeId: first(node.from),
       insertBeforeNodeId: node.id,
       text: `在${nodeLabel(node)}前串联一个常开触点`,
       addElement: contactElement(),
     }),
     makeSuggestion(focus, {
-      mode: 'seriesAfter',
-      relationToFocus: 'afterSelected',
+      mode: "seriesAfter",
+      relationToFocus: "afterSelected",
       insertAfterNodeId: node.id,
       insertBeforeNodeId: first(node.to),
       text: `在${nodeLabel(node)}后串联一个常开触点`,
       addElement: contactElement(),
     }),
     makeSuggestion(focus, {
-      mode: 'parallelBranch',
-      relationToFocus: 'parallelWithSelected',
+      mode: "parallelBranch",
+      relationToFocus: "parallelWithSelected",
       parallelToNodeId: node.id,
       branchFromNodeId: first(node.from),
       branchToNodeId: first(node.to),
@@ -196,90 +213,82 @@ function addContactSuggestions(suggestions: LocalSuggestion[], focus: FocusConte
       addElement: contactElement(),
     }),
     makeSuggestion(focus, {
-      mode: 'parallelBranch',
-      relationToFocus: 'parallelWithSelected',
+      mode: "parallelBranch",
+      relationToFocus: "parallelWithSelected",
       parallelToNodeId: node.id,
       branchFromNodeId: first(node.from),
       branchToNodeId: first(node.to),
       text: `与${nodeLabel(node)}并联一个功能块`,
       addElement: functionBlockElement(),
-    })
+    }),
   );
 
   if (!hasDownstreamCoil(focus.segment, node.id)) {
     suggestions.push(
       makeSuggestion(focus, {
-        mode: 'outputCoil',
-        relationToFocus: 'afterSelected',
+        mode: "outputCoil",
+        relationToFocus: "afterSelected",
         insertAfterNodeId: node.id,
         insertBeforeNodeId: first(node.to),
         text: `在${nodeLabel(node)}后添加一个输出线圈`,
         addElement: coilElement(),
-      })
+      }),
     );
   }
 }
 
-function addFunctionBlockSuggestions(suggestions: LocalSuggestion[], focus: FocusContext): void {
+function addFunctionBlockSuggestions(
+  suggestions: LocalSuggestion[],
+  focus: FocusContext,
+): void {
   const node = focus.node;
   if (!node) {
     return;
   }
 
-  const firstOutputPort = Object.keys(node.outputs ?? {})[0] ?? '';
-  const firstInputPort = Object.keys(node.inputs ?? {})[0] ?? '';
-
+  const firstOutputPort = Object.keys(node.outputs ?? {})[0] ?? "";
   suggestions.push(
     makeSuggestion(focus, {
-      mode: 'seriesBefore',
-      relationToFocus: 'beforeSelected',
+      mode: "seriesBefore",
+      relationToFocus: "beforeSelected",
       insertAfterNodeId: first(node.from),
       insertBeforeNodeId: node.id,
-      text: `在${nodeLabel(node)}的 EN 前串联一个常开触点`,
+      text: `在${nodeLabel(node)}前串联一个常开触点`,
       addElement: contactElement(),
-    })
+    }),
   );
 
   if (!hasDownstreamCoil(focus.segment, node.id)) {
     suggestions.push(
       makeSuggestion(focus, {
-        mode: 'outputCoil',
-        relationToFocus: 'afterSelected',
+        mode: "outputCoil",
+        relationToFocus: "afterSelected",
         insertAfterNodeId: node.id,
         insertBeforeNodeId: first(node.to),
         portName: firstOutputPort,
         text: `在${nodeLabel(node)}输出端后添加一个线圈`,
         addElement: coilElement(),
-      })
+      }),
     );
   }
 
   suggestions.push(
     makeSuggestion(focus, {
-      mode: 'seriesAfter',
-      relationToFocus: 'afterSelected',
+      mode: "seriesAfter",
+      relationToFocus: "afterSelected",
       insertAfterNodeId: node.id,
       insertBeforeNodeId: first(node.to),
       portName: firstOutputPort,
       text: `在${nodeLabel(node)}输出端后添加一个常开触点`,
       addElement: contactElement(),
-    })
+    }),
   );
-
-  if (firstInputPort) {
-    suggestions.push(
-      makeSuggestion(focus, {
-        mode: 'attachToInputPort',
-        relationToFocus: 'attachToInputPort',
-        portName: firstInputPort,
-        text: `给${nodeLabel(node)}的 ${firstInputPort} 输入端口补一个变量`,
-        addElement: portVariableElement(),
-      })
-    );
-  }
 }
 
-function addCoilSuggestions(suggestions: LocalSuggestion[], focus: FocusContext): void {
+function addCoilSuggestions(
+  suggestions: LocalSuggestion[],
+  focus: FocusContext,
+): void {
   const node = focus.node;
   if (!node) {
     return;
@@ -287,16 +296,16 @@ function addCoilSuggestions(suggestions: LocalSuggestion[], focus: FocusContext)
 
   suggestions.push(
     makeSuggestion(focus, {
-      mode: 'seriesBefore',
-      relationToFocus: 'beforeSelected',
+      mode: "seriesBefore",
+      relationToFocus: "beforeSelected",
       insertAfterNodeId: first(node.from),
       insertBeforeNodeId: node.id,
       text: `在${nodeLabel(node)}前串联一个常开触点`,
       addElement: contactElement(),
     }),
     makeSuggestion(focus, {
-      mode: 'parallelBranch',
-      relationToFocus: 'parallelWithSelected',
+      mode: "parallelBranch",
+      relationToFocus: "parallelWithSelected",
       parallelToNodeId: node.id,
       branchFromNodeId: first(node.from),
       branchToNodeId: first(node.to),
@@ -304,23 +313,26 @@ function addCoilSuggestions(suggestions: LocalSuggestion[], focus: FocusContext)
       addElement: coilElement(),
     }),
     makeSuggestion(focus, {
-      mode: 'replaceSelected',
-      relationToFocus: 'replaceSelected',
+      mode: "replaceSelected",
+      relationToFocus: "replaceSelected",
       text: `将${nodeLabel(node)}改成置位线圈`,
       addElement: setCoilElement(node.var),
     }),
     makeSuggestion(focus, {
-      mode: 'seriesBefore',
-      relationToFocus: 'beforeSelected',
+      mode: "seriesBefore",
+      relationToFocus: "beforeSelected",
       insertAfterNodeId: first(node.from),
       insertBeforeNodeId: node.id,
       text: `在${nodeLabel(node)}前插入一个功能块`,
       addElement: functionBlockElement(),
-    })
+    }),
   );
 }
 
-function addInsertionPointSuggestions(suggestions: LocalSuggestion[], focus: FocusContext): void {
+function addInsertionPointSuggestions(
+  suggestions: LocalSuggestion[],
+  focus: FocusContext,
+): void {
   const insertionPoint = focus.insertionPoint;
   if (!insertionPoint) {
     return;
@@ -328,41 +340,41 @@ function addInsertionPointSuggestions(suggestions: LocalSuggestion[], focus: Foc
 
   const target = findNode(focus.segment, first(insertionPoint.to));
   const source = findNode(focus.segment, first(insertionPoint.from));
-  const targetText = target ? nodeLabel(target) : '末尾';
-  const sourceText = source ? nodeLabel(source) : '前置节点';
+  const targetText = target ? nodeLabel(target) : "末尾";
+  const sourceText = source ? nodeLabel(source) : "前置节点";
 
   if (target && isCoilKind(target.kind)) {
     suggestions.push(
       makeSuggestion(focus, {
-        mode: 'seriesBefore',
-        relationToFocus: 'atInsertionPoint',
+        mode: "seriesBefore",
+        relationToFocus: "atInsertionPoint",
         insertAfterNodeId: first(insertionPoint.from),
         insertBeforeNodeId: target.id,
         text: `在${sourceText}和${targetText}之间串联一个常开触点`,
         addElement: contactElement(),
       }),
       makeSuggestion(focus, {
-        mode: 'functionBlockBefore',
-        relationToFocus: 'atInsertionPoint',
+        mode: "functionBlockBefore",
+        relationToFocus: "atInsertionPoint",
         insertAfterNodeId: first(insertionPoint.from),
         insertBeforeNodeId: target.id,
         text: `在${sourceText}和${targetText}之间插入一个功能块`,
         addElement: functionBlockElement(),
-      })
+      }),
     );
     return;
   }
 
-  if (target?.kind === 'FBDCompartment') {
+  if (target?.kind === "FBDCompartment") {
     suggestions.push(
       makeSuggestion(focus, {
-        mode: 'seriesBefore',
-        relationToFocus: 'atInsertionPoint',
+        mode: "seriesBefore",
+        relationToFocus: "atInsertionPoint",
         insertAfterNodeId: first(insertionPoint.from),
         insertBeforeNodeId: target.id,
         text: `在${targetText}的 EN 前串联一个常开触点`,
         addElement: contactElement(),
-      })
+      }),
     );
     return;
   }
@@ -370,25 +382,25 @@ function addInsertionPointSuggestions(suggestions: LocalSuggestion[], focus: Foc
   if (!target) {
     suggestions.push(
       makeSuggestion(focus, {
-        mode: 'outputCoil',
-        relationToFocus: 'atInsertionPoint',
+        mode: "outputCoil",
+        relationToFocus: "atInsertionPoint",
         insertAfterNodeId: first(insertionPoint.from),
         text: `在${sourceText}后添加一个输出线圈`,
         addElement: coilElement(),
-      })
+      }),
     );
     return;
   }
 
   suggestions.push(
     makeSuggestion(focus, {
-      mode: 'seriesAfter',
-      relationToFocus: 'atInsertionPoint',
+      mode: "seriesAfter",
+      relationToFocus: "atInsertionPoint",
       insertAfterNodeId: first(insertionPoint.from),
       insertBeforeNodeId: first(insertionPoint.to),
       text: `在${sourceText}和${targetText}之间串联一个常开触点`,
       addElement: contactElement(),
-    })
+    }),
   );
 }
 
@@ -404,23 +416,23 @@ function makeSuggestion(
     branchToNodeId?: string;
     portName?: string;
     text: string;
-    addElement: LocalSuggestion['addElement'];
-  }
+    addElement: LocalSuggestion["addElement"];
+  },
 ): LocalSuggestion {
   return {
-    id: '',
+    id: "",
     mode: input.mode,
     confidence: 1,
     placement: {
       relationToFocus: input.relationToFocus,
       anchorNodeId: getFocusId(focus),
       anchorNodeVar: getFocusVar(focus),
-      insertAfterNodeId: input.insertAfterNodeId ?? '',
-      insertBeforeNodeId: input.insertBeforeNodeId ?? '',
-      parallelToNodeId: input.parallelToNodeId ?? '',
-      branchFromNodeId: input.branchFromNodeId ?? '',
-      branchToNodeId: input.branchToNodeId ?? '',
-      portName: input.portName ?? '',
+      insertAfterNodeId: input.insertAfterNodeId ?? "",
+      insertBeforeNodeId: input.insertBeforeNodeId ?? "",
+      parallelToNodeId: input.parallelToNodeId ?? "",
+      branchFromNodeId: input.branchFromNodeId ?? "",
+      branchToNodeId: input.branchToNodeId ?? "",
+      portName: input.portName ?? "",
       text: input.text,
     },
     addElement: input.addElement,
@@ -429,19 +441,22 @@ function makeSuggestion(
 
 async function resolveFocus(
   summary: DiagramSummary,
-  options: LocalGraphSuggestionOptions
+  options: LocalGraphSuggestionOptions,
 ): Promise<FocusContext | undefined> {
   const fromProvided = findFocusByOptions(summary, options);
   if (fromProvided) {
-    return { ...fromProvided, source: 'provided' };
+    return { ...fromProvided, source: "provided" };
   }
 
-  const manualQuery = options.focusQuery ?? await vscode.window.showInputBox({
-    title: 'Local LD/FBD Suggestions',
-    prompt: '输入前端选中的 nodeId、editRect id 或变量名。后续前端直接传 selectedNodeId 即可。',
-    placeHolder: '例如 coil-57898079-1782202685942 / edit-node-rect / j',
-    ignoreFocusOut: true,
-  });
+  const manualQuery =
+    options.focusQuery ??
+    (await vscode.window.showInputBox({
+      title: "Local LD/FBD Suggestions",
+      prompt:
+        "输入前端选中的 nodeId、editRect id 或变量名。后续前端直接传 selectedNodeId 即可。",
+      placeHolder: "例如 coil-57898079-1782202685942 / edit-node-rect / j",
+      ignoreFocusOut: true,
+    }));
 
   if (manualQuery === undefined) {
     return undefined;
@@ -449,19 +464,23 @@ async function resolveFocus(
 
   const fromManualInput = findFocusByQuery(summary, manualQuery);
   if (fromManualInput) {
-    return { ...fromManualInput, source: 'manualInput' };
+    return { ...fromManualInput, source: "manualInput" };
   }
 
-  const fallback = findFirstInsertionPoint(summary) || findFirstRealNode(summary);
+  const fallback =
+    findFirstInsertionPoint(summary) || findFirstRealNode(summary);
   const picked = await pickFocus(summary, fallback);
   if (picked) {
-    return { ...picked, source: 'quickPick' };
+    return { ...picked, source: "quickPick" };
   }
 
-  return fallback ? { ...fallback, source: 'fallback' } : undefined;
+  return fallback ? { ...fallback, source: "fallback" } : undefined;
 }
 
-function findFocusByOptions(summary: DiagramSummary, options: LocalGraphSuggestionOptions): Omit<FocusContext, 'source'> | undefined {
+function findFocusByOptions(
+  summary: DiagramSummary,
+  options: LocalGraphSuggestionOptions,
+): Omit<FocusContext, "source"> | undefined {
   if (options.selectedNodeId) {
     const byNodeId = findNodeFocus(summary, options.selectedNodeId);
     if (byNodeId) {
@@ -470,7 +489,10 @@ function findFocusByOptions(summary: DiagramSummary, options: LocalGraphSuggesti
   }
 
   if (options.selectedInsertionPointId) {
-    const byInsertionId = findInsertionPointFocus(summary, options.selectedInsertionPointId);
+    const byInsertionId = findInsertionPointFocus(
+      summary,
+      options.selectedInsertionPointId,
+    );
     if (byInsertionId) {
       return byInsertionId;
     }
@@ -487,18 +509,26 @@ function findFocusByOptions(summary: DiagramSummary, options: LocalGraphSuggesti
   return undefined;
 }
 
-function findFocusByQuery(summary: DiagramSummary, query: string): Omit<FocusContext, 'source'> | undefined {
+function findFocusByQuery(
+  summary: DiagramSummary,
+  query: string,
+): Omit<FocusContext, "source"> | undefined {
   const trimmed = query.trim();
   if (!trimmed) {
     return undefined;
   }
 
-  return findNodeFocus(summary, trimmed)
-    || findInsertionPointFocus(summary, trimmed)
-    || findFocusByToken(summary, trimmed);
+  return (
+    findNodeFocus(summary, trimmed) ||
+    findInsertionPointFocus(summary, trimmed) ||
+    findFocusByToken(summary, trimmed)
+  );
 }
 
-function findFocusByToken(summary: DiagramSummary, token: string): Omit<FocusContext, 'source'> | undefined {
+function findFocusByToken(
+  summary: DiagramSummary,
+  token: string,
+): Omit<FocusContext, "source"> | undefined {
   if (!token) {
     return undefined;
   }
@@ -507,14 +537,21 @@ function findFocusByToken(summary: DiagramSummary, token: string): Omit<FocusCon
   const matches = summary.segments.flatMap((segment) =>
     segment.nodes
       .filter((node) => isRealGraphElementKind(node.kind))
-      .filter((node) => [node.var, node.instance].some((value) => value?.toLowerCase() === normalized))
-      .map((node) => ({ segment, node }))
+      .filter((node) =>
+        [node.var, node.instance].some(
+          (value) => value?.toLowerCase() === normalized,
+        ),
+      )
+      .map((node) => ({ segment, node })),
   );
 
   return matches[0];
 }
 
-function findNodeFocus(summary: DiagramSummary, nodeId: string): Omit<FocusContext, 'source'> | undefined {
+function findNodeFocus(
+  summary: DiagramSummary,
+  nodeId: string,
+): Omit<FocusContext, "source"> | undefined {
   for (const segment of summary.segments) {
     const node = findNode(segment, nodeId);
     if (node) {
@@ -525,9 +562,14 @@ function findNodeFocus(summary: DiagramSummary, nodeId: string): Omit<FocusConte
   return undefined;
 }
 
-function findInsertionPointFocus(summary: DiagramSummary, insertionPointId: string): Omit<FocusContext, 'source'> | undefined {
+function findInsertionPointFocus(
+  summary: DiagramSummary,
+  insertionPointId: string,
+): Omit<FocusContext, "source"> | undefined {
   for (const segment of summary.segments) {
-    const insertionPoint = segment.insertionPoints.find((item) => item.id === insertionPointId);
+    const insertionPoint = segment.insertionPoints.find(
+      (item) => item.id === insertionPointId,
+    );
     if (insertionPoint) {
       return { segment, insertionPoint };
     }
@@ -536,15 +578,23 @@ function findInsertionPointFocus(summary: DiagramSummary, insertionPointId: stri
   return undefined;
 }
 
-function findFirstInsertionPoint(summary: DiagramSummary): Omit<FocusContext, 'source'> | undefined {
-  const segment = summary.segments.find((item) => item.insertionPoints.length > 0);
+function findFirstInsertionPoint(
+  summary: DiagramSummary,
+): Omit<FocusContext, "source"> | undefined {
+  const segment = summary.segments.find(
+    (item) => item.insertionPoints.length > 0,
+  );
   const insertionPoint = segment?.insertionPoints[0];
   return segment && insertionPoint ? { segment, insertionPoint } : undefined;
 }
 
-function findFirstRealNode(summary: DiagramSummary): Omit<FocusContext, 'source'> | undefined {
+function findFirstRealNode(
+  summary: DiagramSummary,
+): Omit<FocusContext, "source"> | undefined {
   for (const segment of summary.segments) {
-    const node = segment.nodes.find((item) => isRealGraphElementKind(item.kind));
+    const node = segment.nodes.find((item) =>
+      isRealGraphElementKind(item.kind),
+    );
     if (node) {
       return { segment, node };
     }
@@ -555,12 +605,12 @@ function findFirstRealNode(summary: DiagramSummary): Omit<FocusContext, 'source'
 
 async function pickFocus(
   summary: DiagramSummary,
-  fallback: Omit<FocusContext, 'source'> | undefined
-): Promise<Omit<FocusContext, 'source'> | undefined> {
+  fallback: Omit<FocusContext, "source"> | undefined,
+): Promise<Omit<FocusContext, "source"> | undefined> {
   const items = summary.segments.flatMap((segment) => [
     ...segment.insertionPoints.map((insertionPoint) => ({
       label: `插入点 ${insertionPoint.id}`,
-      description: `${insertionPoint.fromLabels.join(', ') || 'start'} -> ${insertionPoint.toLabels.join(', ') || 'end'}`,
+      description: `${insertionPoint.fromLabels.join(", ") || "start"} -> ${insertionPoint.toLabels.join(", ") || "end"}`,
       focus: { segment, insertionPoint },
     })),
     ...segment.nodes
@@ -577,89 +627,81 @@ async function pickFocus(
   }
 
   const picked = await vscode.window.showQuickPick(items, {
-    title: 'Select LD/FBD node for local suggestions',
-    placeHolder: 'Pick a graph node or insertion point from transLd.txt.',
+    title: "Select LD/FBD node for local suggestions",
+    placeHolder: "Pick a graph node or insertion point from transLd.txt.",
     matchOnDescription: true,
   });
 
   return picked?.focus;
 }
 
-function contactElement(): LocalSuggestion['addElement'] {
+function contactElement(): LocalSuggestion["addElement"] {
   return {
-    nodeType: 'contact',
-    displayLabel: '常开触点',
-    variableSource: 'userInput',
-    variableName: '',
-    dataType: 'BOOL',
+    nodeType: "contact",
+    displayLabel: "常开触点",
+    variableSource: "userInput",
+    variableName: "",
+    dataType: "BOOL",
     userInputRequired: true,
-    blockType: '',
-    instanceSource: '',
-    instanceName: '',
+    blockType: "",
+    instanceSource: "",
+    instanceName: "",
   };
 }
 
-function coilElement(): LocalSuggestion['addElement'] {
+function coilElement(): LocalSuggestion["addElement"] {
   return {
-    nodeType: 'coil',
-    displayLabel: '输出线圈',
-    variableSource: 'userInput',
-    variableName: '',
-    dataType: 'BOOL',
+    nodeType: "coil",
+    displayLabel: "输出线圈",
+    variableSource: "userInput",
+    variableName: "",
+    dataType: "BOOL",
     userInputRequired: true,
-    blockType: '',
-    instanceSource: '',
-    instanceName: '',
+    blockType: "",
+    instanceSource: "",
+    instanceName: "",
   };
 }
 
-function setCoilElement(variableName = ''): LocalSuggestion['addElement'] {
+function setCoilElement(variableName = ""): LocalSuggestion["addElement"] {
   return {
-    nodeType: 'setCoil',
-    displayLabel: '置位线圈',
-    variableSource: variableName ? 'existingVariable' : 'userInput',
+    nodeType: "setCoil",
+    displayLabel: "置位线圈",
+    variableSource: variableName ? "existingVariable" : "userInput",
     variableName,
-    dataType: 'BOOL',
+    dataType: "BOOL",
     userInputRequired: !variableName,
-    blockType: '',
-    instanceSource: '',
-    instanceName: '',
+    blockType: "",
+    instanceSource: "",
+    instanceName: "",
   };
 }
 
-function functionBlockElement(): LocalSuggestion['addElement'] {
+function functionBlockElement(): LocalSuggestion["addElement"] {
   return {
-    nodeType: 'functionBlock',
-    displayLabel: '功能块',
-    variableSource: 'userInput',
-    variableName: '',
-    dataType: '',
+    nodeType: "functionBlock",
+    displayLabel: "功能块",
+    variableSource: "userInput",
+    variableName: "",
+    dataType: "",
     userInputRequired: true,
-    blockType: '',
-    instanceSource: 'userInput',
-    instanceName: '',
+    blockType: "",
+    instanceSource: "userInput",
+    instanceName: "",
   };
 }
 
-function portVariableElement(): LocalSuggestion['addElement'] {
-  return {
-    nodeType: 'portVariable',
-    displayLabel: '输入变量',
-    variableSource: 'userInput',
-    variableName: '',
-    dataType: '',
-    userInputRequired: true,
-    blockType: '',
-    instanceSource: '',
-    instanceName: '',
-  };
-}
-
-function findNode(segment: DiagramSegmentSummary, nodeId: string): DiagramNodeSummary | undefined {
+function findNode(
+  segment: DiagramSegmentSummary,
+  nodeId: string,
+): DiagramNodeSummary | undefined {
   return segment.nodes.find((node) => node.id === nodeId);
 }
 
-function hasDownstreamCoil(segment: DiagramSegmentSummary, startNodeId: string): boolean {
+function hasDownstreamCoil(
+  segment: DiagramSegmentSummary,
+  startNodeId: string,
+): boolean {
   const visited = new Set<string>();
   const queue = [...(findNode(segment, startNodeId)?.to ?? [])];
 
@@ -686,15 +728,15 @@ function hasDownstreamCoil(segment: DiagramSegmentSummary, startNodeId: string):
 }
 
 function getFocusId(focus: FocusContext): string {
-  return focus.node?.id ?? focus.insertionPoint?.id ?? '';
+  return focus.node?.id ?? focus.insertionPoint?.id ?? "";
 }
 
 function getFocusType(focus: FocusContext): string {
-  return focus.node?.kind ?? focus.insertionPoint?.kind ?? '';
+  return focus.node?.kind ?? focus.insertionPoint?.kind ?? "";
 }
 
 function getFocusVar(focus: FocusContext): string {
-  return focus.node?.var ?? focus.node?.instance ?? '';
+  return focus.node?.var ?? focus.node?.instance ?? "";
 }
 
 function getFocusVisualElement(focus: FocusContext): string {
@@ -704,16 +746,16 @@ function getFocusVisualElement(focus: FocusContext): string {
 
   const insertionPoint = focus.insertionPoint;
   if (!insertionPoint) {
-    return '';
+    return "";
   }
 
-  return `${insertionPoint.kind} ${insertionPoint.fromLabels.join(', ') || 'start'} -> ${insertionPoint.toLabels.join(', ') || 'end'}`;
+  return `${insertionPoint.kind} ${insertionPoint.fromLabels.join(", ") || "start"} -> ${insertionPoint.toLabels.join(", ") || "end"}`;
 }
 
 function nodeLabel(node: DiagramNodeSummary): string {
-  if (node.kind === 'FBDCompartment') {
-    const instance = node.instance ? ` ${node.instance}` : '';
-    return `${node.blockType || '功能块'}${instance} 功能块`;
+  if (node.kind === "FBDCompartment") {
+    const instance = node.instance ? ` ${node.instance}` : "";
+    return `${node.blockType || "功能块"}${instance} 功能块`;
   }
 
   if (isCoilKind(node.kind)) {
@@ -728,38 +770,49 @@ function nodeLabel(node: DiagramNodeSummary): string {
 }
 
 function isContactKind(kind: string): boolean {
-  return ['contact', 'negatedContact', 'risingContact', 'fallingContact'].includes(kind);
+  return [
+    "contact",
+    "negatedContact",
+    "risingContact",
+    "fallingContact",
+  ].includes(kind);
 }
 
 function isCoilKind(kind: string): boolean {
-  return ['coil', 'setCoil', 'resetCoil'].includes(kind);
+  return ["coil", "setCoil", "resetCoil"].includes(kind);
 }
 
 function isRealGraphElementKind(kind: string): boolean {
   return [
-    'contact',
-    'negatedContact',
-    'risingContact',
-    'fallingContact',
-    'coil',
-    'setCoil',
-    'resetCoil',
-    'FBDCompartment',
+    "contact",
+    "negatedContact",
+    "risingContact",
+    "fallingContact",
+    "coil",
+    "setCoil",
+    "resetCoil",
+    "FBDCompartment",
   ].includes(kind);
 }
 
 function first(values: string[] | undefined): string {
-  return values?.[0] ?? '';
+  return values?.[0] ?? "";
 }
 
 function formatFocusOptions(options: LocalGraphSuggestionOptions): string {
-  return [
-    options.selectedNodeId ? `nodeId=${options.selectedNodeId}` : '',
-    options.selectedInsertionPointId ? `insertionPointId=${options.selectedInsertionPointId}` : '',
-    options.selectedVar ? `var=${options.selectedVar}` : '',
-    options.selectedNodeType ? `type=${options.selectedNodeType}` : '',
-    options.focusQuery ? `query=${options.focusQuery}` : '',
-  ].filter(Boolean).join(' ') || '(manual input)';
+  return (
+    [
+      options.selectedNodeId ? `nodeId=${options.selectedNodeId}` : "",
+      options.selectedInsertionPointId
+        ? `insertionPointId=${options.selectedInsertionPointId}`
+        : "",
+      options.selectedVar ? `var=${options.selectedVar}` : "",
+      options.selectedNodeType ? `type=${options.selectedNodeType}` : "",
+      options.focusQuery ? `query=${options.focusQuery}` : "",
+    ]
+      .filter(Boolean)
+      .join(" ") || "(manual input)"
+  );
 }
 
 function formatUnknownError(error: unknown): string {
