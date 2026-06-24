@@ -202,15 +202,16 @@ function addContactSuggestions(
 
   const leftText = neighborListText(focus.segment, node.from, "backward");
   const rightText = neighborListText(focus.segment, node.to, "forward");
+  const nodeText = nodeLabelWithSegment(focus.segment, node);
   const beforeText = leftText
-    ? `在${leftText}和${nodeLabel(node)}之间串联一个常开触点`
-    : `在${nodeLabel(node)}前串联一个常开触点`;
+    ? `在${leftText}和${nodeText}之间串联一个常开触点`
+    : `在${nodeText}前串联一个常开触点`;
   const afterText = rightText
-    ? `在${nodeLabel(node)}和${rightText}之间串联一个常开触点`
-    : `在${nodeLabel(node)}后串联一个常开触点`;
+    ? `在${nodeText}和${rightText}之间串联一个常开触点`
+    : `在${nodeText}后串联一个常开触点`;
   const functionBlockAfterText = rightText
-    ? `在${nodeLabel(node)}和${rightText}之间插入一个功能块`
-    : `在${nodeLabel(node)}后串联一个功能块`;
+    ? `在${nodeText}和${rightText}之间插入一个功能块`
+    : `在${nodeText}后串联一个功能块`;
 
   suggestions.push(
     makeSuggestion(focus, {
@@ -243,7 +244,7 @@ function addContactSuggestions(
       parallelToNodeId: node.id,
       branchFromNodeId: first(node.from),
       branchToNodeId: first(node.to),
-      text: `与${nodeLabel(node)}并联一个常开触点`,
+      text: `与${nodeText}并联一个常开触点`,
       addElement: contactElement(),
     }),
     makeSuggestion(focus, {
@@ -252,7 +253,7 @@ function addContactSuggestions(
       parallelToNodeId: node.id,
       branchFromNodeId: first(node.from),
       branchToNodeId: first(node.to),
-      text: `与${nodeLabel(node)}并联一个功能块`,
+      text: `与${nodeText}并联一个功能块`,
       addElement: functionBlockElement(),
     }),
   );
@@ -265,8 +266,8 @@ function addContactSuggestions(
         insertAfterNodeId: node.id,
         insertBeforeNodeId: first(node.to),
         text: graphState.isPartialGraph
-          ? `当前回路还没有输出节点，在${nodeLabel(node)}后添加一个输出线圈`
-          : `在${nodeLabel(node)}后添加一个输出线圈`,
+          ? `当前回路还没有输出节点，在${nodeText}后添加一个线圈`
+          : `在${nodeText}后添加一个线圈`,
         addElement: coilElement(),
       }),
     );
@@ -286,6 +287,7 @@ function addFunctionBlockSuggestions(
   const firstOutputPort = Object.keys(node.outputs ?? {})[0] ?? "";
   const leftText = neighborListText(focus.segment, node.from, "backward");
   const rightText = neighborListText(focus.segment, node.to, "forward");
+  const nodeText = nodeLabelWithSegment(focus.segment, node);
   suggestions.push(
     makeSuggestion(focus, {
       mode: "seriesBefore",
@@ -293,8 +295,8 @@ function addFunctionBlockSuggestions(
       insertAfterNodeId: first(node.from),
       insertBeforeNodeId: node.id,
       text: leftText
-        ? `在${leftText}和${nodeLabel(node)}之间串联一个常开触点`
-        : `在${nodeLabel(node)}前串联一个常开触点`,
+        ? `在${leftText}和${nodeText}之间串联一个常开触点`
+        : `在${nodeText}前串联一个常开触点`,
       addElement: contactElement(),
     }),
   );
@@ -308,8 +310,8 @@ function addFunctionBlockSuggestions(
         insertBeforeNodeId: first(node.to),
         portName: firstOutputPort,
         text: graphState.isPartialGraph
-          ? `当前回路还没有输出节点，在${nodeLabel(node)}输出端后添加一个线圈`
-          : `在${nodeLabel(node)}输出端后添加一个线圈`,
+          ? `当前回路还没有输出节点，在${nodeText}输出端后添加一个线圈`
+          : `在${nodeText}输出端后添加一个线圈`,
         addElement: coilElement(),
       }),
     );
@@ -323,8 +325,8 @@ function addFunctionBlockSuggestions(
       insertBeforeNodeId: first(node.to),
       portName: firstOutputPort,
       text: rightText
-        ? `在${nodeLabel(node)}和${rightText}之间串联一个常开触点`
-        : `在${nodeLabel(node)}输出端后添加一个常开触点`,
+        ? `在${nodeText}和${rightText}之间串联一个常开触点`
+        : `在${nodeText}输出端后添加一个常开触点`,
       addElement: contactElement(),
     }),
   );
@@ -339,13 +341,15 @@ function addCoilSuggestions(
     return;
   }
 
+  const nodeText = nodeLabelWithSegment(focus.segment, node);
+
   suggestions.push(
     makeSuggestion(focus, {
       mode: "seriesBefore",
       relationToFocus: "beforeSelected",
       insertAfterNodeId: first(node.from),
       insertBeforeNodeId: node.id,
-      text: `在${nodeLabel(node)}前串联一个常开触点`,
+      text: `在${nodeText}前串联一个常开触点`,
       addElement: contactElement(),
     }),
     makeSuggestion(focus, {
@@ -354,13 +358,13 @@ function addCoilSuggestions(
       parallelToNodeId: node.id,
       branchFromNodeId: first(node.from),
       branchToNodeId: first(node.to),
-      text: `与${nodeLabel(node)}并联一个输出线圈`,
+      text: `与${nodeText}并联一个线圈`,
       addElement: coilElement(),
     }),
     makeSuggestion(focus, {
       mode: "replaceSelected",
       relationToFocus: "replaceSelected",
-      text: `将${nodeLabel(node)}改成置位线圈`,
+      text: `将${nodeText}改成置位线圈`,
       addElement: setCoilElement(node.var),
     }),
     makeSuggestion(focus, {
@@ -368,7 +372,7 @@ function addCoilSuggestions(
       relationToFocus: "beforeSelected",
       insertAfterNodeId: first(node.from),
       insertBeforeNodeId: node.id,
-      text: `在${nodeLabel(node)}前插入一个功能块`,
+      text: `在${nodeText}前插入一个功能块`,
       addElement: functionBlockElement(),
     }),
   );
@@ -884,7 +888,7 @@ function getFocusVar(focus: FocusContext): string {
 
 function getFocusVisualElement(focus: FocusContext): string {
   if (focus.node) {
-    return nodeLabel(focus.node);
+    return nodeLabelWithSegment(focus.segment, focus.node);
   }
 
   const insertionPoint = focus.insertionPoint;
@@ -902,14 +906,34 @@ function nodeLabel(node: DiagramNodeSummary): string {
   }
 
   if (isCoilKind(node.kind)) {
-    return node.var ? `${node.var} 线圈` : "未命名线圈";
+    return `${displayNodeName(undefined, node)} ${coilKindLabel(node.kind)}`;
   }
 
   if (isContactKind(node.kind)) {
-    return node.var ? `${node.var} 触点` : "未命名触点";
+    return `${displayNodeName(undefined, node)} ${contactKindLabel(node.kind)}`;
   }
 
   return node.var || node.instance || node.id;
+}
+
+function nodeLabelWithSegment(
+  segment: DiagramSegmentSummary,
+  node: DiagramNodeSummary,
+): string {
+  if (node.kind === "FBDCompartment") {
+    const instance = displayNodeName(segment, node);
+    return instance ? `${node.blockType || "功能块"} ${instance} 功能块` : `${node.blockType || "功能块"} 功能块`;
+  }
+
+  if (isCoilKind(node.kind)) {
+    return `${displayNodeName(segment, node)} ${coilKindLabel(node.kind)}`;
+  }
+
+  if (isContactKind(node.kind)) {
+    return `${displayNodeName(segment, node)} ${contactKindLabel(node.kind)}`;
+  }
+
+  return displayNodeName(segment, node);
 }
 
 function neighborListText(
@@ -920,7 +944,7 @@ function neighborListText(
   const labels = (nodeIds ?? [])
     .map((nodeId) => findNearestDisplayNode(segment, nodeId, direction))
     .filter((node): node is DiagramNodeSummary => Boolean(node))
-    .map((node) => nodeLabel(node));
+    .map((node) => nodeLabelWithSegment(segment, node));
 
   if (!labels.length) {
     return "";
@@ -957,6 +981,82 @@ function findNearestDisplayNode(
   }
 
   return undefined;
+}
+
+function displayNodeName(
+  segment: DiagramSegmentSummary | undefined,
+  node: DiagramNodeSummary,
+): string {
+  const rawName = (node.var || node.instance || "").trim();
+  if (rawName && !isUnnamedPlaceholder(rawName)) {
+    return rawName;
+  }
+
+  if (!segment) {
+    return "未命名";
+  }
+
+  const index = unnamedNodeIndex(segment, node);
+  return index > 0 ? `未命名${index}` : "未命名";
+}
+
+function unnamedNodeIndex(
+  segment: DiagramSegmentSummary,
+  targetNode: DiagramNodeSummary,
+): number {
+  const unnamedNodes = segment.nodes
+    .filter((node) => isRealGraphElementKind(node.kind))
+    .filter((node) => isUnnamedPlaceholder(node.var || node.instance || ""))
+    .sort(compareDisplayOrder);
+
+  return unnamedNodes.findIndex((node) => node.id === targetNode.id) + 1;
+}
+
+function compareDisplayOrder(a: DiagramNodeSummary, b: DiagramNodeSummary): number {
+  const ay = a.y ?? Number.POSITIVE_INFINITY;
+  const by = b.y ?? Number.POSITIVE_INFINITY;
+  if (ay !== by) {
+    return ay - by;
+  }
+
+  const ax = a.x ?? Number.POSITIVE_INFINITY;
+  const bx = b.x ?? Number.POSITIVE_INFINITY;
+  if (ax !== bx) {
+    return ax - bx;
+  }
+
+  return (a.order ?? 0) - (b.order ?? 0);
+}
+
+function isUnnamedPlaceholder(value: string): boolean {
+  const trimmed = value.trim();
+  return !trimmed || trimmed === "???";
+}
+
+function contactKindLabel(kind: string): string {
+  switch (kind) {
+    case "negatedContact":
+      return "常闭触点";
+    case "risingContact":
+      return "上升沿";
+    case "fallingContact":
+      return "下降沿";
+    case "contact":
+    default:
+      return "常开触点";
+  }
+}
+
+function coilKindLabel(kind: string): string {
+  switch (kind) {
+    case "setCoil":
+      return "置位线圈";
+    case "resetCoil":
+      return "复位线圈";
+    case "coil":
+    default:
+      return "线圈";
+  }
 }
 
 function isContactKind(kind: string): boolean {

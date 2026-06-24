@@ -12,6 +12,9 @@ export interface DiagramVariableSummary {
 export interface DiagramNodeSummary {
   id: string;
   kind: string;
+  order?: number;
+  x?: number;
+  y?: number;
   var?: string;
   dataType?: string;
   scope?: string;
@@ -113,7 +116,9 @@ function summarizeSegment(
 ): DiagramSegmentSummary {
   const nodesObj = asRecord(segment.nodesObj) ?? {};
   const nodes = Object.entries(nodesObj)
-    .map(([nodeId, node]) => summarizeNode(nodeId, asRecord(node)))
+    .map(([nodeId, node], index) =>
+      summarizeNode(nodeId, asRecord(node), index),
+    )
     .filter((item): item is DiagramNodeSummary => Boolean(item));
   const labelById = new Map(nodes.map((node) => [node.id, labelNode(node)]));
   const edges = nodes.flatMap((node) =>
@@ -153,6 +158,7 @@ function summarizeSegment(
 function summarizeNode(
   nodeId: string,
   node: Record<string, unknown> | undefined,
+  index: number,
 ): DiagramNodeSummary | undefined {
   if (!node) {
     return undefined;
@@ -161,9 +167,13 @@ function summarizeNode(
   const type = asString(node.type);
   const varName = asRecord(node.varName);
   const child = asRecord(node.childrenNode);
+  const position = asRecord(node.position);
   const summary: DiagramNodeSummary = {
     id: asString(node.id) || nodeId,
     kind: type || "unknown",
+    order: index,
+    x: firstNumber(node.Xlayer, node.x, position?.x),
+    y: firstNumber(node.Ylayer, node.y, position?.y),
     from: stringArray(node.sourceIds),
     to: stringArray(node.targetIds),
   };
@@ -241,6 +251,17 @@ function asOptionalNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value)
     ? value
     : undefined;
+}
+
+function firstNumber(...values: unknown[]): number | undefined {
+  for (const value of values) {
+    const number = asOptionalNumber(value);
+    if (number !== undefined) {
+      return number;
+    }
+  }
+
+  return undefined;
 }
 
 function stringArray(value: unknown): string[] {
