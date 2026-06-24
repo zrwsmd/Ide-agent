@@ -29,6 +29,12 @@ interface FocusContext {
   source: "provided" | "manualInput" | "quickPick" | "fallback";
 }
 
+interface SegmentGraphState {
+  hasLogicNode: boolean;
+  hasOutputNode: boolean;
+  isPartialGraph: boolean;
+}
+
 interface LocalSuggestion {
   id: string;
   mode: string;
@@ -99,6 +105,10 @@ export class LocalGraphSuggestionService {
     this.log(
       `local graph focus source=${focus.source} nodeId=${getFocusId(focus)} type=${getFocusType(focus)} var=${getFocusVar(focus) || "(none)"}`,
     );
+    const graphState = analyzeSegment(focus.segment);
+    this.log(
+      `local graph state partial=${graphState.isPartialGraph} hasLogic=${graphState.hasLogicNode} hasOutput=${graphState.hasOutputNode}`,
+    );
     this.log(`local graph suggestions count=${payload.suggestions.length}`);
     for (const [index, suggestion] of payload.suggestions.entries()) {
       this.log(
@@ -160,18 +170,21 @@ function buildLocalPayload(
 
 function buildSuggestions(focus: FocusContext): LocalSuggestion[] {
   const suggestions: LocalSuggestion[] = [];
+  const graphState = analyzeSegment(focus.segment);
 
   if (focus.insertionPoint) {
-    addInsertionPointSuggestions(suggestions, focus);
+    addInsertionPointSuggestions(suggestions, focus, graphState);
   } else if (focus.node && isContactKind(focus.node.kind)) {
-    addContactSuggestions(suggestions, focus);
+    addContactSuggestions(suggestions, focus, graphState);
   } else if (focus.node?.kind === "FBDCompartment") {
-    addFunctionBlockSuggestions(suggestions, focus);
+    addFunctionBlockSuggestions(suggestions, focus, graphState);
   } else if (focus.node && isCoilKind(focus.node.kind)) {
     addCoilSuggestions(suggestions, focus);
   }
 
-  return suggestions.slice(0, 6).map((suggestion, index) => ({
+  return dedupeSuggestions(suggestions)
+    .slice(0, 6)
+    .map((suggestion, index) => ({
     ...suggestion,
     id: `local-${index + 1}`,
   }));
@@ -180,11 +193,24 @@ function buildSuggestions(focus: FocusContext): LocalSuggestion[] {
 function addContactSuggestions(
   suggestions: LocalSuggestion[],
   focus: FocusContext,
+  graphState: SegmentGraphState,
 ): void {
   const node = focus.node;
   if (!node) {
     return;
   }
+
+  const leftText = neighborListText(focus.segment, node.from, "backward");
+  const rightText = neighborListText(focus.segment, node.to, "forward");
+  const beforeText = leftText
+    ? `在${leftText}和${nodeLabel(node)}之间串联一个常开触点`
+    : `在${nodeLabel(node)}前串联一个常开触点`;
+  const afterText = rightText
+    ? `在${nodeLabel(node)}和${rightText}之间串联一个常开触点`
+    : `在${nodeLabel(node)}后串联一个常开触点`;
+  const functionBlockAfterText = rightText
+    ? `在${nodeLabel(node)}和${rightText}之间插入一个功能块`
+    : `在${nodeLabel(node)}后串联一个功能块`;
 
   suggestions.push(
     makeSuggestion(focus, {
@@ -192,7 +218,7 @@ function addContactSuggestions(
       relationToFocus: "beforeSelected",
       insertAfterNodeId: first(node.from),
       insertBeforeNodeId: node.id,
-      text: `在${nodeLabel(node)}前串联一个常开触点`,
+      text: beforeText,
       addElement: contactElement(),
     }),
     makeSuggestion(focus, {
@@ -200,8 +226,16 @@ function addContactSuggestions(
       relationToFocus: "afterSelected",
       insertAfterNodeId: node.id,
       insertBeforeNodeId: first(node.to),
-      text: `在${nodeLabel(node)}后串联一个常开触点`,
+      text: afterText,
       addElement: contactElement(),
+    }),
+    makeSuggestion(focus, {
+      mode: "functionBlockAfter",
+      relationToFocus: "afterSelected",
+      insertAfterNodeId: node.id,
+      insertBeforeNodeId: first(node.to),
+      text: functionBlockAfterText,
+      addElement: functionBlockElement(),
     }),
     makeSuggestion(focus, {
       mode: "parallelBranch",
@@ -223,14 +257,16 @@ function addContactSuggestions(
     }),
   );
 
-  if (!hasDownstreamCoil(focus.segment, node.id)) {
+  if (canAddOutputAfterNode(focus.segment, node)) {
     suggestions.push(
       makeSuggestion(focus, {
         mode: "outputCoil",
         relationToFocus: "afterSelected",
         insertAfterNodeId: node.id,
         insertBeforeNodeId: first(node.to),
-        text: `在${nodeLabel(node)}后添加一个输出线圈`,
+        text: graphState.isPartialGraph
+          ? `当前回路还没有输出节点，在${nodeLabel(node)}后添加一个输出线圈`
+          : `在${nodeLabel(node)}后添加一个输出线圈`,
         addElement: coilElement(),
       }),
     );
@@ -240,6 +276,7 @@ function addContactSuggestions(
 function addFunctionBlockSuggestions(
   suggestions: LocalSuggestion[],
   focus: FocusContext,
+  graphState: SegmentGraphState,
 ): void {
   const node = focus.node;
   if (!node) {
@@ -247,18 +284,22 @@ function addFunctionBlockSuggestions(
   }
 
   const firstOutputPort = Object.keys(node.outputs ?? {})[0] ?? "";
+  const leftText = neighborListText(focus.segment, node.from, "backward");
+  const rightText = neighborListText(focus.segment, node.to, "forward");
   suggestions.push(
     makeSuggestion(focus, {
       mode: "seriesBefore",
       relationToFocus: "beforeSelected",
       insertAfterNodeId: first(node.from),
       insertBeforeNodeId: node.id,
-      text: `在${nodeLabel(node)}前串联一个常开触点`,
+      text: leftText
+        ? `在${leftText}和${nodeLabel(node)}之间串联一个常开触点`
+        : `在${nodeLabel(node)}前串联一个常开触点`,
       addElement: contactElement(),
     }),
   );
 
-  if (!hasDownstreamCoil(focus.segment, node.id)) {
+  if (canAddOutputAfterNode(focus.segment, node)) {
     suggestions.push(
       makeSuggestion(focus, {
         mode: "outputCoil",
@@ -266,7 +307,9 @@ function addFunctionBlockSuggestions(
         insertAfterNodeId: node.id,
         insertBeforeNodeId: first(node.to),
         portName: firstOutputPort,
-        text: `在${nodeLabel(node)}输出端后添加一个线圈`,
+        text: graphState.isPartialGraph
+          ? `当前回路还没有输出节点，在${nodeLabel(node)}输出端后添加一个线圈`
+          : `在${nodeLabel(node)}输出端后添加一个线圈`,
         addElement: coilElement(),
       }),
     );
@@ -279,7 +322,9 @@ function addFunctionBlockSuggestions(
       insertAfterNodeId: node.id,
       insertBeforeNodeId: first(node.to),
       portName: firstOutputPort,
-      text: `在${nodeLabel(node)}输出端后添加一个常开触点`,
+      text: rightText
+        ? `在${nodeLabel(node)}和${rightText}之间串联一个常开触点`
+        : `在${nodeLabel(node)}输出端后添加一个常开触点`,
       addElement: contactElement(),
     }),
   );
@@ -332,16 +377,20 @@ function addCoilSuggestions(
 function addInsertionPointSuggestions(
   suggestions: LocalSuggestion[],
   focus: FocusContext,
+  graphState: SegmentGraphState,
 ): void {
   const insertionPoint = focus.insertionPoint;
   if (!insertionPoint) {
     return;
   }
 
-  const target = findNode(focus.segment, first(insertionPoint.to));
-  const source = findNode(focus.segment, first(insertionPoint.from));
-  const targetText = target ? nodeLabel(target) : "末尾";
-  const sourceText = source ? nodeLabel(source) : "前置节点";
+  const target = firstRealNode(focus.segment, insertionPoint.to);
+  const source = firstRealNode(focus.segment, insertionPoint.from);
+  const targetText =
+    neighborListText(focus.segment, insertionPoint.to, "forward") || "末尾";
+  const sourceText =
+    neighborListText(focus.segment, insertionPoint.from, "backward") ||
+    "前置节点";
 
   if (target && isCoilKind(target.kind)) {
     suggestions.push(
@@ -380,6 +429,33 @@ function addInsertionPointSuggestions(
   }
 
   if (!target) {
+    if (graphState.isPartialGraph) {
+      suggestions.push(
+        makeSuggestion(focus, {
+          mode: "outputCoil",
+          relationToFocus: "atInsertionPoint",
+          insertAfterNodeId: first(insertionPoint.from),
+          text: `当前回路还没有输出节点，在${sourceText}后添加一个输出线圈`,
+          addElement: coilElement(),
+        }),
+        makeSuggestion(focus, {
+          mode: "outputFunctionBlock",
+          relationToFocus: "atInsertionPoint",
+          insertAfterNodeId: first(insertionPoint.from),
+          text: `当前回路还没有输出节点，在${sourceText}后添加一个功能块作为输出节点`,
+          addElement: functionBlockElement(),
+        }),
+        makeSuggestion(focus, {
+          mode: "seriesAfter",
+          relationToFocus: "atInsertionPoint",
+          insertAfterNodeId: first(insertionPoint.from),
+          text: `在${sourceText}后继续串联一个常开触点`,
+          addElement: contactElement(),
+        }),
+      );
+      return;
+    }
+
     suggestions.push(
       makeSuggestion(focus, {
         mode: "outputCoil",
@@ -400,6 +476,14 @@ function addInsertionPointSuggestions(
       insertBeforeNodeId: first(insertionPoint.to),
       text: `在${sourceText}和${targetText}之间串联一个常开触点`,
       addElement: contactElement(),
+    }),
+    makeSuggestion(focus, {
+      mode: "functionBlockAfter",
+      relationToFocus: "atInsertionPoint",
+      insertAfterNodeId: first(insertionPoint.from),
+      insertBeforeNodeId: first(insertionPoint.to),
+      text: `在${sourceText}和${targetText}之间插入一个功能块`,
+      addElement: functionBlockElement(),
     }),
   );
 }
@@ -698,7 +782,38 @@ function findNode(
   return segment.nodes.find((node) => node.id === nodeId);
 }
 
-function hasDownstreamCoil(
+function firstRealNode(
+  segment: DiagramSegmentSummary,
+  nodeIds: string[] | undefined,
+): DiagramNodeSummary | undefined {
+  return (nodeIds ?? [])
+    .map((nodeId) => findNode(segment, nodeId))
+    .find((node): node is DiagramNodeSummary =>
+      Boolean(node && isRealGraphElementKind(node.kind)),
+    );
+}
+
+function analyzeSegment(segment: DiagramSegmentSummary): SegmentGraphState {
+  const hasLogicNode = segment.nodes.some(
+    (node) => isContactKind(node.kind) || node.kind === "FBDCompartment",
+  );
+  const hasOutputNode = segment.nodes.some((node) => isOutputNodeKind(node.kind));
+
+  return {
+    hasLogicNode,
+    hasOutputNode,
+    isPartialGraph: hasLogicNode && !hasOutputNode,
+  };
+}
+
+function canAddOutputAfterNode(
+  segment: DiagramSegmentSummary,
+  node: DiagramNodeSummary,
+): boolean {
+  return !hasDownstreamOutputNode(segment, node.id);
+}
+
+function hasDownstreamOutputNode(
   segment: DiagramSegmentSummary,
   startNodeId: string,
 ): boolean {
@@ -717,7 +832,7 @@ function hasDownstreamCoil(
       continue;
     }
 
-    if (isCoilKind(node.kind)) {
+    if (isOutputNodeKind(node.kind)) {
       return true;
     }
 
@@ -725,6 +840,34 @@ function hasDownstreamCoil(
   }
 
   return false;
+}
+
+function dedupeSuggestions(suggestions: LocalSuggestion[]): LocalSuggestion[] {
+  const seen = new Set<string>();
+  const result: LocalSuggestion[] = [];
+
+  for (const suggestion of suggestions) {
+    const key = [
+      suggestion.mode,
+      suggestion.placement.relationToFocus,
+      suggestion.placement.insertAfterNodeId,
+      suggestion.placement.insertBeforeNodeId,
+      suggestion.placement.parallelToNodeId,
+      suggestion.placement.branchFromNodeId,
+      suggestion.placement.branchToNodeId,
+      suggestion.addElement.nodeType,
+      suggestion.addElement.blockType,
+    ].join("|");
+
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    result.push(suggestion);
+  }
+
+  return result;
 }
 
 function getFocusId(focus: FocusContext): string {
@@ -759,14 +902,61 @@ function nodeLabel(node: DiagramNodeSummary): string {
   }
 
   if (isCoilKind(node.kind)) {
-    return `${node.var || node.id} 线圈`;
+    return node.var ? `${node.var} 线圈` : "未命名线圈";
   }
 
   if (isContactKind(node.kind)) {
-    return `${node.var || node.id} 触点`;
+    return node.var ? `${node.var} 触点` : "未命名触点";
   }
 
   return node.var || node.instance || node.id;
+}
+
+function neighborListText(
+  segment: DiagramSegmentSummary,
+  nodeIds: string[] | undefined,
+  direction: "forward" | "backward",
+): string {
+  const labels = (nodeIds ?? [])
+    .map((nodeId) => findNearestDisplayNode(segment, nodeId, direction))
+    .filter((node): node is DiagramNodeSummary => Boolean(node))
+    .map((node) => nodeLabel(node));
+
+  if (!labels.length) {
+    return "";
+  }
+
+  return [...new Set(labels)].join(" / ");
+}
+
+function findNearestDisplayNode(
+  segment: DiagramSegmentSummary,
+  nodeId: string,
+  direction: "forward" | "backward",
+): DiagramNodeSummary | undefined {
+  const visited = new Set<string>();
+  const queue = [nodeId];
+
+  while (queue.length > 0) {
+    const currentId = queue.shift();
+    if (!currentId || visited.has(currentId)) {
+      continue;
+    }
+
+    visited.add(currentId);
+    const node = findNode(segment, currentId);
+    if (!node) {
+      continue;
+    }
+
+    if (isRealGraphElementKind(node.kind)) {
+      return node;
+    }
+
+    queue.push(...(direction === "forward" ? node.to : node.from));
+  }
+
+  return undefined;
 }
 
 function isContactKind(kind: string): boolean {
@@ -780,6 +970,10 @@ function isContactKind(kind: string): boolean {
 
 function isCoilKind(kind: string): boolean {
   return ["coil", "setCoil", "resetCoil"].includes(kind);
+}
+
+function isOutputNodeKind(kind: string): boolean {
+  return isCoilKind(kind) || kind === "FBDCompartment";
 }
 
 function isRealGraphElementKind(kind: string): boolean {
