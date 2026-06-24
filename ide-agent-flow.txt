@@ -1,0 +1,524 @@
+Ide-agent 调用流程说明
+======================
+
+一、整体定位
+------------
+
+Ide-agent 当前是一个 VS Code 插件项目。
+
+它主要包含三类能力：
+
+1. ST 文本行内补全
+   - 用于在 .st / Structured Text 文件里显示灰色幽灵文本。
+   - 当前走远端大模型。
+
+2. LD/FBD 大模型图建议
+   - 用于根据 ST 代码、图 JSON 拓扑、可选截图，让大模型返回图结构 suggestions。
+   - 当前走远端大模型。
+
+3. LD/FBD 本地图建议
+   - 用于根据 transLd.txt 图 JSON 和明确的节点/插入点，按本地规则生成 suggestions。
+   - 不请求大模型。
+
+
+二、ST 文本补全流程
+------------------
+
+触发方式：
+
+用户在 ST 文件中输入字符、按 Enter 换行，或者手动执行：
+
+Ide Agent: Trigger ST Completion
+
+完整流程：
+
+用户在 ST 文件里输入或换行
+  ↓
+VS Code 触发 Inline Completion 机制
+  ↓
+VS Code 调用 Ide-agent 注册的 STInlineCompletionProvider
+  ↓
+Ide-agent 判断当前文件语言是否匹配 ST
+  ↓
+Ide-agent 判断补全功能是否开启
+  ↓
+Ide-agent 分析当前 ST 上下文
+  ↓
+Ide-agent 拼接提示词 prompt
+  ↓
+Ide-agent 调用配置的大模型供应商
+  ↓
+大模型返回 ST 代码片段
+  ↓
+Ide-agent 清洗补全内容
+  ↓
+Ide-agent 返回 InlineCompletionItem 给 VS Code
+  ↓
+VS Code 在编辑器中显示灰色幽灵文本
+  ↓
+用户按 Tab 接受补全
+
+关键代码：
+
+src/extension.ts
+
+注册 ST 行内补全：
+
+vscode.languages.registerInlineCompletionItemProvider(
+  ST_DOCUMENT_SELECTOR,
+  provider
+)
+
+src/completion/STInlineCompletionProvider.ts
+
+核心入口：
+
+provideInlineCompletionItems(...)
+
+这里会完成：
+
+- 读取当前 ST 文档内容
+- 分析当前光标上下文
+- 判断是否自动触发
+- 构造 prompt
+- 调用 llmAdapter.complete(...)
+- 清洗模型返回内容
+- 返回 vscode.InlineCompletionItem
+
+是否请求大模型：
+
+是。
+
+请求大模型的位置：
+
+src/completion/STInlineCompletionProvider.ts
+
+rawCompletion = await llmAdapter.complete(messages, ...)
+
+大模型适配器来源：
+
+src/extension.ts
+
+getActiveLLMAdapter(context)
+
+当前支持的供应商：
+
+- SiliconFlow
+- Anthropic Compatible
+
+相关配置：
+
+ide-agent.completion.enabled
+ide-agent.completion.automatic
+ide-agent.completion.debug
+ide-agent.completion.maxContextLines
+ide-agent.completion.maxAfterLines
+ide-agent.completion.maxCompletionLines
+ide-agent.completion.requestTimeoutMs
+
+
+三、LD/FBD 大模型图建议流程
+---------------------------
+
+触发方式：
+
+用户在 Ide-agent 侧边栏点击：
+
+Graph Predict
+
+或者执行命令：
+
+Ide Agent: Predict LD/FBD Graph Completion
+
+如果需要截图辅助，则点击：
+
+Graph Predict + Image
+
+或者执行命令：
+
+Ide Agent: Predict LD/FBD Graph Completion With Screenshot
+
+完整流程：
+
+用户点击 Graph Predict / Graph Predict + Image
+  ↓
+ConfigPanelProvider 发送 triggerGraphCompletion 消息
+  ↓
+extension.ts 调用 graphCompletionService.predictFromActiveEditor()
+  ↓
+GraphCompletionService 读取当前打开的 ST 文件
+  ↓
+GraphCompletionService 读取 transLd.txt 图 JSON
+  ↓
+DiagramSummary.ts 把完整图 JSON 压缩成拓扑摘要
+  ↓
+如果是 Graph Predict + Image，则选择截图并转成模型可识别的图片输入
+  ↓
+GraphCompletionService 拼接 prompt
+  ↓
+Ide-agent 调用配置的大模型供应商
+  ↓
+大模型返回 graph suggestions JSON
+  ↓
+Ide-agent 提取并规范化 JSON
+  ↓
+Ide-agent 将 JSON 复制到剪贴板
+  ↓
+Ide-agent 在 Output 面板打印日志
+
+关键代码：
+
+src/extension.ts
+
+注册命令：
+
+vscode.commands.registerCommand(
+  'ide-agent.predictGraphCompletion',
+  () => graphCompletionService.predictFromActiveEditor()
+)
+
+vscode.commands.registerCommand(
+  'ide-agent.predictGraphCompletionWithScreenshot',
+  () => graphCompletionService.predictFromActiveEditor({ includeScreenshot: true })
+)
+
+src/graph/GraphCompletionService.ts
+
+核心入口：
+
+predictFromActiveEditor(...)
+
+读取当前 ST 文件：
+
+const document = editor.document;
+const stCode = document.getText();
+
+读取图 JSON：
+
+summary = await loadDiagramSummary(diagramPath);
+
+构造大模型 prompt：
+
+const messages = buildGraphCompletionPrompt(...)
+
+请求大模型：
+
+rawText = await llmAdapter.complete(messages, ...)
+
+规范化返回 JSON：
+
+const jsonText = normalizeGraphPredictionJson(extractJsonText(rawText));
+
+复制到剪贴板：
+
+void vscode.env.clipboard.writeText(jsonText);
+
+图 JSON 路径：
+
+src/diagram/DiagramSummary.ts
+
+DEFAULT_DIAGRAM_JSON_PATH =
+  "C:\\Users\\Administrator\\.vscode\\extensions\\ytak.devuni-ide-vscode-1.0.21\\tool\\iec-runtime-gen-run\\.depworkspace\\transLd.txt"
+
+ST 文件的作用：
+
+ST 文件主要提供逻辑语义，例如：
+
+- 当前 POU 名称
+- 变量声明
+- 当前生成代码段
+- 功能块调用
+- 线圈赋值表达式
+
+图 JSON 的作用：
+
+图 JSON 主要提供前端图结构，例如：
+
+- segmentId
+- 节点 id
+- 节点类型
+- 变量名
+- sourceIds / targetIds
+- 功能块输入输出端口
+- editRect / branchRect 插入点
+
+是否请求大模型：
+
+是。
+
+这条链路适合：
+
+- 让模型结合 ST 语义和图拓扑做更智能的图结构预测
+- 需要模型理解上下文、变量关系、功能块关系的场景
+
+问题：
+
+- 请求模型耗时较长
+- 如果带截图，耗时更长
+- 如果截图红框和图 JSON 焦点不一致，模型可能识别不稳定
+
+
+四、LD/FBD 本地图建议流程
+-------------------------
+
+触发方式：
+
+用户在 Ide-agent 侧边栏点击：
+
+Local Graph Suggest
+
+或者执行命令：
+
+Ide Agent: Local LD/FBD Suggestions
+
+完整流程：
+
+用户点击 Local Graph Suggest
+  ↓
+extension.ts 调用 localGraphSuggestionService.suggestFromActiveEditor()
+  ↓
+LocalGraphSuggestionService 读取 transLd.txt 图 JSON
+  ↓
+如果前端传了 selectedNodeId / selectedInsertionPointId / selectedVar，则直接使用
+  ↓
+如果当前没有前端传参，则弹输入框，让用户输入 nodeId、editRect id 或变量名
+  ↓
+LocalGraphSuggestionService 在图 JSON 中找到对应节点或插入点
+  ↓
+根据本地 IEC-61131 基础规则生成 suggestions
+  ↓
+Ide-agent 将 JSON 复制到剪贴板
+  ↓
+Ide-agent 在 Output 面板打印日志
+
+关键代码：
+
+src/extension.ts
+
+注册命令：
+
+vscode.commands.registerCommand(
+  'ide-agent.localGraphSuggestions',
+  () => localGraphSuggestionService.suggestFromActiveEditor()
+)
+
+src/graph/LocalGraphSuggestionService.ts
+
+核心入口：
+
+suggestFromActiveEditor(options)
+
+本地建议焦点来源：
+
+1. 前端或命令参数显式传入
+
+{
+  selectedNodeId: "contact-xxx"
+}
+
+或者：
+
+{
+  selectedInsertionPointId: "edit-node-rect"
+}
+
+或者：
+
+{
+  selectedVar: "j"
+}
+
+2. 当前测试阶段，如果没有前端传参，则弹输入框手动输入：
+
+- 节点 id
+- 插入点 id
+- 变量名
+
+例如：
+
+coil-57898079-1782202685942
+edit-node-rect
+j
+
+3. 如果输入找不到，再弹 QuickPick 从图 JSON 里选择节点或插入点。
+
+是否请求大模型：
+
+否。
+
+这条链路完全本地执行，速度基本是毫秒级。
+
+当前本地规则：
+
+1. 选中触点
+
+- 在当前触点前串联常开触点
+- 在当前触点后串联常开触点
+- 与当前触点并联常开触点
+- 与当前触点并联功能块
+
+2. 选中功能块
+
+- 在功能块 EN 前串联常开触点
+- 在功能块输出端后添加线圈
+- 在功能块输出端后添加触点
+- 给功能块输入端口补变量
+
+3. 选中线圈
+
+- 在线圈前串联常开触点
+- 与线圈并联输出线圈
+- 将线圈改成置位线圈
+- 在线圈前插入功能块
+
+4. 选中 editRect 插入点
+
+- 根据 sourceIds / targetIds 判断插入点位置
+- 如果目标是线圈，推荐在线圈前串联触点或功能块
+- 如果目标是功能块，推荐在功能块 EN 前串联触点
+- 如果在末尾，推荐添加输出线圈
+
+注意：
+
+本地规则功能不识图，也不依赖截图。
+
+它需要前端告诉 Ide-agent 当前选中的节点或插入点。
+
+当前没有前端对接时，用输入框手动输入来模拟前端传参。
+
+
+五、三条链路对比
+----------------
+
+1. ST 文本补全
+
+触发方式：
+
+自动触发或手动 Trigger
+
+输入：
+
+当前 ST 文件上下文
+
+输出：
+
+灰色行内文本
+
+是否请求大模型：
+
+是
+
+适合场景：
+
+预测后续 ST 代码片段
+
+
+2. LD/FBD 大模型图建议
+
+触发方式：
+
+Graph Predict / Graph Predict + Image
+
+输入：
+
+ST 文件 + transLd.txt 图 JSON + 可选截图
+
+输出：
+
+suggestions JSON
+
+是否请求大模型：
+
+是
+
+适合场景：
+
+需要结合 ST 语义和图拓扑做智能预测
+
+
+3. LD/FBD 本地图建议
+
+触发方式：
+
+Local Graph Suggest
+
+输入：
+
+transLd.txt 图 JSON + selectedNodeId / selectedInsertionPointId / selectedVar
+
+输出：
+
+suggestions JSON
+
+是否请求大模型：
+
+否
+
+适合场景：
+
+快速返回当前位置附近合法可添加的图结构建议
+
+
+六、后续前端对接建议
+--------------------
+
+前端最好在用户选中图元时，把当前焦点保存并传给 Ide-agent。
+
+建议传参：
+
+{
+  "selectedNodeId": "coil-57898079-1782202685942",
+  "selectedVar": "j",
+  "selectedNodeType": "coil"
+}
+
+如果选中的是插入点：
+
+{
+  "selectedInsertionPointId": "edit-node-rect"
+}
+
+这样本地规则不需要猜，也不需要识别截图。
+
+本地建议可以先立即返回给前端展示。
+
+如果还需要更智能的建议，可以再后台调用 LD/FBD 大模型图建议，返回后补充或替换本地建议。
+
+推荐体验：
+
+本地规则建议立即展示
+  ↓
+大模型建议后台请求
+  ↓
+模型返回后更新更智能的建议
+
+
+七、当前文件对应关系
+--------------------
+
+ST 文本补全：
+
+src/completion/STInlineCompletionProvider.ts
+src/completion/STContext.ts
+src/extension.ts
+
+LD/FBD 大模型图建议：
+
+src/graph/GraphCompletionService.ts
+src/graph/ScreenshotContext.ts
+src/diagram/DiagramSummary.ts
+src/extension.ts
+
+LD/FBD 本地图建议：
+
+src/graph/LocalGraphSuggestionService.ts
+src/diagram/DiagramSummary.ts
+src/extension.ts
+
+侧边栏 UI：
+
+src/ui/ConfigPanelProvider.ts
+
+配置和命令声明：
+
+package.json
