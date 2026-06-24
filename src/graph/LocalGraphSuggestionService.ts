@@ -205,6 +205,19 @@ function addContactSuggestions(suggestions: LocalSuggestion[], focus: FocusConte
       addElement: functionBlockElement(),
     })
   );
+
+  if (!hasDownstreamCoil(focus.segment, node.id)) {
+    suggestions.push(
+      makeSuggestion(focus, {
+        mode: 'outputCoil',
+        relationToFocus: 'afterSelected',
+        insertAfterNodeId: node.id,
+        insertBeforeNodeId: first(node.to),
+        text: `在${nodeLabel(node)}后添加一个输出线圈`,
+        addElement: coilElement(),
+      })
+    );
+  }
 }
 
 function addFunctionBlockSuggestions(suggestions: LocalSuggestion[], focus: FocusContext): void {
@@ -224,16 +237,24 @@ function addFunctionBlockSuggestions(suggestions: LocalSuggestion[], focus: Focu
       insertBeforeNodeId: node.id,
       text: `在${nodeLabel(node)}的 EN 前串联一个常开触点`,
       addElement: contactElement(),
-    }),
-    makeSuggestion(focus, {
-      mode: 'outputCoil',
-      relationToFocus: 'afterSelected',
-      insertAfterNodeId: node.id,
-      insertBeforeNodeId: first(node.to),
-      portName: firstOutputPort,
-      text: `在${nodeLabel(node)}输出端后添加一个线圈`,
-      addElement: coilElement(),
-    }),
+    })
+  );
+
+  if (!hasDownstreamCoil(focus.segment, node.id)) {
+    suggestions.push(
+      makeSuggestion(focus, {
+        mode: 'outputCoil',
+        relationToFocus: 'afterSelected',
+        insertAfterNodeId: node.id,
+        insertBeforeNodeId: first(node.to),
+        portName: firstOutputPort,
+        text: `在${nodeLabel(node)}输出端后添加一个线圈`,
+        addElement: coilElement(),
+      })
+    );
+  }
+
+  suggestions.push(
     makeSuggestion(focus, {
       mode: 'seriesAfter',
       relationToFocus: 'afterSelected',
@@ -327,15 +348,6 @@ function addInsertionPointSuggestions(suggestions: LocalSuggestion[], focus: Foc
         insertBeforeNodeId: target.id,
         text: `在${sourceText}和${targetText}之间插入一个功能块`,
         addElement: functionBlockElement(),
-      }),
-      makeSuggestion(focus, {
-        mode: 'parallelBranch',
-        relationToFocus: 'parallelWithSelected',
-        parallelToNodeId: target.id,
-        branchFromNodeId: first(target.from),
-        branchToNodeId: first(target.to),
-        text: `与${targetText}并联一个输出线圈`,
-        addElement: coilElement(),
       })
     );
     return;
@@ -645,6 +657,32 @@ function portVariableElement(): LocalSuggestion['addElement'] {
 
 function findNode(segment: DiagramSegmentSummary, nodeId: string): DiagramNodeSummary | undefined {
   return segment.nodes.find((node) => node.id === nodeId);
+}
+
+function hasDownstreamCoil(segment: DiagramSegmentSummary, startNodeId: string): boolean {
+  const visited = new Set<string>();
+  const queue = [...(findNode(segment, startNodeId)?.to ?? [])];
+
+  while (queue.length > 0) {
+    const nodeId = queue.shift();
+    if (!nodeId || visited.has(nodeId)) {
+      continue;
+    }
+
+    visited.add(nodeId);
+    const node = findNode(segment, nodeId);
+    if (!node) {
+      continue;
+    }
+
+    if (isCoilKind(node.kind)) {
+      return true;
+    }
+
+    queue.push(...node.to);
+  }
+
+  return false;
 }
 
 function getFocusId(focus: FocusContext): string {
