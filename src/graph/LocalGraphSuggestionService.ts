@@ -64,6 +64,17 @@ interface LocalSuggestion {
   };
 }
 
+const COMMON_FUNCTION_BLOCK_TYPES = [
+  "TON",
+  "TOF",
+  "TP",
+  "CTU",
+  "CTD",
+  "CTUD",
+  "SR",
+  "RS",
+];
+
 export class LocalGraphSuggestionService {
   constructor(private readonly outputChannel: vscode.OutputChannel) {}
 
@@ -507,6 +518,12 @@ function makeSuggestion(
     addElement: LocalSuggestion["addElement"];
   },
 ): LocalSuggestion {
+  const addElement = input.addElement;
+  const text =
+    addElement.nodeType === "functionBlock"
+      ? withFunctionBlockType(input.text, addElement.blockType)
+      : input.text;
+
   return {
     id: "",
     mode: input.mode,
@@ -521,9 +538,9 @@ function makeSuggestion(
       branchFromNodeId: input.branchFromNodeId ?? "",
       branchToNodeId: input.branchToNodeId ?? "",
       portName: input.portName ?? "",
-      text: input.text,
+      text,
     },
-    addElement: input.addElement,
+    addElement,
   };
 }
 
@@ -766,17 +783,31 @@ function setCoilElement(variableName = ""): LocalSuggestion["addElement"] {
 }
 
 function functionBlockElement(): LocalSuggestion["addElement"] {
+  const blockType = pickFunctionBlockType();
   return {
     nodeType: "functionBlock",
-    displayLabel: "功能块",
+    displayLabel: `${blockType} 功能块`,
     variableSource: "userInput",
     variableName: "",
-    dataType: "",
+    dataType: blockType,
     userInputRequired: true,
-    blockType: "",
+    blockType,
     instanceSource: "userInput",
     instanceName: "",
   };
+}
+
+function pickFunctionBlockType(): string {
+  const index = Math.floor(Math.random() * COMMON_FUNCTION_BLOCK_TYPES.length);
+  return COMMON_FUNCTION_BLOCK_TYPES[index] ?? "TON";
+}
+
+function withFunctionBlockType(text: string, blockType: string): string {
+  if (!text || !blockType) {
+    return text;
+  }
+
+  return text.replace(/一个\s*功能块/g, `一个 ${blockType} 功能块`);
 }
 
 function findNode(

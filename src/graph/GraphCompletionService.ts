@@ -5,6 +5,17 @@ import { loadLastScreenshot, pickScreenshot, ScreenshotContext } from './Screens
 
 type LLMAdapterGetter = () => Promise<LLMAdapter | null>;
 
+const COMMON_FUNCTION_BLOCK_TYPES = [
+  'TON',
+  'TOF',
+  'TP',
+  'CTU',
+  'CTD',
+  'CTUD',
+  'SR',
+  'RS',
+];
+
 export interface GraphCompletionResult {
   diagramPath: string;
   rawText: string;
@@ -174,7 +185,8 @@ function buildGraphCompletionPrompt(
     'Do not return vague element descriptions like just "contact".',
     'Every suggestion must include addElement with an exact nodeType, displayLabel, variableSource, variableName, dataType, and userInputRequired flag.',
     'If the variable name cannot be inferred with confidence, set variableSource to "userInput", variableName to an empty string, and userInputRequired to true.',
-    'For function blocks, include blockType and instanceSource. If the instance is unknown, set instanceSource to "userInput".',
+    'For function blocks, choose one concrete IEC function block type such as TON, TOF, TP, CTU, CTD, CTUD, SR, or RS. Include it in addElement.blockType, addElement.displayLabel, addElement.dataType, and placement.text. Do not say only "function block" or only "功能块".',
+    'For function blocks, include instanceSource. If the instance is unknown, set instanceSource to "userInput".',
     'The matchedNodeId and every non-empty placement node id must be ids from the realSelectableNodes list.',
     'Allowed suggestion node types: contact, negatedContact, risingContact, fallingContact, coil, setCoil, resetCoil, functionBlock, branch.',
   ].join('\n');
@@ -610,8 +622,8 @@ function normalizeSuggestion(
   summary: DiagramSummary,
   focus: Record<string, unknown>
 ): Record<string, unknown> {
-  const placement = normalizePlacement(suggestion, summary, focus);
   const addElement = normalizeAddElement(suggestion);
+  const placement = normalizePlacement(suggestion, summary, focus, addElement);
 
   return {
     id: asString(suggestion.id) || `option-${index + 1}`,
@@ -625,7 +637,8 @@ function normalizeSuggestion(
 function normalizePlacement(
   suggestion: Record<string, unknown>,
   summary: DiagramSummary,
-  focus: Record<string, unknown>
+  focus: Record<string, unknown>,
+  addElement: Record<string, unknown>
 ): Record<string, unknown> {
   const placement = asRecord(suggestion.placement) || {};
   const anchorNodeId = asString(placement.anchorNodeId) || asString(suggestion.anchorNodeId) || asString(focus.matchedNodeId);
@@ -641,10 +654,14 @@ function normalizePlacement(
   const insertAfterNodeId = normalizePlacementNodeId(segment, rawInsertAfterNodeId, 'backward');
   const insertBeforeNodeId = normalizePlacementNodeId(segment, rawInsertBeforeNodeId, 'forward');
   const parallelToNodeId = normalizePlacementNodeId(segment, rawParallelToNodeId, 'forward');
-  const text = cleanPlacementText(
+  const text = withFunctionBlockType(
+    cleanPlacementText(
     asString(placement.text) || asString(placement.positionText) || asString(suggestion.frontendHint),
     summary,
     segment,
+    ),
+    asString(addElement.nodeType),
+    asString(addElement.blockType),
   );
 
   return {
@@ -663,7 +680,7 @@ function normalizePlacement(
       insertAfterNodeId,
       insertBeforeNodeId,
       parallelToNodeId,
-      addElement: normalizeAddElement(suggestion),
+      addElement,
     }),
   };
 }
@@ -674,21 +691,63 @@ function normalizeAddElement(suggestion: Record<string, unknown>): Record<string
     || asRecord(asRecord(suggestion.parallelElement)?.newElement)
     || {};
   const parallelElement = asRecord(suggestion.parallelElement);
+  const nodeType = asString(addElement.nodeType) || asString(suggestion.addNodeType) || asString(parallelElement?.addNodeType);
+  const rawBlockType = asString(addElement.blockType) || asString(suggestion.addBlockType) || asString(parallelElement?.addBlockType);
+  const blockType = isSuggestedFunctionBlock(nodeType)
+    ? normalizeFunctionBlockType(rawBlockType) || inferFunctionBlockType(suggestion) || pickFunctionBlockType()
+    : rawBlockType;
 
   return {
-    nodeType: asString(addElement.nodeType) || asString(suggestion.addNodeType) || asString(parallelElement?.addNodeType),
-    displayLabel: normalizeElementDisplayLabel(
-      asString(addElement.nodeType) || asString(suggestion.addNodeType) || asString(parallelElement?.addNodeType),
+    nodeType,
+    displayLabel: isSuggestedFunctionBlock(nodeType)
+      ? functionBlockDisplayLabel(blockType)
+      : normalizeElementDisplayLabel(
+      nodeType,
       asString(addElement.displayLabel) || asString(suggestion.addNodeTypeLabel) || asString(parallelElement?.addNodeTypeLabel),
     ),
     variableSource: asString(addElement.variableSource) || 'userInput',
     variableName: normalizeMaybePlaceholder(asString(addElement.variableName)),
-    dataType: asString(addElement.dataType),
+    dataType: asString(addElement.dataType) || (isSuggestedFunctionBlock(nodeType) ? blockType : ''),
     userInputRequired: typeof addElement.userInputRequired === 'boolean' ? addElement.userInputRequired : true,
-    blockType: asString(addElement.blockType) || asString(suggestion.addBlockType) || asString(parallelElement?.addBlockType),
-    instanceSource: asString(addElement.instanceSource),
+    blockType,
+    instanceSource: asString(addElement.instanceSource) || (isSuggestedFunctionBlock(nodeType) ? 'userInput' : ''),
     instanceName: asString(addElement.instanceName),
   };
+}
+
+function isSuggestedFunctionBlock(nodeType: string): boolean {
+  return nodeType === 'functionBlock' || nodeType === 'FBDCompartment';
+}
+
+function functionBlockDisplayLabel(blockType: string): string {
+  return blockType ? `${blockType} 功能块` : '功能块';
+}
+
+function normalizeFunctionBlockType(blockType: string): string {
+  const upper = blockType.trim().toUpperCase();
+  return COMMON_FUNCTION_BLOCK_TYPES.find((type) => type === upper) ?? '';
+}
+
+function inferFunctionBlockType(suggestion: Record<string, unknown>): string {
+  const text = JSON.stringify(suggestion).toUpperCase();
+  return COMMON_FUNCTION_BLOCK_TYPES.find((type) => new RegExp(`(^|\\W)${type}(\\W|$)`).test(text)) ?? '';
+}
+
+function pickFunctionBlockType(): string {
+  const index = Math.floor(Math.random() * COMMON_FUNCTION_BLOCK_TYPES.length);
+  return COMMON_FUNCTION_BLOCK_TYPES[index] ?? 'TON';
+}
+
+function withFunctionBlockType(text: string, nodeType: string, blockType: string): string {
+  if (!text || !isSuggestedFunctionBlock(nodeType) || !blockType) {
+    return text;
+  }
+
+  if (COMMON_FUNCTION_BLOCK_TYPES.some((type) => text.includes(type))) {
+    return text;
+  }
+
+  return text.replace(/功能块/g, `${blockType} 功能块`);
 }
 
 function inferSuggestionMode(placement: Record<string, unknown>): string {
