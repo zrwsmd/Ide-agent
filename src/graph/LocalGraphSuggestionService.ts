@@ -558,8 +558,8 @@ async function resolveFocus(
     (await vscode.window.showInputBox({
       title: "Local LD/FBD Suggestions",
       prompt:
-        "输入前端选中的 nodeId、editRect id 或变量名。后续前端直接传 selectedNodeId 即可。",
-      placeHolder: "例如 coil-57898079-1782202685942 / edit-node-rect / j",
+        "输入前端选中的 nodeId 或变量名。后续前端直接传 selectedNodeId 即可。",
+      placeHolder: "例如 coil-57898079-1782202685942 / j",
       ignoreFocusOut: true,
     }));
 
@@ -579,7 +579,15 @@ async function resolveFocus(
     return { ...picked, source: "quickPick" };
   }
 
-  return fallback ? { ...fallback, source: "fallback" } : undefined;
+  if (fallback) {
+    const fallbackLabel = getFallbackFocusLabel(fallback);
+    void vscode.window.showInformationMessage(
+      `Ide Agent: no graph node was selected; using ${fallbackLabel} for local suggestions.`,
+    );
+    return { ...fallback, source: "fallback" };
+  }
+
+  return undefined;
 }
 
 function findFocusByOptions(
@@ -712,20 +720,15 @@ async function pickFocus(
   summary: DiagramSummary,
   fallback: Omit<FocusContext, "source"> | undefined,
 ): Promise<Omit<FocusContext, "source"> | undefined> {
-  const items = summary.segments.flatMap((segment) => [
-    ...segment.insertionPoints.map((insertionPoint) => ({
-      label: `插入点 ${insertionPoint.id}`,
-      description: `${insertionPoint.fromLabels.join(", ") || "start"} -> ${insertionPoint.toLabels.join(", ") || "end"}`,
-      focus: { segment, insertionPoint },
-    })),
-    ...segment.nodes
+  const items = summary.segments.flatMap((segment) =>
+    segment.nodes
       .filter((node) => isRealGraphElementKind(node.kind))
       .map((node) => ({
         label: nodeLabel(node),
         description: node.id,
         focus: { segment, node },
       })),
-  ]);
+  );
 
   if (!items.length) {
     return fallback;
@@ -733,7 +736,7 @@ async function pickFocus(
 
   const picked = await vscode.window.showQuickPick(items, {
     title: "Select LD/FBD node for local suggestions",
-    placeHolder: "Pick a graph node or insertion point from transLd.txt.",
+    placeHolder: "Pick a graph node from transLd.txt.",
     matchOnDescription: true,
   });
 
@@ -928,6 +931,20 @@ function getFocusVisualElement(focus: FocusContext): string {
   }
 
   return `${insertionPoint.kind} ${insertionPoint.fromLabels.join(", ") || "start"} -> ${insertionPoint.toLabels.join(", ") || "end"}`;
+}
+
+function getFallbackFocusLabel(
+  focus: Omit<FocusContext, "source">,
+): string {
+  if (focus.node) {
+    return nodeLabelWithSegment(focus.segment, focus.node);
+  }
+
+  if (focus.insertionPoint) {
+    return `${focus.insertionPoint.kind} ${focus.insertionPoint.id}`;
+  }
+
+  return "the first graph element";
 }
 
 function nodeLabel(node: DiagramNodeSummary): string {
