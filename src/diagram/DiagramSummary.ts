@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 
 export const DEFAULT_DIAGRAM_JSON_PATH =
-  "C:\\Users\\Administrator\\.vscode\\extensions\\ytak.devuni-ide-vscode-1.0.21\\tool\\iec-runtime-gen-run\\.depworkspace\\transLd2.txt";
+  "C:\\Users\\Administrator\\.vscode\\extensions\\ytak.devuni-ide-vscode-1.0.21\\tool\\iec-runtime-gen-run\\.depworkspace\\transLd.txt";
 
 export interface DiagramVariableSummary {
   name: string;
