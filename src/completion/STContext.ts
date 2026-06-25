@@ -141,30 +141,26 @@ export function buildSTCompletionContext(
 }
 
 export function shouldTriggerAutomatically(context: STCompletionContext): boolean {
-  const trimmedPrefix = context.currentLinePrefix.trim();
+  const linePrefix = context.currentLinePrefix;
+  const trimmedPrefix = linePrefix.trim();
   const previous = context.previousNonEmptyLine.trim();
 
+  // generate segment 内部：项目特有约定，Copilot 不懂，由 Ide Agent 全权接管
   if (context.openSegmentHeader && !isGenerateSegmentEnd(previous)) {
     return true;
   }
-
   if (isGenerateSegmentStart(previous)) {
     return true;
   }
 
-  if (trimmedPrefix.length === 0) {
-    return /(;|THEN|DO|ELSE|END_IF|END_CASE|END_FOR|\*\))$/i.test(previous);
-  }
-
-  if (trimmedPrefix.length < 2 && !/[().:=]/.test(trimmedPrefix)) {
+  // 用户正在输入字符（标识符、关键字、表达式中间）——交给 Copilot / IntelliSense，不抢戏
+  if (trimmedPrefix.length > 0) {
     return false;
   }
 
-  if (/^(IF|ELSIF|FOR|WHILE|CASE|REPEAT|[A-Za-z_][A-Za-z0-9_.]*\s*:?=|[A-Za-z_][A-Za-z0-9_.]*\()$/i.test(trimmedPrefix)) {
-    return true;
-  }
-
-  return context.region === 'code' && /[.;)]$/.test(trimmedPrefix);
+  // 光标在干净的新行/缩进位置：只在上一行是语义完整的边界时触发
+  // 即用户刚写完一段、准备起新内容
+  return /(;|\bTHEN|\bDO|\bELSE|\bEND_IF|\bEND_CASE|\bEND_FOR|\bEND_WHILE|\bEND_REPEAT|\*\))$/i.test(previous);
 }
 
 export function formatSymbols(symbols: STSymbol[]): string {
