@@ -27,6 +27,7 @@ export interface LLMOptions {
   maxTokens?: number;
   stopSequences?: string[];
   timeoutMs?: number;
+  signal?: AbortSignal;
 }
 
 export interface LLMConfig {

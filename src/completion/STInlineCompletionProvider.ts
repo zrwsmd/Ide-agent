@@ -24,6 +24,7 @@ export class STInlineCompletionProvider implements vscode.InlineCompletionItemPr
         createdAt: number;
       }
     | undefined;
+  private currentRequestController?: AbortController;
 
   constructor(
     private readonly getLLMAdapter: LLMAdapterGetter,
@@ -98,6 +99,19 @@ export class STInlineCompletionProvider implements vscode.InlineCompletionItemPr
       this.lastAutomaticRequestAt = Date.now();
     }
 
+    // 取消上一个还在飞的请求，避免并发堆积
+    if (this.currentRequestController) {
+      this.log(options, 'aborting previous in-flight LLM request');
+      this.currentRequestController.abort();
+    }
+    const requestController = new AbortController();
+    this.currentRequestController = requestController;
+
+    // 把 VS Code 的取消信号绑到本次请求的 controller 上
+    const tokenSubscription = token.onCancellationRequested(() => {
+      requestController.abort();
+    });
+
     const messages = buildPrompt(completionContext, options);
     let rawCompletion = '';
 
@@ -108,11 +122,21 @@ export class STInlineCompletionProvider implements vscode.InlineCompletionItemPr
         maxTokens: Math.min(1600, Math.max(320, options.maxCompletionLines * 80)),
         stopSequences: ['```', '\nExplanation:', '\nNotes:'],
         timeoutMs: options.requestTimeoutMs,
+        signal: requestController.signal,
       });
       this.log(options, `LLM returned chars=${rawCompletion.length} preview=${JSON.stringify(rawCompletion.slice(0, 180))}`);
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        this.log(options, 'LLM request aborted (cancelled or superseded)');
+        return undefined;
+      }
       this.log(options, `error: LLM request failed: ${formatUnknownError(error)}`);
       return undefined;
+    } finally {
+      tokenSubscription.dispose();
+      if (this.currentRequestController === requestController) {
+        this.currentRequestController = undefined;
+      }
     }
 
     const completion = sanitizeCompletion(rawCompletion, completionContext, options.maxCompletionLines);
