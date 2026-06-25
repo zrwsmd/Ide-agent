@@ -211,44 +211,81 @@ function addContactSuggestions(
     return;
   }
 
-  const leftText = neighborListText(focus.segment, node.from, "backward");
-  const rightText = neighborListText(focus.segment, node.to, "forward");
+  const leftNodes = neighborNodes(focus.segment, node.from, "backward");
+  const rightNodes = neighborNodes(focus.segment, node.to, "forward");
   const nodeText = nodeLabelWithSegment(focus.segment, node);
-  const beforeText = leftText
-    ? `在${leftText}和${nodeText}之间串联一个常开触点`
-    : `在${nodeText}前串联一个常开触点`;
-  const afterText = rightText
-    ? `在${nodeText}和${rightText}之间串联一个常开触点`
-    : `在${nodeText}后串联一个常开触点`;
-  const functionBlockAfterText = rightText
-    ? `在${nodeText}和${rightText}之间插入一个功能块`
-    : `在${nodeText}后串联一个功能块`;
+
+  if (leftNodes.length) {
+    for (const leftNode of leftNodes) {
+      const leftText = nodeLabelWithSegment(focus.segment, leftNode);
+      suggestions.push(
+        makeSuggestion(focus, {
+          mode: "seriesBefore",
+          relationToFocus: "beforeSelected",
+          insertAfterNodeId: leftNode.id,
+          insertBeforeNodeId: node.id,
+          text: `在${leftText}和${nodeText}之间串联一个常开触点`,
+          addElement: contactElement(),
+        }),
+      );
+    }
+  } else {
+    suggestions.push(
+      makeSuggestion(focus, {
+        mode: "seriesBefore",
+        relationToFocus: "beforeSelected",
+        insertAfterNodeId: first(node.from),
+        insertBeforeNodeId: node.id,
+        text: `在${nodeText}前串联一个常开触点`,
+        addElement: contactElement(),
+      }),
+    );
+  }
+
+  if (rightNodes.length) {
+    for (const rightNode of rightNodes) {
+      const rightText = nodeLabelWithSegment(focus.segment, rightNode);
+      suggestions.push(
+        makeSuggestion(focus, {
+          mode: "seriesAfter",
+          relationToFocus: "afterSelected",
+          insertAfterNodeId: node.id,
+          insertBeforeNodeId: rightNode.id,
+          text: `在${nodeText}和${rightText}之间串联一个常开触点`,
+          addElement: contactElement(),
+        }),
+        makeSuggestion(focus, {
+          mode: "functionBlockAfter",
+          relationToFocus: "afterSelected",
+          insertAfterNodeId: node.id,
+          insertBeforeNodeId: rightNode.id,
+          text: `在${nodeText}和${rightText}之间插入一个功能块`,
+          addElement: functionBlockElement(),
+        }),
+      );
+    }
+  } else {
+    suggestions.push(
+      makeSuggestion(focus, {
+        mode: "seriesAfter",
+        relationToFocus: "afterSelected",
+        insertAfterNodeId: node.id,
+        insertBeforeNodeId: first(node.to),
+        text: `在${nodeText}后串联一个常开触点`,
+        addElement: contactElement(),
+      }),
+      makeSuggestion(focus, {
+        mode: "functionBlockAfter",
+        relationToFocus: "afterSelected",
+        insertAfterNodeId: node.id,
+        insertBeforeNodeId: first(node.to),
+        text: `在${nodeText}后串联一个功能块`,
+        addElement: functionBlockElement(),
+      }),
+    );
+  }
 
   suggestions.push(
-    makeSuggestion(focus, {
-      mode: "seriesBefore",
-      relationToFocus: "beforeSelected",
-      insertAfterNodeId: first(node.from),
-      insertBeforeNodeId: node.id,
-      text: beforeText,
-      addElement: contactElement(),
-    }),
-    makeSuggestion(focus, {
-      mode: "seriesAfter",
-      relationToFocus: "afterSelected",
-      insertAfterNodeId: node.id,
-      insertBeforeNodeId: first(node.to),
-      text: afterText,
-      addElement: contactElement(),
-    }),
-    makeSuggestion(focus, {
-      mode: "functionBlockAfter",
-      relationToFocus: "afterSelected",
-      insertAfterNodeId: node.id,
-      insertBeforeNodeId: first(node.to),
-      text: functionBlockAfterText,
-      addElement: functionBlockElement(),
-    }),
     makeSuggestion(focus, {
       mode: "parallelBranch",
       relationToFocus: "parallelWithSelected",
@@ -296,21 +333,36 @@ function addFunctionBlockSuggestions(
   }
 
   const firstOutputPort = Object.keys(node.outputs ?? {})[0] ?? "";
-  const leftText = neighborListText(focus.segment, node.from, "backward");
-  const rightText = neighborListText(focus.segment, node.to, "forward");
+  const leftNodes = neighborNodes(focus.segment, node.from, "backward");
+  const rightNodes = neighborNodes(focus.segment, node.to, "forward");
   const nodeText = nodeLabelWithSegment(focus.segment, node);
-  suggestions.push(
-    makeSuggestion(focus, {
-      mode: "seriesBefore",
-      relationToFocus: "beforeSelected",
-      insertAfterNodeId: first(node.from),
-      insertBeforeNodeId: node.id,
-      text: leftText
-        ? `在${leftText}和${nodeText}之间串联一个常开触点`
-        : `在${nodeText}前串联一个常开触点`,
-      addElement: contactElement(),
-    }),
-  );
+
+  if (leftNodes.length) {
+    for (const leftNode of leftNodes) {
+      const leftText = nodeLabelWithSegment(focus.segment, leftNode);
+      suggestions.push(
+        makeSuggestion(focus, {
+          mode: "seriesBefore",
+          relationToFocus: "beforeSelected",
+          insertAfterNodeId: leftNode.id,
+          insertBeforeNodeId: node.id,
+          text: `在${leftText}和${nodeText}之间串联一个常开触点`,
+          addElement: contactElement(),
+        }),
+      );
+    }
+  } else {
+    suggestions.push(
+      makeSuggestion(focus, {
+        mode: "seriesBefore",
+        relationToFocus: "beforeSelected",
+        insertAfterNodeId: first(node.from),
+        insertBeforeNodeId: node.id,
+        text: `在${nodeText}前串联一个常开触点`,
+        addElement: contactElement(),
+      }),
+    );
+  }
 
   if (canAddOutputAfterNode(focus.segment, node)) {
     suggestions.push(
@@ -328,19 +380,34 @@ function addFunctionBlockSuggestions(
     );
   }
 
-  suggestions.push(
-    makeSuggestion(focus, {
-      mode: "seriesAfter",
-      relationToFocus: "afterSelected",
-      insertAfterNodeId: node.id,
-      insertBeforeNodeId: first(node.to),
-      portName: firstOutputPort,
-      text: rightText
-        ? `在${nodeText}和${rightText}之间串联一个常开触点`
-        : `在${nodeText}输出端后添加一个常开触点`,
-      addElement: contactElement(),
-    }),
-  );
+  if (rightNodes.length) {
+    for (const rightNode of rightNodes) {
+      const rightText = nodeLabelWithSegment(focus.segment, rightNode);
+      suggestions.push(
+        makeSuggestion(focus, {
+          mode: "seriesAfter",
+          relationToFocus: "afterSelected",
+          insertAfterNodeId: node.id,
+          insertBeforeNodeId: rightNode.id,
+          portName: firstOutputPort,
+          text: `在${nodeText}和${rightText}之间串联一个常开触点`,
+          addElement: contactElement(),
+        }),
+      );
+    }
+  } else {
+    suggestions.push(
+      makeSuggestion(focus, {
+        mode: "seriesAfter",
+        relationToFocus: "afterSelected",
+        insertAfterNodeId: node.id,
+        insertBeforeNodeId: first(node.to),
+        portName: firstOutputPort,
+        text: `在${nodeText}输出端后添加一个常开触点`,
+        addElement: contactElement(),
+      }),
+    );
+  }
 }
 
 function addCoilSuggestions(
@@ -989,16 +1056,36 @@ function neighborListText(
   nodeIds: string[] | undefined,
   direction: "forward" | "backward",
 ): string {
-  const labels = (nodeIds ?? [])
-    .map((nodeId) => findNearestDisplayNode(segment, nodeId, direction))
-    .filter((node): node is DiagramNodeSummary => Boolean(node))
-    .map((node) => nodeLabelWithSegment(segment, node));
+  const labels = neighborNodes(segment, nodeIds, direction).map((node) =>
+    nodeLabelWithSegment(segment, node),
+  );
 
   if (!labels.length) {
     return "";
   }
 
   return [...new Set(labels)].join(" / ");
+}
+
+function neighborNodes(
+  segment: DiagramSegmentSummary,
+  nodeIds: string[] | undefined,
+  direction: "forward" | "backward",
+): DiagramNodeSummary[] {
+  const seen = new Set<string>();
+  const nodes: DiagramNodeSummary[] = [];
+
+  for (const nodeId of nodeIds ?? []) {
+    const node = findNearestDisplayNode(segment, nodeId, direction);
+    if (!node || seen.has(node.id)) {
+      continue;
+    }
+
+    seen.add(node.id);
+    nodes.push(node);
+  }
+
+  return nodes;
 }
 
 function findNearestDisplayNode(
