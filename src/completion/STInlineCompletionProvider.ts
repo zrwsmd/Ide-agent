@@ -263,11 +263,9 @@ function sanitizeCompletion(
   completion = removeIntroductoryText(completion);
   completion = removeGenerateSegmentMarkerLines(completion);
 
-  const trimmedLinePrefix = context.currentLinePrefix.trim();
-  if (trimmedLinePrefix && completion.startsWith(trimmedLinePrefix)) {
-    completion = completion.slice(trimmedLinePrefix.length);
-  } else if (context.currentTokenPrefix && completion.startsWith(context.currentTokenPrefix)) {
-    completion = completion.slice(context.currentTokenPrefix.length);
+  completion = stripRepeatedPrefix(completion, context.currentLinePrefix);
+  if (!completion.trim() && context.currentTokenPrefix) {
+    completion = stripRepeatedPrefix(rawCompletion, context.currentTokenPrefix);
   }
 
   completion = limitLines(completion.trimEnd(), maxCompletionLines);
@@ -308,7 +306,38 @@ function removePouClosingLines(text: string): string {
 }
 
 function looksLikeSTLine(line: string): boolean {
-  return /^(IF|ELSIF|ELSE|END_IF|FOR|WHILE|CASE|REPEAT|[A-Za-z_][A-Za-z0-9_.]*\s*(?::=|\(|:)|\(\*)/i.test(line);
+  return /^(IF|ELSIF|ELSE|END_IF|FOR|WHILE|CASE|REPEAT|RETURN\b|EXIT\b|CONTINUE\b|[A-Za-z_][A-Za-z0-9_.]*\s*(?::=|\(|:)|\(\*)/i.test(line);
+}
+
+function stripRepeatedPrefix(text: string, prefix: string): string {
+  const normalizedPrefix = prefix.replace(/\r\n/g, '\n');
+  if (!normalizedPrefix) {
+    return text;
+  }
+
+  const lines = text.split('\n');
+  const firstLine = lines[0] ?? '';
+  const firstLinePrefix = longestCommonPrefix(firstLine, normalizedPrefix);
+
+  if (!firstLinePrefix || firstLinePrefix.length < Math.min(firstLine.length, normalizedPrefix.length)) {
+    return text;
+  }
+
+  const leading = firstLine.slice(0, firstLinePrefix.length);
+  if (firstLinePrefix !== leading) {
+    return text;
+  }
+
+  return firstLine.slice(firstLinePrefix.length) + (lines.length > 1 ? `\n${lines.slice(1).join('\n')}` : '');
+}
+
+function longestCommonPrefix(left: string, right: string): string {
+  const limit = Math.min(left.length, right.length);
+  let index = 0;
+  while (index < limit && left[index] === right[index]) {
+    index += 1;
+  }
+  return left.slice(0, index);
 }
 
 function removeTrailingFence(text: string): string {
