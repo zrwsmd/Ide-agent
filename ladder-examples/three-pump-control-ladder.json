@@ -1,0 +1,2204 @@
+[
+  {
+    "id": "segment-12345678-1735545600000",
+    "label": "",
+    "note": "",
+    "height": 82,
+    "width": 600,
+    "isExpand": true,
+    "nodesObj": {
+      "start-node-line": {
+        "id": "start-node-line",
+        "type": "startLine",
+        "Xlayer": 0,
+        "Ylayer": 0,
+        "sourceIds": [],
+        "targetIds": ["contact-10000001-1735545600001"]
+      },
+      "contact-10000001-1735545600001": {
+        "id": "contact-10000001-1735545600001",
+        "type": "contact",
+        "sourceIds": ["start-node-line"],
+        "targetIds": ["contact-10000002-1735545600002"],
+        "varName": {
+          "name": "",
+          "value": "SystemStart",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-10000002-1735545600002": {
+        "id": "contact-10000002-1735545600002",
+        "type": "negatedContact",
+        "sourceIds": ["contact-10000001-1735545600001"],
+        "targetIds": ["contact-10000003-1735545600003"],
+        "varName": {
+          "name": "",
+          "value": "EmergencyStop",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-10000003-1735545600003": {
+        "id": "contact-10000003-1735545600003",
+        "type": "contact",
+        "sourceIds": ["contact-10000002-1735545600002"],
+        "targetIds": ["edit-node-rect"],
+        "varName": {
+          "name": "",
+          "value": "SystemRun",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "edit-node-rect": {
+        "id": "edit-node-rect",
+        "type": "editRect",
+        "sourceIds": ["contact-10000003-1735545600003"],
+        "targetIds": ["coil-10000004-1735545600004"],
+        "children": [
+          {
+            "id": "edit-node-rect-left-port",
+            "type": "node:edgePort",
+            "side": "left",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-left-port"],
+            "position": {"x": -45, "y": 0},
+            "size": {"width": 45, "height": 22}
+          },
+          {
+            "id": "edit-node-rect-bottom-port",
+            "type": "node:edgeBottomPort",
+            "side": "bottom",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-bottom-port"],
+            "position": {"x": 0, "y": 0},
+            "size": {"width": 70, "height": 22}
+          }
+        ]
+      },
+      "coil-10000004-1735545600004": {
+        "id": "coil-10000004-1735545600004",
+        "type": "coil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "SystemRun",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      }
+    }
+  },
+  {
+    "id": "segment-12345679-1735545600010",
+    "label": "",
+    "note": "",
+    "height": 82,
+    "width": 800,
+    "isExpand": true,
+    "nodesObj": {
+      "start-node-line": {
+        "id": "start-node-line",
+        "type": "startLine",
+        "Xlayer": 0,
+        "Ylayer": 0,
+        "sourceIds": [],
+        "targetIds": ["contact-20000001-1735545600011"]
+      },
+      "contact-20000001-1735545600011": {
+        "id": "contact-20000001-1735545600011",
+        "type": "contact",
+        "sourceIds": ["start-node-line"],
+        "targetIds": ["contact-20000002-1735545600012"],
+        "varName": {
+          "name": "",
+          "value": "SystemRun",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-20000002-1735545600012": {
+        "id": "contact-20000002-1735545600012",
+        "type": "contact",
+        "sourceIds": ["contact-20000001-1735545600011"],
+        "targetIds": ["contact-20000003-1735545600013"],
+        "varName": {
+          "name": "",
+          "value": "LevelLow",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-20000003-1735545600013": {
+        "id": "contact-20000003-1735545600013",
+        "type": "negatedContact",
+        "sourceIds": ["contact-20000002-1735545600012"],
+        "targetIds": ["contact-20000004-1735545600014"],
+        "varName": {
+          "name": "",
+          "value": "Pump1Overload",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-20000004-1735545600014": {
+        "id": "contact-20000004-1735545600014",
+        "type": "contact",
+        "sourceIds": ["contact-20000003-1735545600013"],
+        "targetIds": ["edit-node-rect"],
+        "varName": {
+          "name": "",
+          "value": "Pump1Run",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "edit-node-rect": {
+        "id": "edit-node-rect",
+        "type": "editRect",
+        "sourceIds": ["contact-20000004-1735545600014"],
+        "targetIds": ["coil-20000005-1735545600015"],
+        "children": [
+          {
+            "id": "edit-node-rect-left-port",
+            "type": "node:edgePort",
+            "side": "left",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-left-port"],
+            "position": {"x": -45, "y": 0},
+            "size": {"width": 45, "height": 22}
+          },
+          {
+            "id": "edit-node-rect-bottom-port",
+            "type": "node:edgeBottomPort",
+            "side": "bottom",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-bottom-port"],
+            "position": {"x": 0, "y": 0},
+            "size": {"width": 70, "height": 22}
+          }
+        ]
+      },
+      "coil-20000005-1735545600015": {
+        "id": "coil-20000005-1735545600015",
+        "type": "coil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "Pump1Run",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      }
+    }
+  },
+  {
+    "id": "segment-12345680-1735545600020",
+    "label": "",
+    "note": "",
+    "height": 82,
+    "width": 800,
+    "isExpand": true,
+    "nodesObj": {
+      "start-node-line": {
+        "id": "start-node-line",
+        "type": "startLine",
+        "Xlayer": 0,
+        "Ylayer": 0,
+        "sourceIds": [],
+        "targetIds": ["contact-30000001-1735545600021"]
+      },
+      "contact-30000001-1735545600021": {
+        "id": "contact-30000001-1735545600021",
+        "type": "contact",
+        "sourceIds": ["start-node-line"],
+        "targetIds": ["contact-30000002-1735545600022"],
+        "varName": {
+          "name": "",
+          "value": "SystemRun",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-30000002-1735545600022": {
+        "id": "contact-30000002-1735545600022",
+        "type": "contact",
+        "sourceIds": ["contact-30000001-1735545600021"],
+        "targetIds": ["contact-30000003-1735545600023"],
+        "varName": {
+          "name": "",
+          "value": "LevelHigh",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-30000003-1735545600023": {
+        "id": "contact-30000003-1735545600023",
+        "type": "negatedContact",
+        "sourceIds": ["contact-30000002-1735545600022"],
+        "targetIds": ["contact-30000004-1735545600024"],
+        "varName": {
+          "name": "",
+          "value": "Pump2Overload",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-30000004-1735545600024": {
+        "id": "contact-30000004-1735545600024",
+        "type": "contact",
+        "sourceIds": ["contact-30000003-1735545600023"],
+        "targetIds": ["edit-node-rect"],
+        "varName": {
+          "name": "",
+          "value": "Pump2Run",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "edit-node-rect": {
+        "id": "edit-node-rect",
+        "type": "editRect",
+        "sourceIds": ["contact-30000004-1735545600024"],
+        "targetIds": ["coil-30000005-1735545600025"],
+        "children": [
+          {
+            "id": "edit-node-rect-left-port",
+            "type": "node:edgePort",
+            "side": "left",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-left-port"],
+            "position": {"x": -45, "y": 0},
+            "size": {"width": 45, "height": 22}
+          },
+          {
+            "id": "edit-node-rect-bottom-port",
+            "type": "node:edgeBottomPort",
+            "side": "bottom",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-bottom-port"],
+            "position": {"x": 0, "y": 0},
+            "size": {"width": 70, "height": 22}
+          }
+        ]
+      },
+      "coil-30000005-1735545600025": {
+        "id": "coil-30000005-1735545600025",
+        "type": "coil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "Pump2Run",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      }
+    }
+  },
+  {
+    "id": "segment-12345681-1735545600030",
+    "label": "",
+    "note": "",
+    "height": 82,
+    "width": 800,
+    "isExpand": true,
+    "nodesObj": {
+      "start-node-line": {
+        "id": "start-node-line",
+        "type": "startLine",
+        "Xlayer": 0,
+        "Ylayer": 0,
+        "sourceIds": [],
+        "targetIds": ["contact-40000001-1735545600031"]
+      },
+      "contact-40000001-1735545600031": {
+        "id": "contact-40000001-1735545600031",
+        "type": "contact",
+        "sourceIds": ["start-node-line"],
+        "targetIds": ["contact-40000002-1735545600032"],
+        "varName": {
+          "name": "",
+          "value": "SystemRun",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-40000002-1735545600032": {
+        "id": "contact-40000002-1735545600032",
+        "type": "contact",
+        "sourceIds": ["contact-40000001-1735545600031"],
+        "targetIds": ["contact-40000003-1735545600033"],
+        "varName": {
+          "name": "",
+          "value": "LevelUltraHigh",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-40000003-1735545600033": {
+        "id": "contact-40000003-1735545600033",
+        "type": "negatedContact",
+        "sourceIds": ["contact-40000002-1735545600032"],
+        "targetIds": ["contact-40000004-1735545600034"],
+        "varName": {
+          "name": "",
+          "value": "Pump3Overload",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-40000004-1735545600034": {
+        "id": "contact-40000004-1735545600034",
+        "type": "contact",
+        "sourceIds": ["contact-40000003-1735545600033"],
+        "targetIds": ["edit-node-rect"],
+        "varName": {
+          "name": "",
+          "value": "Pump3Run",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "edit-node-rect": {
+        "id": "edit-node-rect",
+        "type": "editRect",
+        "sourceIds": ["contact-40000004-1735545600034"],
+        "targetIds": ["coil-40000005-1735545600035"],
+        "children": [
+          {
+            "id": "edit-node-rect-left-port",
+            "type": "node:edgePort",
+            "side": "left",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-left-port"],
+            "position": {"x": -45, "y": 0},
+            "size": {"width": 45, "height": 22}
+          },
+          {
+            "id": "edit-node-rect-bottom-port",
+            "type": "node:edgeBottomPort",
+            "side": "bottom",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-bottom-port"],
+            "position": {"x": 0, "y": 0},
+            "size": {"width": 70, "height": 22}
+          }
+        ]
+      },
+      "coil-40000005-1735545600035": {
+        "id": "coil-40000005-1735545600035",
+        "type": "coil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "Pump3Run",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      }
+    }
+  },
+  {
+    "id": "segment-12345682-1735545600040",
+    "label": "",
+    "note": "",
+    "height": 436,
+    "width": 1000,
+    "isExpand": true,
+    "nodesObj": {
+      "start-node-line": {
+        "id": "start-node-line",
+        "type": "startLine",
+        "Xlayer": 0,
+        "Ylayer": 0,
+        "sourceIds": [],
+        "targetIds": ["contact-50000001-1735545600041"]
+      },
+      "contact-50000001-1735545600041": {
+        "id": "contact-50000001-1735545600041",
+        "type": "contact",
+        "sourceIds": ["start-node-line"],
+        "targetIds": ["FBD-compartment-TON-50000002-1735545600042"],
+        "varName": {
+          "name": "",
+          "value": "Pump1Run",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "FBD-compartment-TON-50000002-1735545600042": {
+        "id": "FBD-compartment-TON-50000002-1735545600042",
+        "type": "FBDCompartment",
+        "sourceIds": ["contact-50000001-1735545600041"],
+        "targetIds": ["edit-node-rect"],
+        "childrenNode": {
+          "type": "TON",
+          "isFunction": false,
+          "portInputs": [
+            {
+              "name": "EN",
+              "value": "",
+              "scope": "",
+              "type": "BOOL"
+            },
+            {
+              "name": "IN",
+              "value": "TRUE",
+              "scope": "VAR",
+              "type": "BOOL"
+            },
+            {
+              "name": "PT",
+              "value": "T#300s",
+              "scope": "VAR",
+              "type": "TIME"
+            }
+          ],
+          "portOutputs": [
+            {
+              "name": "ENO",
+              "value": "",
+              "scope": "",
+              "type": "BOOL"
+            },
+            {
+              "name": "Q",
+              "value": "Pump1MinRunDone",
+              "scope": "VAR",
+              "type": "BOOL"
+            },
+            {
+              "name": "ET",
+              "value": "Pump1RunTime",
+              "scope": "VAR",
+              "type": "TIME"
+            }
+          ],
+          "varName": {
+            "name": "",
+            "value": "Pump1Timer",
+            "type": "TON",
+            "scope": "VAR"
+          }
+        }
+      },
+      "edit-node-rect": {
+        "id": "edit-node-rect",
+        "type": "editRect",
+        "sourceIds": ["FBD-compartment-TON-50000002-1735545600042"],
+        "targetIds": ["coil-50000003-1735545600043"],
+        "children": [
+          {
+            "id": "edit-node-rect-left-port",
+            "type": "node:edgePort",
+            "side": "left",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-left-port"],
+            "position": {"x": -45, "y": 0},
+            "size": {"width": 45, "height": 22}
+          },
+          {
+            "id": "edit-node-rect-bottom-port",
+            "type": "node:edgeBottomPort",
+            "side": "bottom",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-bottom-port"],
+            "position": {"x": 0, "y": 0},
+            "size": {"width": 70, "height": 22}
+          }
+        ]
+      },
+      "coil-50000003-1735545600043": {
+        "id": "coil-50000003-1735545600043",
+        "type": "coil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "Pump1RunStatus",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      }
+    }
+  },
+  {
+    "id": "segment-12345683-1735545600050",
+    "label": "",
+    "note": "",
+    "height": 436,
+    "width": 1000,
+    "isExpand": true,
+    "nodesObj": {
+      "start-node-line": {
+        "id": "start-node-line",
+        "type": "startLine",
+        "Xlayer": 0,
+        "Ylayer": 0,
+        "sourceIds": [],
+        "targetIds": ["contact-60000001-1735545600051"]
+      },
+      "contact-60000001-1735545600051": {
+        "id": "contact-60000001-1735545600051",
+        "type": "contact",
+        "sourceIds": ["start-node-line"],
+        "targetIds": ["FBD-compartment-TON-60000002-1735545600052"],
+        "varName": {
+          "name": "",
+          "value": "Pump2Run",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "FBD-compartment-TON-60000002-1735545600052": {
+        "id": "FBD-compartment-TON-60000002-1735545600052",
+        "type": "FBDCompartment",
+        "sourceIds": ["contact-60000001-1735545600051"],
+        "targetIds": ["edit-node-rect"],
+        "childrenNode": {
+          "type": "TON",
+          "isFunction": false,
+          "portInputs": [
+            {
+              "name": "EN",
+              "value": "",
+              "scope": "",
+              "type": "BOOL"
+            },
+            {
+              "name": "IN",
+              "value": "TRUE",
+              "scope": "VAR",
+              "type": "BOOL"
+            },
+            {
+              "name": "PT",
+              "value": "T#300s",
+              "scope": "VAR",
+              "type": "TIME"
+            }
+          ],
+          "portOutputs": [
+            {
+              "name": "ENO",
+              "value": "",
+              "scope": "",
+              "type": "BOOL"
+            },
+            {
+              "name": "Q",
+              "value": "Pump2MinRunDone",
+              "scope": "VAR",
+              "type": "BOOL"
+            },
+            {
+              "name": "ET",
+              "value": "Pump2RunTime",
+              "scope": "VAR",
+              "type": "TIME"
+            }
+          ],
+          "varName": {
+            "name": "",
+            "value": "Pump2Timer",
+            "type": "TON",
+            "scope": "VAR"
+          }
+        }
+      },
+      "edit-node-rect": {
+        "id": "edit-node-rect",
+        "type": "editRect",
+        "sourceIds": ["FBD-compartment-TON-60000002-1735545600052"],
+        "targetIds": ["coil-60000003-1735545600053"],
+        "children": [
+          {
+            "id": "edit-node-rect-left-port",
+            "type": "node:edgePort",
+            "side": "left",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-left-port"],
+            "position": {"x": -45, "y": 0},
+            "size": {"width": 45, "height": 22}
+          },
+          {
+            "id": "edit-node-rect-bottom-port",
+            "type": "node:edgeBottomPort",
+            "side": "bottom",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-bottom-port"],
+            "position": {"x": 0, "y": 0},
+            "size": {"width": 70, "height": 22}
+          }
+        ]
+      },
+      "coil-60000003-1735545600053": {
+        "id": "coil-60000003-1735545600053",
+        "type": "coil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "Pump2Output",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      }
+    }
+  },
+  {
+    "id": "segment-12345684-1735545600060",
+    "label": "",
+    "note": "",
+    "height": 436,
+    "width": 1000,
+    "isExpand": true,
+    "nodesObj": {
+      "start-node-line": {
+        "id": "start-node-line",
+        "type": "startLine",
+        "Xlayer": 0,
+        "Ylayer": 0,
+        "sourceIds": [],
+        "targetIds": ["contact-70000001-1735545600061"]
+      },
+      "contact-70000001-1735545600061": {
+        "id": "contact-70000001-1735545600061",
+        "type": "contact",
+        "sourceIds": ["start-node-line"],
+        "targetIds": ["FBD-compartment-TON-70000002-1735545600062"],
+        "varName": {
+          "name": "",
+          "value": "Pump3Run",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "FBD-compartment-TON-70000002-1735545600062": {
+        "id": "FBD-compartment-TON-70000002-1735545600062",
+        "type": "FBDCompartment",
+        "sourceIds": ["contact-70000001-1735545600061"],
+        "targetIds": ["edit-node-rect"],
+        "childrenNode": {
+          "type": "TON",
+          "isFunction": false,
+          "portInputs": [
+            {
+              "name": "EN",
+              "value": "",
+              "scope": "",
+              "type": "BOOL"
+            },
+            {
+              "name": "IN",
+              "value": "TRUE",
+              "scope": "VAR",
+              "type": "BOOL"
+            },
+            {
+              "name": "PT",
+              "value": "T#300s",
+              "scope": "VAR",
+              "type": "TIME"
+            }
+          ],
+          "portOutputs": [
+            {
+              "name": "ENO",
+              "value": "",
+              "scope": "",
+              "type": "BOOL"
+            },
+            {
+              "name": "Q",
+              "value": "Pump3MinRunDone",
+              "scope": "VAR",
+              "type": "BOOL"
+            },
+            {
+              "name": "ET",
+              "value": "Pump3RunTime",
+              "scope": "VAR",
+              "type": "TIME"
+            }
+          ],
+          "varName": {
+            "name": "",
+            "value": "Pump3Timer",
+            "type": "TON",
+            "scope": "VAR"
+          }
+        }
+      },
+      "edit-node-rect": {
+        "id": "edit-node-rect",
+        "type": "editRect",
+        "sourceIds": ["FBD-compartment-TON-70000002-1735545600062"],
+        "targetIds": ["coil-70000003-1735545600063"],
+        "children": [
+          {
+            "id": "edit-node-rect-left-port",
+            "type": "node:edgePort",
+            "side": "left",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-left-port"],
+            "position": {"x": -45, "y": 0},
+            "size": {"width": 45, "height": 22}
+          },
+          {
+            "id": "edit-node-rect-bottom-port",
+            "type": "node:edgeBottomPort",
+            "side": "bottom",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-bottom-port"],
+            "position": {"x": 0, "y": 0},
+            "size": {"width": 70, "height": 22}
+          }
+        ]
+      },
+      "coil-70000003-1735545600063": {
+        "id": "coil-70000003-1735545600063",
+        "type": "coil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "Pump3Output",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      }
+    }
+  },
+  {
+    "id": "segment-12345685-1735545600070",
+    "label": "",
+    "note": "",
+    "height": 82,
+    "width": 500,
+    "isExpand": true,
+    "nodesObj": {
+      "start-node-line": {
+        "id": "start-node-line",
+        "type": "startLine",
+        "Xlayer": 0,
+        "Ylayer": 0,
+        "sourceIds": [],
+        "targetIds": ["contact-80000001-1735545600071"]
+      },
+      "contact-80000001-1735545600071": {
+        "id": "contact-80000001-1735545600071",
+        "type": "contact",
+        "sourceIds": ["start-node-line"],
+        "targetIds": ["edit-node-rect"],
+        "varName": {
+          "name": "",
+          "value": "EmergencyStop",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "edit-node-rect": {
+        "id": "edit-node-rect",
+        "type": "editRect",
+        "sourceIds": ["contact-80000001-1735545600071"],
+        "targetIds": ["coil-80000002-1735545600072", "coil-80000003-1735545600073", "coil-80000004-1735545600074"],
+        "children": [
+          {
+            "id": "edit-node-rect-left-port",
+            "type": "node:edgePort",
+            "side": "left",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-left-port"],
+            "position": {"x": -45, "y": 0},
+            "size": {"width": 45, "height": 22}
+          },
+          {
+            "id": "edit-node-rect-bottom-port",
+            "type": "node:edgeBottomPort",
+            "side": "bottom",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-bottom-port"],
+            "position": {"x": 0, "y": 0},
+            "size": {"width": 70, "height": 22}
+          }
+        ]
+      },
+      "coil-80000002-1735545600072": {
+        "id": "coil-80000002-1735545600072",
+        "type": "resetCoil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "Pump1Run",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "coil-80000003-1735545600073": {
+        "id": "coil-80000003-1735545600073",
+        "type": "resetCoil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "Pump2Run",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "coil-80000004-1735545600074": {
+        "id": "coil-80000004-1735545600074",
+        "type": "resetCoil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "Pump3Run",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      }
+    }
+  },
+  {
+    "id": "segment-12345686-1735545600080",
+    "label": "",
+    "note": "",
+    "height": 436,
+    "width": 1200,
+    "isExpand": true,
+    "nodesObj": {
+      "start-node-line": {
+        "id": "start-node-line",
+        "type": "startLine",
+        "Xlayer": 0,
+        "Ylayer": 0,
+        "sourceIds": [],
+        "targetIds": ["contact-90000001-1735545600081"]
+      },
+      "contact-90000001-1735545600081": {
+        "id": "contact-90000001-1735545600081",
+        "type": "risingContact",
+        "sourceIds": ["start-node-line"],
+        "targetIds": ["FBD-compartment-CTU-90000002-1735545600082"],
+        "varName": {
+          "name": "",
+          "value": "Pump1MinRunDone",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "FBD-compartment-CTU-90000002-1735545600082": {
+        "id": "FBD-compartment-CTU-90000002-1735545600082",
+        "type": "FBDCompartment",
+        "sourceIds": ["contact-90000001-1735545600081"],
+        "targetIds": ["edit-node-rect"],
+        "childrenNode": {
+          "type": "CTU",
+          "isFunction": false,
+          "portInputs": [
+            {
+              "name": "EN",
+              "value": "",
+              "scope": "",
+              "type": "BOOL"
+            },
+            {
+              "name": "CU",
+              "value": "TRUE",
+              "scope": "VAR",
+              "type": "BOOL"
+            },
+            {
+              "name": "R",
+              "value": "RotationReset",
+              "scope": "VAR",
+              "type": "BOOL"
+            },
+            {
+              "name": "PV",
+              "value": "3",
+              "scope": "VAR",
+              "type": "INT"
+            }
+          ],
+          "portOutputs": [
+            {
+              "name": "ENO",
+              "value": "",
+              "scope": "",
+              "type": "BOOL"
+            },
+            {
+              "name": "Q",
+              "value": "RotationComplete",
+              "scope": "VAR",
+              "type": "BOOL"
+            },
+            {
+              "name": "CV",
+              "value": "RotationCount",
+              "scope": "VAR",
+              "type": "INT"
+            }
+          ],
+          "varName": {
+            "name": "",
+            "value": "RotationCounter",
+            "type": "CTU",
+            "scope": "VAR"
+          }
+        }
+      },
+      "edit-node-rect": {
+        "id": "edit-node-rect",
+        "type": "editRect",
+        "sourceIds": ["FBD-compartment-CTU-90000002-1735545600082"],
+        "targetIds": ["coil-90000003-1735545600083"],
+        "children": [
+          {
+            "id": "edit-node-rect-left-port",
+            "type": "node:edgePort",
+            "side": "left",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-left-port"],
+            "position": {"x": -45, "y": 0},
+            "size": {"width": 45, "height": 22}
+          },
+          {
+            "id": "edit-node-rect-bottom-port",
+            "type": "node:edgeBottomPort",
+            "side": "bottom",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-bottom-port"],
+            "position": {"x": 0, "y": 0},
+            "size": {"width": 70, "height": 22}
+          }
+        ]
+      },
+      "coil-90000003-1735545600083": {
+        "id": "coil-90000003-1735545600083",
+        "type": "coil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "RotationTrigger",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      }
+    }
+  },
+  {
+    "id": "segment-12345687-1735545600090",
+    "label": "",
+    "note": "",
+    "height": 82,
+    "width": 600,
+    "isExpand": true,
+    "nodesObj": {
+      "start-node-line": {
+        "id": "start-node-line",
+        "type": "startLine",
+        "Xlayer": 0,
+        "Ylayer": 0,
+        "sourceIds": [],
+        "targetIds": ["contact-91000001-1735545600091"]
+      },
+      "contact-91000001-1735545600091": {
+        "id": "contact-91000001-1735545600091",
+        "type": "contact",
+        "sourceIds": ["start-node-line"],
+        "targetIds": ["contact-91000002-1735545600092"],
+        "varName": {
+          "name": "",
+          "value": "RotationComplete",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-91000002-1735545600092": {
+        "id": "contact-91000002-1735545600092",
+        "type": "contact",
+        "sourceIds": ["contact-91000001-1735545600091"],
+        "targetIds": ["edit-node-rect"],
+        "varName": {
+          "name": "",
+          "value": "RotationReset",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "edit-node-rect": {
+        "id": "edit-node-rect",
+        "type": "editRect",
+        "sourceIds": ["contact-91000002-1735545600092"],
+        "targetIds": ["coil-91000003-1735545600093"],
+        "children": [
+          {
+            "id": "edit-node-rect-left-port",
+            "type": "node:edgePort",
+            "side": "left",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-left-port"],
+            "position": {"x": -45, "y": 0},
+            "size": {"width": 45, "height": 22}
+          },
+          {
+            "id": "edit-node-rect-bottom-port",
+            "type": "node:edgeBottomPort",
+            "side": "bottom",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-bottom-port"],
+            "position": {"x": 0, "y": 0},
+            "size": {"width": 70, "height": 22}
+          }
+        ]
+      },
+      "coil-91000003-1735545600093": {
+        "id": "coil-91000003-1735545600093",
+        "type": "resetCoil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "RotationReset",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      }
+    }
+  },
+  {
+    "id": "segment-12345688-1735545600100",
+    "label": "",
+    "note": "",
+    "height": 82,
+    "width": 700,
+    "isExpand": true,
+    "nodesObj": {
+      "start-node-line": {
+        "id": "start-node-line",
+        "type": "startLine",
+        "Xlayer": 0,
+        "Ylayer": 0,
+        "sourceIds": [],
+        "targetIds": ["contact-92000001-1735545600101"]
+      },
+      "contact-92000001-1735545600101": {
+        "id": "contact-92000001-1735545600101",
+        "type": "contact",
+        "sourceIds": ["start-node-line"],
+        "targetIds": ["contact-92000002-1735545600102"],
+        "varName": {
+          "name": "",
+          "value": "Pump1Overload",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-92000002-1735545600102": {
+        "id": "contact-92000002-1735545600102",
+        "type": "contact",
+        "sourceIds": ["contact-92000001-1735545600101"],
+        "targetIds": ["contact-92000003-1735545600103"],
+        "varName": {
+          "name": "",
+          "value": "Pump2Overload",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-92000003-1735545600103": {
+        "id": "contact-92000003-1735545600103",
+        "type": "contact",
+        "sourceIds": ["contact-92000002-1735545600102"],
+        "targetIds": ["edit-node-rect"],
+        "varName": {
+          "name": "",
+          "value": "Pump3Overload",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "edit-node-rect": {
+        "id": "edit-node-rect",
+        "type": "editRect",
+        "sourceIds": ["contact-92000003-1735545600103"],
+        "targetIds": ["coil-92000004-1735545600104"],
+        "children": [
+          {
+            "id": "edit-node-rect-left-port",
+            "type": "node:edgePort",
+            "side": "left",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-left-port"],
+            "position": {"x": -45, "y": 0},
+            "size": {"width": 45, "height": 22}
+          },
+          {
+            "id": "edit-node-rect-bottom-port",
+            "type": "node:edgeBottomPort",
+            "side": "bottom",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-bottom-port"],
+            "position": {"x": 0, "y": 0},
+            "size": {"width": 70, "height": 22}
+          }
+        ]
+      },
+      "coil-92000004-1735545600104": {
+        "id": "coil-92000004-1735545600104",
+        "type": "setCoil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "AllPumpsOverload",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      }
+    }
+  },
+  {
+    "id": "segment-12345689-1735545600110",
+    "label": "",
+    "note": "",
+    "height": 82,
+    "width": 500,
+    "isExpand": true,
+    "nodesObj": {
+      "start-node-line": {
+        "id": "start-node-line",
+        "type": "startLine",
+        "Xlayer": 0,
+        "Ylayer": 0,
+        "sourceIds": [],
+        "targetIds": ["contact-93000001-1735545600111"]
+      },
+      "contact-93000001-1735545600111": {
+        "id": "contact-93000001-1735545600111",
+        "type": "negatedContact",
+        "sourceIds": ["start-node-line"],
+        "targetIds": ["edit-node-rect"],
+        "varName": {
+          "name": "",
+          "value": "SystemRun",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "edit-node-rect": {
+        "id": "edit-node-rect",
+        "type": "editRect",
+        "sourceIds": ["contact-93000001-1735545600111"],
+        "targetIds": ["coil-93000002-1735545600112"],
+        "children": [
+          {
+            "id": "edit-node-rect-left-port",
+            "type": "node:edgePort",
+            "side": "left",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-left-port"],
+            "position": {"x": -45, "y": 0},
+            "size": {"width": 45, "height": 22}
+          },
+          {
+            "id": "edit-node-rect-bottom-port",
+            "type": "node:edgeBottomPort",
+            "side": "bottom",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-bottom-port"],
+            "position": {"x": 0, "y": 0},
+            "size": {"width": 70, "height": 22}
+          }
+        ]
+      },
+      "coil-93000002-1735545600112": {
+        "id": "coil-93000002-1735545600112",
+        "type": "resetCoil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "AllPumpsOverload",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      }
+    }
+  },
+  {
+    "id": "segment-12345690-1735545600120",
+    "label": "",
+    "note": "",
+    "height": 82,
+    "width": 900,
+    "isExpand": true,
+    "nodesObj": {
+      "start-node-line": {
+        "id": "start-node-line",
+        "type": "startLine",
+        "Xlayer": 0,
+        "Ylayer": 0,
+        "sourceIds": [],
+        "targetIds": ["contact-94000001-1735545600121"]
+      },
+      "contact-94000001-1735545600121": {
+        "id": "contact-94000001-1735545600121",
+        "type": "contact",
+        "sourceIds": ["start-node-line"],
+        "targetIds": ["contact-94000002-1735545600122"],
+        "varName": {
+          "name": "",
+          "value": "RotationTrigger",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-94000002-1735545600122": {
+        "id": "contact-94000002-1735545600122",
+        "type": "contact",
+        "sourceIds": ["contact-94000001-1735545600121"],
+        "targetIds": ["contact-94000003-1735545600123"],
+        "varName": {
+          "name": "",
+          "value": "LeadPumpIs1",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-94000003-1735545600123": {
+        "id": "contact-94000003-1735545600123",
+        "type": "negatedContact",
+        "sourceIds": ["contact-94000002-1735545600122"],
+        "targetIds": ["edit-node-rect"],
+        "varName": {
+          "name": "",
+          "value": "LeadPumpIs2",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "edit-node-rect": {
+        "id": "edit-node-rect",
+        "type": "editRect",
+        "sourceIds": ["contact-94000003-1735545600123"],
+        "targetIds": ["coil-94000004-1735545600124", "coil-94000005-1735545600125"],
+        "children": [
+          {
+            "id": "edit-node-rect-left-port",
+            "type": "node:edgePort",
+            "side": "left",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-left-port"],
+            "position": {"x": -45, "y": 0},
+            "size": {"width": 45, "height": 22}
+          },
+          {
+            "id": "edit-node-rect-bottom-port",
+            "type": "node:edgeBottomPort",
+            "side": "bottom",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-bottom-port"],
+            "position": {"x": 0, "y": 0},
+            "size": {"width": 70, "height": 22}
+          }
+        ]
+      },
+      "coil-94000004-1735545600124": {
+        "id": "coil-94000004-1735545600124",
+        "type": "resetCoil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "LeadPumpIs1",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "coil-94000005-1735545600125": {
+        "id": "coil-94000005-1735545600125",
+        "type": "setCoil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "LeadPumpIs2",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      }
+    }
+  },
+  {
+    "id": "segment-12345691-1735545600130",
+    "label": "",
+    "note": "",
+    "height": 82,
+    "width": 900,
+    "isExpand": true,
+    "nodesObj": {
+      "start-node-line": {
+        "id": "start-node-line",
+        "type": "startLine",
+        "Xlayer": 0,
+        "Ylayer": 0,
+        "sourceIds": [],
+        "targetIds": ["contact-95000001-1735545600131"]
+      },
+      "contact-95000001-1735545600131": {
+        "id": "contact-95000001-1735545600131",
+        "type": "contact",
+        "sourceIds": ["start-node-line"],
+        "targetIds": ["contact-95000002-1735545600132"],
+        "varName": {
+          "name": "",
+          "value": "RotationTrigger",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-95000002-1735545600132": {
+        "id": "contact-95000002-1735545600132",
+        "type": "contact",
+        "sourceIds": ["contact-95000001-1735545600131"],
+        "targetIds": ["contact-95000003-1735545600133"],
+        "varName": {
+          "name": "",
+          "value": "LeadPumpIs2",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-95000003-1735545600133": {
+        "id": "contact-95000003-1735545600133",
+        "type": "negatedContact",
+        "sourceIds": ["contact-95000002-1735545600132"],
+        "targetIds": ["edit-node-rect"],
+        "varName": {
+          "name": "",
+          "value": "LeadPumpIs3",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "edit-node-rect": {
+        "id": "edit-node-rect",
+        "type": "editRect",
+        "sourceIds": ["contact-95000003-1735545600133"],
+        "targetIds": ["coil-95000004-1735545600134", "coil-95000005-1735545600135"],
+        "children": [
+          {
+            "id": "edit-node-rect-left-port",
+            "type": "node:edgePort",
+            "side": "left",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-left-port"],
+            "position": {"x": -45, "y": 0},
+            "size": {"width": 45, "height": 22}
+          },
+          {
+            "id": "edit-node-rect-bottom-port",
+            "type": "node:edgeBottomPort",
+            "side": "bottom",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-bottom-port"],
+            "position": {"x": 0, "y": 0},
+            "size": {"width": 70, "height": 22}
+          }
+        ]
+      },
+      "coil-95000004-1735545600134": {
+        "id": "coil-95000004-1735545600134",
+        "type": "resetCoil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "LeadPumpIs2",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "coil-95000005-1735545600135": {
+        "id": "coil-95000005-1735545600135",
+        "type": "setCoil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "LeadPumpIs3",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      }
+    }
+  },
+  {
+    "id": "segment-12345692-1735545600140",
+    "label": "",
+    "note": "",
+    "height": 82,
+    "width": 900,
+    "isExpand": true,
+    "nodesObj": {
+      "start-node-line": {
+        "id": "start-node-line",
+        "type": "startLine",
+        "Xlayer": 0,
+        "Ylayer": 0,
+        "sourceIds": [],
+        "targetIds": ["contact-96000001-1735545600141"]
+      },
+      "contact-96000001-1735545600141": {
+        "id": "contact-96000001-1735545600141",
+        "type": "contact",
+        "sourceIds": ["start-node-line"],
+        "targetIds": ["contact-96000002-1735545600142"],
+        "varName": {
+          "name": "",
+          "value": "RotationTrigger",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-96000002-1735545600142": {
+        "id": "contact-96000002-1735545600142",
+        "type": "contact",
+        "sourceIds": ["contact-96000001-1735545600141"],
+        "targetIds": ["contact-96000003-1735545600143"],
+        "varName": {
+          "name": "",
+          "value": "LeadPumpIs3",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-96000003-1735545600143": {
+        "id": "contact-96000003-1735545600143",
+        "type": "negatedContact",
+        "sourceIds": ["contact-96000002-1735545600142"],
+        "targetIds": ["edit-node-rect"],
+        "varName": {
+          "name": "",
+          "value": "LeadPumpIs1",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "edit-node-rect": {
+        "id": "edit-node-rect",
+        "type": "editRect",
+        "sourceIds": ["contact-96000003-1735545600143"],
+        "targetIds": ["coil-96000004-1735545600144", "coil-96000005-1735545600145"],
+        "children": [
+          {
+            "id": "edit-node-rect-left-port",
+            "type": "node:edgePort",
+            "side": "left",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-left-port"],
+            "position": {"x": -45, "y": 0},
+            "size": {"width": 45, "height": 22}
+          },
+          {
+            "id": "edit-node-rect-bottom-port",
+            "type": "node:edgeBottomPort",
+            "side": "bottom",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-bottom-port"],
+            "position": {"x": 0, "y": 0},
+            "size": {"width": 70, "height": 22}
+          }
+        ]
+      },
+      "coil-96000004-1735545600144": {
+        "id": "coil-96000004-1735545600144",
+        "type": "resetCoil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "LeadPumpIs3",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "coil-96000005-1735545600145": {
+        "id": "coil-96000005-1735545600145",
+        "type": "setCoil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "LeadPumpIs1",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      }
+    }
+  },
+  {
+    "id": "segment-12345693-1735545600150",
+    "label": "",
+    "note": "",
+    "height": 82,
+    "width": 400,
+    "isExpand": true,
+    "nodesObj": {
+      "start-node-line": {
+        "id": "start-node-line",
+        "type": "startLine",
+        "Xlayer": 0,
+        "Ylayer": 0,
+        "sourceIds": [],
+        "targetIds": ["contact-97000001-1735545600151"]
+      },
+      "contact-97000001-1735545600151": {
+        "id": "contact-97000001-1735545600151",
+        "type": "risingContact",
+        "sourceIds": ["start-node-line"],
+        "targetIds": ["edit-node-rect"],
+        "varName": {
+          "name": "",
+          "value": "SystemStart",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "edit-node-rect": {
+        "id": "edit-node-rect",
+        "type": "editRect",
+        "sourceIds": ["contact-97000001-1735545600151"],
+        "targetIds": ["coil-97000002-1735545600152"],
+        "children": [
+          {
+            "id": "edit-node-rect-left-port",
+            "type": "node:edgePort",
+            "side": "left",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-left-port"],
+            "position": {"x": -45, "y": 0},
+            "size": {"width": 45, "height": 22}
+          },
+          {
+            "id": "edit-node-rect-bottom-port",
+            "type": "node:edgeBottomPort",
+            "side": "bottom",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-bottom-port"],
+            "position": {"x": 0, "y": 0},
+            "size": {"width": 70, "height": 22}
+          }
+        ]
+      },
+      "coil-97000002-1735545600152": {
+        "id": "coil-97000002-1735545600152",
+        "type": "setCoil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "LeadPumpIs1",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      }
+    }
+  },
+  {
+    "id": "segment-12345694-1735545600160",
+    "label": "",
+    "note": "",
+    "height": 82,
+    "width": 800,
+    "isExpand": true,
+    "nodesObj": {
+      "start-node-line": {
+        "id": "start-node-line",
+        "type": "startLine",
+        "Xlayer": 0,
+        "Ylayer": 0,
+        "sourceIds": [],
+        "targetIds": ["contact-98000001-1735545600161"]
+      },
+      "contact-98000001-1735545600161": {
+        "id": "contact-98000001-1735545600161",
+        "type": "contact",
+        "sourceIds": ["start-node-line"],
+        "targetIds": ["contact-98000002-1735545600162"],
+        "varName": {
+          "name": "",
+          "value": "Pump1Run",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-98000002-1735545600162": {
+        "id": "contact-98000002-1735545600162",
+        "type": "contact",
+        "sourceIds": ["contact-98000001-1735545600161"],
+        "targetIds": ["contact-98000003-1735545600163"],
+        "varName": {
+          "name": "",
+          "value": "Pump1MinRunDone",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-98000003-1735545600163": {
+        "id": "contact-98000003-1735545600163",
+        "type": "negatedContact",
+        "sourceIds": ["contact-98000002-1735545600162"],
+        "targetIds": ["edit-node-rect"],
+        "varName": {
+          "name": "",
+          "value": "LevelLow",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "edit-node-rect": {
+        "id": "edit-node-rect",
+        "type": "editRect",
+        "sourceIds": ["contact-98000003-1735545600163"],
+        "targetIds": ["coil-98000004-1735545600164"],
+        "children": [
+          {
+            "id": "edit-node-rect-left-port",
+            "type": "node:edgePort",
+            "side": "left",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-left-port"],
+            "position": {"x": -45, "y": 0},
+            "size": {"width": 45, "height": 22}
+          },
+          {
+            "id": "edit-node-rect-bottom-port",
+            "type": "node:edgeBottomPort",
+            "side": "bottom",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-bottom-port"],
+            "position": {"x": 0, "y": 0},
+            "size": {"width": 70, "height": 22}
+          }
+        ]
+      },
+      "coil-98000004-1735545600164": {
+        "id": "coil-98000004-1735545600164",
+        "type": "resetCoil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "Pump1Run",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      }
+    }
+  },
+  {
+    "id": "segment-12345695-1735545600170",
+    "label": "",
+    "note": "",
+    "height": 82,
+    "width": 800,
+    "isExpand": true,
+    "nodesObj": {
+      "start-node-line": {
+        "id": "start-node-line",
+        "type": "startLine",
+        "Xlayer": 0,
+        "Ylayer": 0,
+        "sourceIds": [],
+        "targetIds": ["contact-99000001-1735545600171"]
+      },
+      "contact-99000001-1735545600171": {
+        "id": "contact-99000001-1735545600171",
+        "type": "contact",
+        "sourceIds": ["start-node-line"],
+        "targetIds": ["contact-99000002-1735545600172"],
+        "varName": {
+          "name": "",
+          "value": "Pump2Run",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-99000002-1735545600172": {
+        "id": "contact-99000002-1735545600172",
+        "type": "contact",
+        "sourceIds": ["contact-99000001-1735545600171"],
+        "targetIds": ["contact-99000003-1735545600173"],
+        "varName": {
+          "name": "",
+          "value": "Pump2MinRunDone",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-99000003-1735545600173": {
+        "id": "contact-99000003-1735545600173",
+        "type": "negatedContact",
+        "sourceIds": ["contact-99000002-1735545600172"],
+        "targetIds": ["edit-node-rect"],
+        "varName": {
+          "name": "",
+          "value": "LevelHigh",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "edit-node-rect": {
+        "id": "edit-node-rect",
+        "type": "editRect",
+        "sourceIds": ["contact-99000003-1735545600173"],
+        "targetIds": ["coil-99000004-1735545600174"],
+        "children": [
+          {
+            "id": "edit-node-rect-left-port",
+            "type": "node:edgePort",
+            "side": "left",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-left-port"],
+            "position": {"x": -45, "y": 0},
+            "size": {"width": 45, "height": 22}
+          },
+          {
+            "id": "edit-node-rect-bottom-port",
+            "type": "node:edgeBottomPort",
+            "side": "bottom",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-bottom-port"],
+            "position": {"x": 0, "y": 0},
+            "size": {"width": 70, "height": 22}
+          }
+        ]
+      },
+      "coil-99000004-1735545600174": {
+        "id": "coil-99000004-1735545600174",
+        "type": "resetCoil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "Pump2Run",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      }
+    }
+  },
+  {
+    "id": "segment-12345696-1735545600180",
+    "label": "",
+    "note": "",
+    "height": 82,
+    "width": 800,
+    "isExpand": true,
+    "nodesObj": {
+      "start-node-line": {
+        "id": "start-node-line",
+        "type": "startLine",
+        "Xlayer": 0,
+        "Ylayer": 0,
+        "sourceIds": [],
+        "targetIds": ["contact-100000001-1735545600181"]
+      },
+      "contact-100000001-1735545600181": {
+        "id": "contact-100000001-1735545600181",
+        "type": "contact",
+        "sourceIds": ["start-node-line"],
+        "targetIds": ["contact-100000002-1735545600182"],
+        "varName": {
+          "name": "",
+          "value": "Pump3Run",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-100000002-1735545600182": {
+        "id": "contact-100000002-1735545600182",
+        "type": "contact",
+        "sourceIds": ["contact-100000001-1735545600181"],
+        "targetIds": ["contact-100000003-1735545600183"],
+        "varName": {
+          "name": "",
+          "value": "Pump3MinRunDone",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-100000003-1735545600183": {
+        "id": "contact-100000003-1735545600183",
+        "type": "negatedContact",
+        "sourceIds": ["contact-100000002-1735545600182"],
+        "targetIds": ["edit-node-rect"],
+        "varName": {
+          "name": "",
+          "value": "LevelUltraHigh",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "edit-node-rect": {
+        "id": "edit-node-rect",
+        "type": "editRect",
+        "sourceIds": ["contact-100000003-1735545600183"],
+        "targetIds": ["coil-100000004-1735545600184"],
+        "children": [
+          {
+            "id": "edit-node-rect-left-port",
+            "type": "node:edgePort",
+            "side": "left",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-left-port"],
+            "position": {"x": -45, "y": 0},
+            "size": {"width": 45, "height": 22}
+          },
+          {
+            "id": "edit-node-rect-bottom-port",
+            "type": "node:edgeBottomPort",
+            "side": "bottom",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-bottom-port"],
+            "position": {"x": 0, "y": 0},
+            "size": {"width": 70, "height": 22}
+          }
+        ]
+      },
+      "coil-100000004-1735545600184": {
+        "id": "coil-100000004-1735545600184",
+        "type": "resetCoil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "Pump3Run",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      }
+    }
+  },
+  {
+    "id": "segment-12345697-1735545600190",
+    "label": "",
+    "note": "",
+    "height": 82,
+    "width": 600,
+    "isExpand": true,
+    "nodesObj": {
+      "start-node-line": {
+        "id": "start-node-line",
+        "type": "startLine",
+        "Xlayer": 0,
+        "Ylayer": 0,
+        "sourceIds": [],
+        "targetIds": ["contact-101000001-1735545600191"]
+      },
+      "contact-101000001-1735545600191": {
+        "id": "contact-101000001-1735545600191",
+        "type": "contact",
+        "sourceIds": ["start-node-line"],
+        "targetIds": ["contact-101000002-1735545600192"],
+        "varName": {
+          "name": "",
+          "value": "Pump1Run",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-101000002-1735545600192": {
+        "id": "contact-101000002-1735545600192",
+        "type": "negatedContact",
+        "sourceIds": ["contact-101000001-1735545600191"],
+        "targetIds": ["edit-node-rect"],
+        "varName": {
+          "name": "",
+          "value": "Pump1Overload",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "edit-node-rect": {
+        "id": "edit-node-rect",
+        "type": "editRect",
+        "sourceIds": ["contact-101000002-1735545600192"],
+        "targetIds": ["coil-101000003-1735545600193"],
+        "children": [
+          {
+            "id": "edit-node-rect-left-port",
+            "type": "node:edgePort",
+            "side": "left",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-left-port"],
+            "position": {"x": -45, "y": 0},
+            "size": {"width": 45, "height": 22}
+          },
+          {
+            "id": "edit-node-rect-bottom-port",
+            "type": "node:edgeBottomPort",
+            "side": "bottom",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-bottom-port"],
+            "position": {"x": 0, "y": 0},
+            "size": {"width": 70, "height": 22}
+          }
+        ]
+      },
+      "coil-101000003-1735545600193": {
+        "id": "coil-101000003-1735545600193",
+        "type": "coil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "Pump1Output",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      }
+    }
+  },
+  {
+    "id": "segment-12345698-1735545600200",
+    "label": "",
+    "note": "",
+    "height": 82,
+    "width": 600,
+    "isExpand": true,
+    "nodesObj": {
+      "start-node-line": {
+        "id": "start-node-line",
+        "type": "startLine",
+        "Xlayer": 0,
+        "Ylayer": 0,
+        "sourceIds": [],
+        "targetIds": ["contact-102000001-1735545600201"]
+      },
+      "contact-102000001-1735545600201": {
+        "id": "contact-102000001-1735545600201",
+        "type": "contact",
+        "sourceIds": ["start-node-line"],
+        "targetIds": ["contact-102000002-1735545600202"],
+        "varName": {
+          "name": "",
+          "value": "Pump2Run",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-102000002-1735545600202": {
+        "id": "contact-102000002-1735545600202",
+        "type": "negatedContact",
+        "sourceIds": ["contact-102000001-1735545600201"],
+        "targetIds": ["edit-node-rect"],
+        "varName": {
+          "name": "",
+          "value": "Pump2Overload",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "edit-node-rect": {
+        "id": "edit-node-rect",
+        "type": "editRect",
+        "sourceIds": ["contact-102000002-1735545600202"],
+        "targetIds": ["coil-102000003-1735545600203"],
+        "children": [
+          {
+            "id": "edit-node-rect-left-port",
+            "type": "node:edgePort",
+            "side": "left",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-left-port"],
+            "position": {"x": -45, "y": 0},
+            "size": {"width": 45, "height": 22}
+          },
+          {
+            "id": "edit-node-rect-bottom-port",
+            "type": "node:edgeBottomPort",
+            "side": "bottom",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-bottom-port"],
+            "position": {"x": 0, "y": 0},
+            "size": {"width": 70, "height": 22}
+          }
+        ]
+      },
+      "coil-102000003-1735545600203": {
+        "id": "coil-102000003-1735545600203",
+        "type": "coil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "Pump2Output",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      }
+    }
+  },
+  {
+    "id": "segment-12345699-1735545600210",
+    "label": "",
+    "note": "",
+    "height": 82,
+    "width": 600,
+    "isExpand": true,
+    "nodesObj": {
+      "start-node-line": {
+        "id": "start-node-line",
+        "type": "startLine",
+        "Xlayer": 0,
+        "Ylayer": 0,
+        "sourceIds": [],
+        "targetIds": ["contact-103000001-1735545600211"]
+      },
+      "contact-103000001-1735545600211": {
+        "id": "contact-103000001-1735545600211",
+        "type": "contact",
+        "sourceIds": ["start-node-line"],
+        "targetIds": ["contact-103000002-1735545600212"],
+        "varName": {
+          "name": "",
+          "value": "Pump3Run",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-103000002-1735545600212": {
+        "id": "contact-103000002-1735545600212",
+        "type": "negatedContact",
+        "sourceIds": ["contact-103000001-1735545600211"],
+        "targetIds": ["edit-node-rect"],
+        "varName": {
+          "name": "",
+          "value": "Pump3Overload",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "edit-node-rect": {
+        "id": "edit-node-rect",
+        "type": "editRect",
+        "sourceIds": ["contact-103000002-1735545600212"],
+        "targetIds": ["coil-103000003-1735545600213"],
+        "children": [
+          {
+            "id": "edit-node-rect-left-port",
+            "type": "node:edgePort",
+            "side": "left",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-left-port"],
+            "position": {"x": -45, "y": 0},
+            "size": {"width": 45, "height": 22}
+          },
+          {
+            "id": "edit-node-rect-bottom-port",
+            "type": "node:edgeBottomPort",
+            "side": "bottom",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-bottom-port"],
+            "position": {"x": 0, "y": 0},
+            "size": {"width": 70, "height": 22}
+          }
+        ]
+      },
+      "coil-103000003-1735545600213": {
+        "id": "coil-103000003-1735545600213",
+        "type": "coil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "Pump3Output",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      }
+    }
+  },
+  {
+    "id": "segment-12345700-1735545600220",
+    "label": "",
+    "note": "",
+    "height": 82,
+    "width": 400,
+    "isExpand": true,
+    "nodesObj": {
+      "start-node-line": {
+        "id": "start-node-line",
+        "type": "startLine",
+        "Xlayer": 0,
+        "Ylayer": 0,
+        "sourceIds": [],
+        "targetIds": ["contact-104000001-1735545600221"]
+      },
+      "contact-104000001-1735545600221": {
+        "id": "contact-104000001-1735545600221",
+        "type": "contact",
+        "sourceIds": ["start-node-line"],
+        "targetIds": ["edit-node-rect"],
+        "varName": {
+          "name": "",
+          "value": "AllPumpsOverload",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "edit-node-rect": {
+        "id": "edit-node-rect",
+        "type": "editRect",
+        "sourceIds": ["contact-104000001-1735545600221"],
+        "targetIds": ["coil-104000002-1735545600222"],
+        "children": [
+          {
+            "id": "edit-node-rect-left-port",
+            "type": "node:edgePort",
+            "side": "left",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-left-port"],
+            "position": {"x": -45, "y": 0},
+            "size": {"width": 45, "height": 22}
+          },
+          {
+            "id": "edit-node-rect-bottom-port",
+            "type": "node:edgeBottomPort",
+            "side": "bottom",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-bottom-port"],
+            "position": {"x": 0, "y": 0},
+            "size": {"width": 70, "height": 22}
+          }
+        ]
+      },
+      "coil-104000002-1735545600222": {
+        "id": "coil-104000002-1735545600222",
+        "type": "coil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "SystemAlarm",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      }
+    }
+  }
+]
