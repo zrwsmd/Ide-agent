@@ -41,13 +41,16 @@ export interface LocalSuggestionOverview {
   text: string;
 }
 
-export interface LocalGraphSuggestionSummary extends DiagramSummary {
+export interface LocalGraphSuggestionSummary {
+  sourcePath: string;
+  pouName: string;
+  pouType: string;
+  variableCount: number;
   suggestionOverview: LocalSuggestionOverview[];
 }
 
 export interface LocalGraphSuggestionResult {
   diagramPath: string;
-  jsonText: string;
   payload: LocalGraphSuggestionPayload;
   summary: LocalGraphSuggestionSummary;
 }
@@ -196,8 +199,9 @@ export class LocalGraphSuggestionService {
         `local graph suggestion #${index + 1} mode=${suggestion.mode} placement=${suggestion.placement.text} add=${suggestion.addElement.displayLabel}`,
       );
     }
-    this.log(`local graph suggestions JSON=${result.jsonText}`);
-    void vscode.env.clipboard.writeText(result.jsonText);
+    const payloadText = JSON.stringify(result.payload, null, 2);
+    this.log(`local graph suggestions JSON=${payloadText}`);
+    void vscode.env.clipboard.writeText(payloadText);
     void vscode.window.showInformationMessage(
       "Ide Agent: local graph suggestions copied to clipboard.",
     );
@@ -217,9 +221,11 @@ export class LocalGraphSuggestionService {
     focus: FocusContext,
   ): LocalGraphSuggestionResult {
     const payload = buildLocalPayload(summary, focus);
-    const jsonText = JSON.stringify(payload, null, 2);
     const resultSummary = {
-      ...summary,
+      sourcePath: summary.sourcePath,
+      pouName: summary.pouName,
+      pouType: summary.pouType,
+      variableCount: summary.variableCount,
       suggestionOverview: buildSuggestionOverview(payload.suggestions),
     };
 
@@ -229,7 +235,6 @@ export class LocalGraphSuggestionService {
 
     return {
       diagramPath,
-      jsonText,
       payload,
       summary: resultSummary,
     };

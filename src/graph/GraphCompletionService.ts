@@ -19,7 +19,7 @@ const COMMON_FUNCTION_BLOCK_TYPES = [
 export interface GraphCompletionResult {
   diagramPath: string;
   rawText: string;
-  jsonText: string;
+  payload?: Record<string, unknown>;
   summary: DiagramSummary;
 }
 
@@ -112,27 +112,27 @@ export class GraphCompletionService {
       return undefined;
     }
 
-    const jsonText = normalizeGraphPredictionJson(extractJsonText(rawText), summary, (message) => this.log(message));
-    if (!jsonText) {
+    const payload = normalizeGraphPredictionPayload(extractJsonText(rawText), summary, (message) => this.log(message));
+    if (!payload) {
       this.log('graph prediction failed: LLM did not return JSON');
       void vscode.window.showWarningMessage('Ide Agent: graph prediction did not return JSON. Check Ide Agent logs.');
       return {
         diagramPath,
         rawText,
-        jsonText: '',
         summary,
       };
     }
 
-    logGraphPredictionSummary(jsonText, (message) => this.log(message));
-    this.log(`graph prediction JSON=${jsonText}`);
-    void vscode.env.clipboard.writeText(jsonText);
+    const payloadText = JSON.stringify(payload, null, 2);
+    logGraphPredictionSummary(payload, (message) => this.log(message));
+    this.log(`graph prediction JSON=${payloadText}`);
+    void vscode.env.clipboard.writeText(payloadText);
     void vscode.window.showInformationMessage('Ide Agent: graph prediction patch copied to clipboard.');
 
     return {
       diagramPath,
       rawText,
-      jsonText,
+      payload,
       summary,
     };
   }
@@ -585,13 +585,13 @@ function extractJsonText(rawText: string): string {
   }
 }
 
-function normalizeGraphPredictionJson(
+function normalizeGraphPredictionPayload(
   jsonText: string,
   summary: DiagramSummary,
   log?: (message: string) => void
-): string {
+): Record<string, unknown> | undefined {
   if (!jsonText) {
-    return '';
+    return undefined;
   }
 
   try {
@@ -611,9 +611,9 @@ function normalizeGraphPredictionJson(
       suggestions: normalizedSuggestions,
     };
 
-    return JSON.stringify(normalized, null, 2);
+    return normalized;
   } catch {
-    return jsonText;
+    return undefined;
   }
 }
 
@@ -975,9 +975,11 @@ function normalizePlacementNodeId(
   return nearest?.id ?? '';
 }
 
-function logGraphPredictionSummary(jsonText: string, log: (message: string) => void): void {
+function logGraphPredictionSummary(
+  parsed: Record<string, unknown>,
+  log: (message: string) => void
+): void {
   try {
-    const parsed = JSON.parse(jsonText) as Record<string, unknown>;
     const focus = asRecord(parsed.recognizedFocus);
     const suggestion = asRecord(parsed.suggestion);
     const focusText = [

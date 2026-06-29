@@ -138,8 +138,8 @@ const result = await vscode.commands.executeCommand(
 返回结果里主要看：
 
 - `result.payload`：结构化 suggestions 对象。
-- `result.jsonText`：格式化后的 JSON 字符串，方便日志或调试展示。
 - `result.diagramPath`：本次读取的图 JSON 路径。
+- `result.summary`：轻量调试摘要，包含 POU 信息和 suggestions 概览。
 
 这个命令不会弹输入框、不会复制剪贴板、不会请求大模型，只根据传入的 `diagramPath` 和当前选中 id 返回本地规则建议。
 
@@ -386,8 +386,7 @@ npm run test:local-graph-command
 - `diagramPath`：本次读取的图 JSON / `transLd.txt` 路径。
 - `payload`：结构化建议结果。
 - `payload.suggestions`：前端真正需要渲染的建议数组。
-- `jsonText`：格式化后的 `payload` 字符串，主要用于日志展示。
-- `summary`：从图 JSON 压缩出的拓扑摘要，便于调试定位节点关系。
+- `summary`：轻量调试摘要，不包含完整图拓扑。
 - `summary.suggestionOverview`：从 `payload.suggestions` 提取出来的人类可读概览，便于快速扫一眼本次返回了哪些建议。
 
 如果要修改测试用的 `.txt` / 图 JSON 路径，改这里：

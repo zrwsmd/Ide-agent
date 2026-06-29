@@ -39,7 +39,6 @@ export async function run(): Promise<void> {
       suggestions?: unknown[];
     };
     diagramPath?: string;
-    jsonText?: string;
   }>("ide-agent.getLocalGraphSuggestions", {
     diagramPath: DIAGRAM_PATH,
     selectedNodeId: selectedNode.id,
@@ -56,7 +55,6 @@ export async function run(): Promise<void> {
     (byNode.payload?.suggestions?.length ?? 0) > 0,
     "expected suggestions for selectedNodeId",
   );
-  assert.ok(byNode.jsonText?.includes("suggestions"));
 
   const selectedInsertionPoint = summary.segments
     .flatMap((item) => item.insertionPoints)
