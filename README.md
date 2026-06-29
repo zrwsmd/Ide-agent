@@ -236,6 +236,53 @@ npm run package
 Output -> Ide Agent
 ```
 
+## 本地规则测试脚本
+
+下面这些脚本用于离线验证 LD/FBD 本地 suggest 规则，不会请求大模型，也不需要启动 VS Code 插件。它们都根据传入的图 JSON / `transLd.txt` 文件进行判断。
+
+先进入项目目录：
+
+```powershell
+cd E:\bbb\Ide-agent
+```
+
+测试功能块规则，第二个参数可以传功能块实例名或完整 nodeId。下面示例选中图里的 `CTU n` 功能块：
+
+```powershell
+node scripts/test-function-block-suggestions.js "C:\Users\Administrator\.vscode\extensions\ytak.devuni-ide-vscode-1.0.21\tool\iec-runtime-gen-run\.depworkspace\transLd.txt" n
+```
+
+测试触点规则，默认测试当前图里的 `e` 常开触点：
+
+```powershell
+node scripts/test-contact-suggestions.js "C:\Users\Administrator\.vscode\extensions\ytak.devuni-ide-vscode-1.0.21\tool\iec-runtime-gen-run\.depworkspace\transLd.txt"
+```
+
+也可以指定其他触点变量名或完整 nodeId，例如：
+
+```powershell
+node scripts/test-contact-suggestions.js "C:\Users\Administrator\.vscode\extensions\ytak.devuni-ide-vscode-1.0.21\tool\iec-runtime-gen-run\.depworkspace\transLd.txt" d
+```
+
+测试线圈规则，默认测试当前图里的 `t` 线圈：
+
+```powershell
+node scripts/test-coil-suggestions.js "C:\Users\Administrator\.vscode\extensions\ytak.devuni-ide-vscode-1.0.21\tool\iec-runtime-gen-run\.depworkspace\transLd.txt"
+```
+
+也可以指定其他线圈变量名或完整 nodeId，例如：
+
+```powershell
+node scripts/test-coil-suggestions.js "C:\Users\Administrator\.vscode\extensions\ytak.devuni-ide-vscode-1.0.21\tool\iec-runtime-gen-run\.depworkspace\transLd.txt" t
+```
+
+脚本输出内容包括：
+
+- 当前选中的节点信息。
+- 从 JSON 拓扑中识别到的左邻 / 右邻节点。
+- 当前规则解释。
+- 最终生成的 suggestions JSON。
+
 ## 目录结构
 
 ```text
