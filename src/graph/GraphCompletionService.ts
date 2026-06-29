@@ -446,7 +446,8 @@ function displayNodeName(segment: DiagramSegmentSummary, node: DiagramNodeSummar
   }
 
   const index = unnamedNodeIndex(segment, node);
-  return index > 0 ? `未命名${index}` : '未命名';
+  const displayName = index > 0 ? `未命名${index}` : '未命名';
+  return `${displayName}(${node.id})`;
 }
 
 function unnamedNodeIndex(segment: DiagramSegmentSummary, targetNode: DiagramNodeSummary): number {

@@ -1128,11 +1128,12 @@ function displayNodeName(
   }
 
   if (!segment) {
-    return "未命名";
+    return `未命名(${node.id})`;
   }
 
   const index = unnamedNodeIndex(segment, node);
-  return index > 0 ? `未命名${index}` : "未命名";
+  const displayName = index > 0 ? `未命名${index}` : "未命名";
+  return `${displayName}(${node.id})`;
 }
 
 function unnamedNodeIndex(

@@ -225,7 +225,8 @@ function displayNodeName(segment, node) {
     })
     .sort((a, b) => (a.order || 0) - (b.order || 0));
   const index = unnamedNodes.findIndex((item) => item.id === node.id) + 1;
-  return index > 0 ? `未命名${index}` : "未命名";
+  const displayName = index > 0 ? `未命名${index}` : "未命名";
+  return `${displayName}(${node.id})`;
 }
 
 function contactElement() {
