@@ -1,0 +1,777 @@
+[{
+	"id": "segment-10001000-1735534800000",
+	"label": "",
+	"note": "",
+	"height": 82,
+	"width": 800,
+	"isExpand": true,
+	"nodesObj": {
+		"start-node-line": {
+			"id": "start-node-line",
+			"type": "startLine",
+			"Xlayer": 0,
+			"Ylayer": 0,
+			"sourceIds": [],
+			"targetIds": ["contact-10001001-1735534800001"]
+		},
+		"contact-10001001-1735534800001": {
+			"id": "contact-10001001-1735534800001",
+			"type": "contact",
+			"sourceIds": ["start-node-line"],
+			"targetIds": ["contact-10001002-1735534800002"],
+			"varName": {
+				"name": "",
+				"value": "I_StartBtn",
+				"type": "BOOL",
+				"scope": "VAR"
+			}
+		},
+		"contact-10001002-1735534800002": {
+			"id": "contact-10001002-1735534800002",
+			"type": "contact",
+			"sourceIds": ["contact-10001001-1735534800001", "contact-10001003-1735534800003"],
+			"targetIds": ["contact-10001004-1735534800004"],
+			"varName": {
+				"name": "",
+				"value": "M_SystemRun",
+				"type": "BOOL",
+				"scope": "VAR"
+			}
+		},
+		"contact-10001003-1735534800003": {
+			"id": "contact-10001003-1735534800003",
+			"type": "contact",
+			"sourceIds": ["start-node-line"],
+			"targetIds": ["contact-10001002-1735534800002"],
+			"varName": {
+				"name": "",
+				"value": "M_SystemRun",
+				"type": "BOOL",
+				"scope": "VAR"
+			}
+		},
+		"contact-10001004-1735534800004": {
+			"id": "contact-10001004-1735534800004",
+			"type": "negatedContact",
+			"sourceIds": ["contact-10001002-1735534800002"],
+			"targetIds": ["edit-node-rect"],
+			"varName": {
+				"name": "",
+				"value": "I_StopBtn",
+				"type": "BOOL",
+				"scope": "VAR"
+			}
+		},
+		"edit-node-rect": {
+			"id": "edit-node-rect",
+			"type": "editRect",
+			"sourceIds": ["contact-10001004-1735534800004"],
+			"targetIds": ["coil-10001005-1735534800005"],
+			"children": [{
+				"id": "edit-node-rect-left-port",
+				"type": "node:edgePort",
+				"side": "left",
+				"parentId": "edit-node-rect",
+				"cssClasses": ["contact-left-port"],
+				"position": {
+					"x": -45,
+					"y": 0
+				},
+				"size": {
+					"width": 45,
+					"height": 22
+				}
+			}, {
+				"id": "edit-node-rect-bottom-port",
+				"type": "node:edgeBottomPort",
+				"side": "bottom",
+				"parentId": "edit-node-rect",
+				"cssClasses": ["contact-bottom-port"],
+				"position": {
+					"x": 0,
+					"y": 0
+				},
+				"size": {
+					"width": 70,
+					"height": 22
+				}
+			}]
+		},
+		"coil-10001005-1735534800005": {
+			"id": "coil-10001005-1735534800005",
+			"type": "coil",
+			"sourceIds": ["edit-node-rect"],
+			"targetIds": [],
+			"varName": {
+				"name": "",
+				"value": "M_SystemRun",
+				"type": "BOOL",
+				"scope": "VAR"
+			}
+		}
+	}
+}, {
+	"id": "segment-10002000-1735534800010",
+	"label": "",
+	"note": "",
+	"height": 82,
+	"width": 600,
+	"isExpand": true,
+	"nodesObj": {
+		"start-node-line": {
+			"id": "start-node-line",
+			"type": "startLine",
+			"Xlayer": 0,
+			"Ylayer": 0,
+			"sourceIds": [],
+			"targetIds": ["contact-10002001-1735534800011"]
+		},
+		"contact-10002001-1735534800011": {
+			"id": "contact-10002001-1735534800011",
+			"type": "contact",
+			"sourceIds": ["start-node-line"],
+			"targetIds": ["contact-10002002-1735534800012"],
+			"varName": {
+				"name": "",
+				"value": "I_LevelLow",
+				"type": "BOOL",
+				"scope": "VAR"
+			}
+		},
+		"contact-10002002-1735534800012": {
+			"id": "contact-10002002-1735534800012",
+			"type": "contact",
+			"sourceIds": ["contact-10002001-1735534800011"],
+			"targetIds": ["edit-node-rect"],
+			"varName": {
+				"name": "",
+				"value": "M_SystemRun",
+				"type": "BOOL",
+				"scope": "VAR"
+			}
+		},
+		"edit-node-rect": {
+			"id": "edit-node-rect",
+			"type": "editRect",
+			"sourceIds": ["contact-10002002-1735534800012"],
+			"targetIds": ["coil-10002003-1735534800013"],
+			"children": [{
+				"id": "edit-node-rect-left-port",
+				"type": "node:edgePort",
+				"side": "left",
+				"parentId": "edit-node-rect",
+				"cssClasses": ["contact-left-port"],
+				"position": {
+					"x": -45,
+					"y": 0
+				},
+				"size": {
+					"width": 45,
+					"height": 22
+				}
+			}, {
+				"id": "edit-node-rect-bottom-port",
+				"type": "node:edgeBottomPort",
+				"side": "bottom",
+				"parentId": "edit-node-rect",
+				"cssClasses": ["contact-bottom-port"],
+				"position": {
+					"x": 0,
+					"y": 0
+				},
+				"size": {
+					"width": 70,
+					"height": 22
+				}
+			}]
+		},
+		"coil-10002003-1735534800013": {
+			"id": "coil-10002003-1735534800013",
+			"type": "coil",
+			"sourceIds": ["edit-node-rect"],
+			"targetIds": [],
+			"varName": {
+				"name": "",
+				"value": "M_PumpRequest",
+				"type": "BOOL",
+				"scope": "VAR"
+			}
+		}
+	}
+}, {
+	"id": "segment-10003000-1735534800020",
+	"label": "",
+	"note": "",
+	"height": 82,
+	"width": 500,
+	"isExpand": true,
+	"nodesObj": {
+		"start-node-line": {
+			"id": "start-node-line",
+			"type": "startLine",
+			"Xlayer": 0,
+			"Ylayer": 0,
+			"sourceIds": [],
+			"targetIds": ["contact-10003001-1735534800021"]
+		},
+		"contact-10003001-1735534800021": {
+			"id": "contact-10003001-1735534800021",
+			"type": "risingContact",
+			"sourceIds": ["start-node-line"],
+			"targetIds": ["edit-node-rect"],
+			"varName": {
+				"name": "",
+				"value": "M_PumpRequest",
+				"type": "BOOL",
+				"scope": "VAR"
+			}
+		},
+		"edit-node-rect": {
+			"id": "edit-node-rect",
+			"type": "editRect",
+			"sourceIds": ["contact-10003001-1735534800021"],
+			"targetIds": ["coil-10003002-1735534800022"],
+			"children": [{
+				"id": "edit-node-rect-left-port",
+				"type": "node:edgePort",
+				"side": "left",
+				"parentId": "edit-node-rect",
+				"cssClasses": ["contact-left-port"],
+				"position": {
+					"x": -45,
+					"y": 0
+				},
+				"size": {
+					"width": 45,
+					"height": 22
+				}
+			}, {
+				"id": "edit-node-rect-bottom-port",
+				"type": "node:edgeBottomPort",
+				"side": "bottom",
+				"parentId": "edit-node-rect",
+				"cssClasses": ["contact-bottom-port"],
+				"position": {
+					"x": 0,
+					"y": 0
+				},
+				"size": {
+					"width": 70,
+					"height": 22
+				}
+			}]
+		},
+		"coil-10003002-1735534800022": {
+			"id": "coil-10003002-1735534800022",
+			"type": "coil",
+			"sourceIds": ["edit-node-rect"],
+			"targetIds": [],
+			"varName": {
+				"name": "",
+				"value": "M_AlternateFlag",
+				"type": "BOOL",
+				"scope": "VAR"
+			}
+		}
+	}
+}, {
+	"id": "segment-10004000-1735534800030",
+	"label": "",
+	"note": "",
+	"height": 82,
+	"width": 1200,
+	"isExpand": true,
+	"nodesObj": {
+		"start-node-line": {
+			"id": "start-node-line",
+			"type": "startLine",
+			"Xlayer": 0,
+			"Ylayer": 0,
+			"sourceIds": [],
+			"targetIds": ["contact-10004001-1735534800031"]
+		},
+		"contact-10004001-1735534800031": {
+			"id": "contact-10004001-1735534800031",
+			"type": "contact",
+			"sourceIds": ["start-node-line"],
+			"targetIds": ["contact-10004002-1735534800032"],
+			"varName": {
+				"name": "",
+				"value": "M_PumpRequest",
+				"type": "BOOL",
+				"scope": "VAR"
+			}
+		},
+		"contact-10004002-1735534800032": {
+			"id": "contact-10004002-1735534800032",
+			"type": "contact",
+			"sourceIds": ["contact-10004001-1735534800031"],
+			"targetIds": ["contact-10004003-1735534800033"],
+			"varName": {
+				"name": "",
+				"value": "M_AlternateFlag",
+				"type": "BOOL",
+				"scope": "VAR"
+			}
+		},
+		"contact-10004003-1735534800033": {
+			"id": "contact-10004003-1735534800033",
+			"type": "negatedContact",
+			"sourceIds": ["contact-10004002-1735534800032"],
+			"targetIds": ["contact-10004004-1735534800034"],
+			"varName": {
+				"name": "",
+				"value": "M_Pump1_Fault",
+				"type": "BOOL",
+				"scope": "VAR"
+			}
+		},
+		"contact-10004004-1735534800034": {
+			"id": "contact-10004004-1735534800034",
+			"type": "negatedContact",
+			"sourceIds": ["contact-10004003-1735534800033"],
+			"targetIds": ["contact-10004005-1735534800035"],
+			"varName": {
+				"name": "",
+				"value": "I_EmergencyStop",
+				"type": "BOOL",
+				"scope": "VAR"
+			}
+		},
+		"contact-10004005-1735534800035": {
+			"id": "contact-10004005-1735534800035",
+			"type": "negatedContact",
+			"sourceIds": ["contact-10004004-1735534800034"],
+			"targetIds": ["contact-10004006-1735534800036"],
+			"varName": {
+				"name": "",
+				"value": "I_Pump1_Overload",
+				"type": "BOOL",
+				"scope": "VAR"
+			}
+		},
+		"contact-10004006-1735534800036": {
+			"id": "contact-10004006-1735534800036",
+			"type": "negatedContact",
+			"sourceIds": ["contact-10004005-1735534800035"],
+			"targetIds": ["edit-node-rect"],
+			"varName": {
+				"name": "",
+				"value": "I_LevelHigh",
+				"type": "BOOL",
+				"scope": "VAR"
+			}
+		},
+		"edit-node-rect": {
+			"id": "edit-node-rect",
+			"type": "editRect",
+			"sourceIds": ["contact-10004006-1735534800036"],
+			"targetIds": ["coil-10004007-1735534800037"],
+			"children": [{
+				"id": "edit-node-rect-left-port",
+				"type": "node:edgePort",
+				"side": "left",
+				"parentId": "edit-node-rect",
+				"cssClasses": ["contact-left-port"],
+				"position": {
+					"x": -45,
+					"y": 0
+				},
+				"size": {
+					"width": 45,
+					"height": 22
+				}
+			}, {
+				"id": "edit-node-rect-bottom-port",
+				"type": "node:edgeBottomPort",
+				"side": "bottom",
+				"parentId": "edit-node-rect",
+				"cssClasses": ["contact-bottom-port"],
+				"position": {
+					"x": 0,
+					"y": 0
+				},
+				"size": {
+					"width": 70,
+					"height": 22
+				}
+			}]
+		},
+		"coil-10004007-1735534800037": {
+			"id": "coil-10004007-1735534800037",
+			"type": "coil",
+			"sourceIds": ["edit-node-rect"],
+			"targetIds": [],
+			"varName": {
+				"name": "",
+				"value": "Q_Pump1",
+				"type": "BOOL",
+				"scope": "VAR"
+			}
+		}
+	}
+}, {
+	"id": "segment-10005000-1735534800040",
+	"label": "",
+	"note": "",
+	"height": 82,
+	"width": 1200,
+	"isExpand": true,
+	"nodesObj": {
+		"start-node-line": {
+			"id": "start-node-line",
+			"type": "startLine",
+			"Xlayer": 0,
+			"Ylayer": 0,
+			"sourceIds": [],
+			"targetIds": ["contact-10005001-1735534800041"]
+		},
+		"contact-10005001-1735534800041": {
+			"id": "contact-10005001-1735534800041",
+			"type": "contact",
+			"sourceIds": ["start-node-line"],
+			"targetIds": ["contact-10005002-1735534800042"],
+			"varName": {
+				"name": "",
+				"value": "M_PumpRequest",
+				"type": "BOOL",
+				"scope": "VAR"
+			}
+		},
+		"contact-10005002-1735534800042": {
+			"id": "contact-10005002-1735534800042",
+			"type": "negatedContact",
+			"sourceIds": ["contact-10005001-1735534800041"],
+			"targetIds": ["contact-10005003-1735534800043"],
+			"varName": {
+				"name": "",
+				"value": "M_AlternateFlag",
+				"type": "BOOL",
+				"scope": "VAR"
+			}
+		},
+		"contact-10005003-1735534800043": {
+			"id": "contact-10005003-1735534800043",
+			"type": "negatedContact",
+			"sourceIds": ["contact-10005002-1735534800042"],
+			"targetIds": ["contact-10005004-1735534800044"],
+			"varName": {
+				"name": "",
+				"value": "M_Pump2_Fault",
+				"type": "BOOL",
+				"scope": "VAR"
+			}
+		},
+		"contact-10005004-1735534800044": {
+			"id": "contact-10005004-1735534800044",
+			"type": "negatedContact",
+			"sourceIds": ["contact-10005003-1735534800043"],
+			"targetIds": ["contact-10005005-1735534800045"],
+			"varName": {
+				"name": "",
+				"value": "I_EmergencyStop",
+				"type": "BOOL",
+				"scope": "VAR"
+			}
+		},
+		"contact-10005005-1735534800045": {
+			"id": "contact-10005005-1735534800045",
+			"type": "negatedContact",
+			"sourceIds": ["contact-10005004-1735534800044"],
+			"targetIds": ["contact-10005006-1735534800046"],
+			"varName": {
+				"name": "",
+				"value": "I_Pump2_Overload",
+				"type": "BOOL",
+				"scope": "VAR"
+			}
+		},
+		"contact-10005006-1735534800046": {
+			"id": "contact-10005006-1735534800046",
+			"type": "negatedContact",
+			"sourceIds": ["contact-10005005-1735534800045"],
+			"targetIds": ["edit-node-rect"],
+			"varName": {
+				"name": "",
+				"value": "I_LevelHigh",
+				"type": "BOOL",
+				"scope": "VAR"
+			}
+		},
+		"edit-node-rect": {
+			"id": "edit-node-rect",
+			"type": "editRect",
+			"sourceIds": ["contact-10005006-1735534800046"],
+			"targetIds": ["coil-10005007-1735534800047"],
+			"children": [{
+				"id": "edit-node-rect-left-port",
+				"type": "node:edgePort",
+				"side": "left",
+				"parentId": "edit-node-rect",
+				"cssClasses": ["contact-left-port"],
+				"position": {
+					"x": -45,
+					"y": 0
+				},
+				"size": {
+					"width": 45,
+					"height": 22
+				}
+			}, {
+				"id": "edit-node-rect-bottom-port",
+				"type": "node:edgeBottomPort",
+				"side": "bottom",
+				"parentId": "edit-node-rect",
+				"cssClasses": ["contact-bottom-port"],
+				"position": {
+					"x": 0,
+					"y": 0
+				},
+				"size": {
+					"width": 70,
+					"height": 22
+				}
+			}]
+		},
+		"coil-10005007-1735534800047": {
+			"id": "coil-10005007-1735534800047",
+			"type": "coil",
+			"sourceIds": ["edit-node-rect"],
+			"targetIds": [],
+			"varName": {
+				"name": "",
+				"value": "Q_Pump2",
+				"type": "BOOL",
+				"scope": "VAR"
+			}
+		}
+	}
+}, {
+	"id": "segment-10006000-1735534800050",
+	"label": "",
+	"note": "",
+	"height": 82,
+	"width": 500,
+	"isExpand": true,
+	"nodesObj": {
+		"start-node-line": {
+			"id": "start-node-line",
+			"type": "startLine",
+			"Xlayer": 0,
+			"Ylayer": 0,
+			"sourceIds": [],
+			"targetIds": ["contact-10006001-1735534800051"]
+		},
+		"contact-10006001-1735534800051": {
+			"id": "contact-10006001-1735534800051",
+			"type": "contact",
+			"sourceIds": ["start-node-line"],
+			"targetIds": ["edit-node-rect"],
+			"varName": {
+				"name": "",
+				"value": "I_Pump1_Overload",
+				"type": "BOOL",
+				"scope": "VAR"
+			}
+		},
+		"edit-node-rect": {
+			"id": "edit-node-rect",
+			"type": "editRect",
+			"sourceIds": ["contact-10006001-1735534800051"],
+			"targetIds": ["coil-10006002-1735534800052"],
+			"children": [{
+				"id": "edit-node-rect-left-port",
+				"type": "node:edgePort",
+				"side": "left",
+				"parentId": "edit-node-rect",
+				"cssClasses": ["contact-left-port"],
+				"position": {
+					"x": -45,
+					"y": 0
+				},
+				"size": {
+					"width": 45,
+					"height": 22
+				}
+			}, {
+				"id": "edit-node-rect-bottom-port",
+				"type": "node:edgeBottomPort",
+				"side": "bottom",
+				"parentId": "edit-node-rect",
+				"cssClasses": ["contact-bottom-port"],
+				"position": {
+					"x": 0,
+					"y": 0
+				},
+				"size": {
+					"width": 70,
+					"height": 22
+				}
+			}]
+		},
+		"coil-10006002-1735534800052": {
+			"id": "coil-10006002-1735534800052",
+			"type": "setCoil",
+			"sourceIds": ["edit-node-rect"],
+			"targetIds": [],
+			"varName": {
+				"name": "",
+				"value": "M_Pump1_Fault",
+				"type": "BOOL",
+				"scope": "VAR"
+			}
+		}
+	}
+}, {
+	"id": "segment-10007000-1735534800060",
+	"label": "",
+	"note": "",
+	"height": 82,
+	"width": 500,
+	"isExpand": true,
+	"nodesObj": {
+		"start-node-line": {
+			"id": "start-node-line",
+			"type": "startLine",
+			"Xlayer": 0,
+			"Ylayer": 0,
+			"sourceIds": [],
+			"targetIds": ["contact-10007001-1735534800061"]
+		},
+		"contact-10007001-1735534800061": {
+			"id": "contact-10007001-1735534800061",
+			"type": "contact",
+			"sourceIds": ["start-node-line"],
+			"targetIds": ["edit-node-rect"],
+			"varName": {
+				"name": "",
+				"value": "I_Pump2_Overload",
+				"type": "BOOL",
+				"scope": "VAR"
+			}
+		},
+		"edit-node-rect": {
+			"id": "edit-node-rect",
+			"type": "editRect",
+			"sourceIds": ["contact-10007001-1735534800061"],
+			"targetIds": ["coil-10007002-1735534800062"],
+			"children": [{
+				"id": "edit-node-rect-left-port",
+				"type": "node:edgePort",
+				"side": "left",
+				"parentId": "edit-node-rect",
+				"cssClasses": ["contact-left-port"],
+				"position": {
+					"x": -45,
+					"y": 0
+				},
+				"size": {
+					"width": 45,
+					"height": 22
+				}
+			}, {
+				"id": "edit-node-rect-bottom-port",
+				"type": "node:edgeBottomPort",
+				"side": "bottom",
+				"parentId": "edit-node-rect",
+				"cssClasses": ["contact-bottom-port"],
+				"position": {
+					"x": 0,
+					"y": 0
+				},
+				"size": {
+					"width": 70,
+					"height": 22
+				}
+			}]
+		},
+		"coil-10007002-1735534800062": {
+			"id": "coil-10007002-1735534800062",
+			"type": "setCoil",
+			"sourceIds": ["edit-node-rect"],
+			"targetIds": [],
+			"varName": {
+				"name": "",
+				"value": "M_Pump2_Fault",
+				"type": "BOOL",
+				"scope": "VAR"
+			}
+		}
+	}
+}, {
+	"id": "segment-10008000-1735534800070",
+	"label": "",
+	"note": "",
+	"height": 82,
+	"width": 600,
+	"isExpand": true,
+	"nodesObj": {
+		"start-node-line": {
+			"id": "start-node-line",
+			"type": "startLine",
+			"Xlayer": 0,
+			"Ylayer": 0,
+			"sourceIds": [],
+			"targetIds": ["contact-10008001-1735534800071"]
+		},
+		"contact-10008001-1735534800071": {
+			"id": "contact-10008001-1735534800071",
+			"type": "contact",
+			"sourceIds": ["start-node-line"],
+			"targetIds": ["edit-node-rect"],
+			"varName": {
+				"name": "",
+				"value": "I_LevelHigh",
+				"type": "BOOL",
+				"scope": "VAR"
+			}
+		},
+		"edit-node-rect": {
+			"id": "edit-node-rect",
+			"type": "editRect",
+			"sourceIds": ["contact-10008001-1735534800071"],
+			"targetIds": ["coil-10008002-1735534800072"],
+			"children": [{
+				"id": "edit-node-rect-left-port",
+				"type": "node:edgePort",
+				"side": "left",
+				"parentId": "edit-node-rect",
+				"cssClasses": ["contact-left-port"],
+				"position": {
+					"x": -45,
+					"y": 0
+				},
+				"size": {
+					"width": 45,
+					"height": 22
+				}
+			}, {
+				"id": "edit-node-rect-bottom-port",
+				"type": "node:edgeBottomPort",
+				"side": "bottom",
+				"parentId": "edit-node-rect",
+				"cssClasses": ["contact-bottom-port"],
+				"position": {
+					"x": 0,
+					"y": 0
+				},
+				"size": {
+					"width": 70,
+					"height": 22
+				}
+			}]
+		},
+		"coil-10008002-1735534800072": {
+			"id": "coil-10008002-1735534800072",
+			"type": "resetCoil",
+			"sourceIds": ["edit-node-rect"],
+			"targetIds": [],
+			"varName": {
+				"name": "",
+				"value": "M_PumpRequest",
+				"type": "BOOL",
+				"scope": "VAR"
+			}
+		}
+	}
+}]
