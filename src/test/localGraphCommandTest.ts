@@ -87,39 +87,8 @@ export async function run(): Promise<void> {
   const resultPath = process.env.IDE_AGENT_LOCAL_GRAPH_TEST_RESULT;
   if (resultPath) {
     fs.mkdirSync(path.dirname(resultPath), { recursive: true });
-    fs.writeFileSync(
-      resultPath,
-      JSON.stringify(
-        {
-          selectedNodeId: selectedNode.id,
-          byNode: pickPrintableResult(byNode),
-          selectedInsertionPointId: selectedInsertionPoint?.id ?? "",
-          byInsertionPoint: pickPrintableResult(byInsertionPoint),
-        },
-        null,
-        2,
-      ),
-      "utf8",
-    );
+    fs.writeFileSync(resultPath, JSON.stringify(byNode, null, 2), "utf8");
   }
 
   console.log("[localGraphCommandTest] passed");
-}
-
-function pickPrintableResult(result: unknown): unknown {
-  if (!result || typeof result !== "object") {
-    return result;
-  }
-
-  const record = result as {
-    diagramPath?: string;
-    jsonText?: string;
-    payload?: unknown;
-  };
-
-  return {
-    diagramPath: record.diagramPath,
-    payload: record.payload,
-    jsonText: record.jsonText,
-  };
 }

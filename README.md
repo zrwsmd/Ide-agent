@@ -381,11 +381,14 @@ npm run test:local-graph-command
 - 在终端打印实际返回的 JSON。
 - 同时把结果写入 `tmp/local-graph-command-result.json`。
 
-当前测试会从默认 `transLd.txt` 中自动挑一个可建议节点和一个插入点进行调用。返回结果主要看：
+当前测试会从默认 `transLd.txt` 中自动挑一个可建议节点作为主调用对象，并额外验证一次插入点调用是否可用。终端和 `tmp/local-graph-command-result.json` 中打印的是主调用的原始命令返回结构：
 
-- `byNode`：传 `selectedNodeId` 调用后的返回。
-- `byInsertionPoint`：传 `selectedInsertionPointId` 调用后的返回。
+- `diagramPath`：本次读取的图 JSON / `transLd.txt` 路径。
+- `payload`：结构化建议结果。
 - `payload.suggestions`：前端真正需要渲染的建议数组。
+- `jsonText`：格式化后的 `payload` 字符串，主要用于日志展示。
+- `summary`：从图 JSON 压缩出的拓扑摘要，便于调试定位节点关系。
+- `summary.suggestionOverview`：从 `payload.suggestions` 提取出来的人类可读概览，便于快速扫一眼本次返回了哪些建议。
 
 如果要修改测试用的 `.txt` / 图 JSON 路径，改这里：
 

@@ -32,11 +32,24 @@ export interface LocalGraphSuggestionPayload {
   suggestions: LocalSuggestion[];
 }
 
+export interface LocalSuggestionOverview {
+  index: number;
+  id: string;
+  mode: string;
+  placement: string;
+  add: string;
+  text: string;
+}
+
+export interface LocalGraphSuggestionSummary extends DiagramSummary {
+  suggestionOverview: LocalSuggestionOverview[];
+}
+
 export interface LocalGraphSuggestionResult {
   diagramPath: string;
   jsonText: string;
   payload: LocalGraphSuggestionPayload;
-  summary: DiagramSummary;
+  summary: LocalGraphSuggestionSummary;
 }
 
 interface FocusContext {
@@ -205,6 +218,10 @@ export class LocalGraphSuggestionService {
   ): LocalGraphSuggestionResult {
     const payload = buildLocalPayload(summary, focus);
     const jsonText = JSON.stringify(payload, null, 2);
+    const resultSummary = {
+      ...summary,
+      suggestionOverview: buildSuggestionOverview(payload.suggestions),
+    };
 
     this.log(
       `local graph result path=${diagramPath} source=${focus.source} nodeId=${getFocusId(focus)} insertionPoint=${focus.insertionPoint?.id ?? ""} suggestions=${payload.suggestions.length}`,
@@ -214,9 +231,28 @@ export class LocalGraphSuggestionService {
       diagramPath,
       jsonText,
       payload,
-      summary,
+      summary: resultSummary,
     };
   }
+}
+
+function buildSuggestionOverview(
+  suggestions: LocalSuggestion[],
+): LocalSuggestionOverview[] {
+  return suggestions.map((suggestion, index) => {
+    const itemIndex = index + 1;
+    const placement = suggestion.placement.text;
+    const add = suggestion.addElement.displayLabel;
+
+    return {
+      index: itemIndex,
+      id: suggestion.id,
+      mode: suggestion.mode,
+      placement,
+      add,
+      text: `#${itemIndex} mode=${suggestion.mode} placement=${placement} add=${add}`,
+    };
+  });
 }
 
 function buildLocalPayload(
