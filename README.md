@@ -230,6 +230,55 @@ npm run compile
 npm run package
 ```
 
+`npm run package` 会自动执行 `vscode:prepublish`：
+
+```text
+npm run compile -> npm run obfuscate -> vsce package
+```
+
+其中 `npm run obfuscate` 会压缩混淆 `dist/**/*.js`，并清理 `dist/**/*.map`。打出的 VSIX 不包含 `src/**`、`scripts/**`、`.ts`、`.map` 等开发源码文件。
+
+生成的插件包路径：
+
+```text
+E:\bbb\Ide-agent\ide-agent-0.0.1.vsix
+```
+
+本地安装 / 升级 VSIX：
+
+```powershell
+code --install-extension E:\bbb\Ide-agent\ide-agent-0.0.1.vsix --force
+```
+
+也可以在 VS Code 里手动安装：
+
+```text
+Extensions -> ... -> Install from VSIX... -> 选择 ide-agent-0.0.1.vsix
+```
+
+安装或升级后，建议执行：
+
+```text
+Developer: Reload Window
+```
+
+检查 VSIX 是否包含源码或 source map：
+
+```powershell
+$vsix='E:\bbb\Ide-agent\ide-agent-0.0.1.vsix'
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$zip=[System.IO.Compression.ZipFile]::OpenRead($vsix)
+try {
+  $zip.Entries |
+    Where-Object { $_.FullName -match '(^|/)extension/src/|(^|/)extension/scripts/|\.map$|\.ts$' } |
+    Select-Object -ExpandProperty FullName
+} finally {
+  $zip.Dispose()
+}
+```
+
+如果没有输出，说明当前包里没有 `src/**`、`scripts/**`、`.map` 或 `.ts` 文件。
+
 查看日志：
 
 ```text
