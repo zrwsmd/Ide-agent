@@ -1,9 +1,12 @@
 .vscode/**
 src/**
+scripts/**
 node_modules/**
 .gitignore
 tsconfig.json
 package-lock.json
 *.vsix
 dist/**/*.map
+dist/**/*.ts
+**/*.map
 npm-debug.log*
