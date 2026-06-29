@@ -365,6 +365,28 @@ node scripts/test-coil-suggestions.js "C:\Users\Administrator\.vscode\extensions
 - 当前规则解释。
 - 最终生成的 suggestions JSON。
 
+### Extension Host 命令测试
+
+如果要验证“外部插件/前端集成调用 `ide-agent.getLocalGraphSuggestions` 后实际拿到什么 JSON”，可以运行真实 VS Code Extension Host 测试：
+
+```powershell
+npm run test:local-graph-command
+```
+
+这个测试会：
+
+- 先执行 `npm run compile`。
+- 启动一个独立的 VS Code Extension Host，并加载当前项目里的开发版插件。
+- 调用 `ide-agent.getLocalGraphSuggestions`。
+- 在终端打印实际返回的 JSON。
+- 同时把结果写入 `tmp/local-graph-command-result.json`。
+
+当前测试会从默认 `transLd.txt` 中自动挑一个可建议节点和一个插入点进行调用。返回结果主要看：
+
+- `byNode`：传 `selectedNodeId` 调用后的返回。
+- `byInsertionPoint`：传 `selectedInsertionPointId` 调用后的返回。
+- `payload.suggestions`：前端真正需要渲染的建议数组。
+
 ## 目录结构
 
 ```text
