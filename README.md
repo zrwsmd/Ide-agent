@@ -387,6 +387,41 @@ npm run test:local-graph-command
 - `byInsertionPoint`：传 `selectedInsertionPointId` 调用后的返回。
 - `payload.suggestions`：前端真正需要渲染的建议数组。
 
+如果要修改测试用的 `.txt` / 图 JSON 路径，改这里：
+
+```text
+src/test/localGraphCommandTest.ts
+```
+
+```ts
+const DIAGRAM_PATH =
+  "C:\\Users\\Administrator\\.vscode\\extensions\\ytak.devuni-ide-vscode-1.0.21\\tool\\iec-runtime-gen-run\\.depworkspace\\transLd.txt";
+```
+
+如果要固定测试某个选中节点，把：
+
+```ts
+selectedNodeId: selectedNode.id,
+```
+
+改成：
+
+```ts
+selectedNodeId: "contact-xxxx",
+```
+
+如果要固定测试某个插入点，把：
+
+```ts
+selectedInsertionPointId: selectedInsertionPoint.id,
+```
+
+改成：
+
+```ts
+selectedInsertionPointId: "edit-node-rect",
+```
+
 ## 目录结构
 
 ```text
