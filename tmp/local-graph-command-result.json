@@ -1,0 +1,272 @@
+{
+  "selectedNodeId": "contact-95168399-1782090214204",
+  "byNode": {
+    "diagramPath": "C:\\Users\\Administrator\\.vscode\\extensions\\ytak.devuni-ide-vscode-1.0.21\\tool\\iec-runtime-gen-run\\.depworkspace\\transLd.txt",
+    "payload": {
+      "schemaVersion": "ide-agent.graph-completion.v1",
+      "action": "suggestGraphCompletions",
+      "source": "local-rules",
+      "segmentId": "segment-2",
+      "confidence": 1,
+      "recognizedFocus": {
+        "visualElement": "未命名1(contact-95168399-1782090214204) 常开触点",
+        "matchedNodeId": "contact-95168399-1782090214204",
+        "matchedNodeType": "contact",
+        "matchedVar": "???",
+        "confidence": 1,
+        "source": "provided",
+        "pouName": "TEST202606220900"
+      },
+      "suggestions": [
+        {
+          "id": "local-1",
+          "mode": "seriesBefore",
+          "confidence": 1,
+          "placement": {
+            "relationToFocus": "beforeSelected",
+            "anchorNodeId": "contact-95168399-1782090214204",
+            "anchorNodeVar": "???",
+            "insertAfterNodeId": "start-node-line",
+            "insertBeforeNodeId": "contact-95168399-1782090214204",
+            "parallelToNodeId": "",
+            "branchFromNodeId": "",
+            "branchToNodeId": "",
+            "portName": "",
+            "text": "在未命名1(contact-95168399-1782090214204) 常开触点前串联一个常开触点"
+          },
+          "addElement": {
+            "nodeType": "contact",
+            "displayLabel": "常开触点",
+            "variableSource": "userInput",
+            "variableName": "",
+            "dataType": "BOOL",
+            "userInputRequired": true,
+            "blockType": "",
+            "instanceSource": "",
+            "instanceName": ""
+          }
+        },
+        {
+          "id": "local-2",
+          "mode": "seriesAfter",
+          "confidence": 1,
+          "placement": {
+            "relationToFocus": "afterSelected",
+            "anchorNodeId": "contact-95168399-1782090214204",
+            "anchorNodeVar": "???",
+            "insertAfterNodeId": "contact-95168399-1782090214204",
+            "insertBeforeNodeId": "contact-76659572-1782090215460",
+            "parallelToNodeId": "",
+            "branchFromNodeId": "",
+            "branchToNodeId": "",
+            "portName": "",
+            "text": "在未命名1(contact-95168399-1782090214204) 常开触点和未命名2(contact-76659572-1782090215460) 常开触点之间串联一个常开触点"
+          },
+          "addElement": {
+            "nodeType": "contact",
+            "displayLabel": "常开触点",
+            "variableSource": "userInput",
+            "variableName": "",
+            "dataType": "BOOL",
+            "userInputRequired": true,
+            "blockType": "",
+            "instanceSource": "",
+            "instanceName": ""
+          }
+        },
+        {
+          "id": "local-3",
+          "mode": "functionBlockAfter",
+          "confidence": 1,
+          "placement": {
+            "relationToFocus": "afterSelected",
+            "anchorNodeId": "contact-95168399-1782090214204",
+            "anchorNodeVar": "???",
+            "insertAfterNodeId": "contact-95168399-1782090214204",
+            "insertBeforeNodeId": "contact-76659572-1782090215460",
+            "parallelToNodeId": "",
+            "branchFromNodeId": "",
+            "branchToNodeId": "",
+            "portName": "",
+            "text": "在未命名1(contact-95168399-1782090214204) 常开触点和未命名2(contact-76659572-1782090215460) 常开触点之间插入一个 CTD 功能块"
+          },
+          "addElement": {
+            "nodeType": "functionBlock",
+            "displayLabel": "CTD 功能块",
+            "variableSource": "userInput",
+            "variableName": "",
+            "dataType": "CTD",
+            "userInputRequired": true,
+            "blockType": "CTD",
+            "instanceSource": "userInput",
+            "instanceName": ""
+          }
+        },
+        {
+          "id": "local-4",
+          "mode": "seriesAfter",
+          "confidence": 1,
+          "placement": {
+            "relationToFocus": "afterSelected",
+            "anchorNodeId": "contact-95168399-1782090214204",
+            "anchorNodeVar": "???",
+            "insertAfterNodeId": "contact-95168399-1782090214204",
+            "insertBeforeNodeId": "FBD-compartment-RS-57191586-1782090437630",
+            "parallelToNodeId": "",
+            "branchFromNodeId": "",
+            "branchToNodeId": "",
+            "portName": "",
+            "text": "在未命名1(contact-95168399-1782090214204) 常开触点和RS 未命名10(FBD-compartment-RS-57191586-1782090437630) 功能块之间串联一个常开触点"
+          },
+          "addElement": {
+            "nodeType": "contact",
+            "displayLabel": "常开触点",
+            "variableSource": "userInput",
+            "variableName": "",
+            "dataType": "BOOL",
+            "userInputRequired": true,
+            "blockType": "",
+            "instanceSource": "",
+            "instanceName": ""
+          }
+        },
+        {
+          "id": "local-5",
+          "mode": "functionBlockAfter",
+          "confidence": 1,
+          "placement": {
+            "relationToFocus": "afterSelected",
+            "anchorNodeId": "contact-95168399-1782090214204",
+            "anchorNodeVar": "???",
+            "insertAfterNodeId": "contact-95168399-1782090214204",
+            "insertBeforeNodeId": "FBD-compartment-RS-57191586-1782090437630",
+            "parallelToNodeId": "",
+            "branchFromNodeId": "",
+            "branchToNodeId": "",
+            "portName": "",
+            "text": "在未命名1(contact-95168399-1782090214204) 常开触点和RS 未命名10(FBD-compartment-RS-57191586-1782090437630) 功能块之间插入一个 RS 功能块"
+          },
+          "addElement": {
+            "nodeType": "functionBlock",
+            "displayLabel": "RS 功能块",
+            "variableSource": "userInput",
+            "variableName": "",
+            "dataType": "RS",
+            "userInputRequired": true,
+            "blockType": "RS",
+            "instanceSource": "userInput",
+            "instanceName": ""
+          }
+        },
+        {
+          "id": "local-6",
+          "mode": "seriesAfter",
+          "confidence": 1,
+          "placement": {
+            "relationToFocus": "afterSelected",
+            "anchorNodeId": "contact-95168399-1782090214204",
+            "anchorNodeVar": "???",
+            "insertAfterNodeId": "contact-95168399-1782090214204",
+            "insertBeforeNodeId": "contact-57970777-1782090261468",
+            "parallelToNodeId": "",
+            "branchFromNodeId": "",
+            "branchToNodeId": "",
+            "portName": "",
+            "text": "在未命名1(contact-95168399-1782090214204) 常开触点和未命名7(contact-57970777-1782090261468) 常开触点之间串联一个常开触点"
+          },
+          "addElement": {
+            "nodeType": "contact",
+            "displayLabel": "常开触点",
+            "variableSource": "userInput",
+            "variableName": "",
+            "dataType": "BOOL",
+            "userInputRequired": true,
+            "blockType": "",
+            "instanceSource": "",
+            "instanceName": ""
+          }
+        }
+      ]
+    },
+    "jsonText": "{\n  \"schemaVersion\": \"ide-agent.graph-completion.v1\",\n  \"action\": \"suggestGraphCompletions\",\n  \"source\": \"local-rules\",\n  \"segmentId\": \"segment-2\",\n  \"confidence\": 1,\n  \"recognizedFocus\": {\n    \"visualElement\": \"未命名1(contact-95168399-1782090214204) 常开触点\",\n    \"matchedNodeId\": \"contact-95168399-1782090214204\",\n    \"matchedNodeType\": \"contact\",\n    \"matchedVar\": \"???\",\n    \"confidence\": 1,\n    \"source\": \"provided\",\n    \"pouName\": \"TEST202606220900\"\n  },\n  \"suggestions\": [\n    {\n      \"id\": \"local-1\",\n      \"mode\": \"seriesBefore\",\n      \"confidence\": 1,\n      \"placement\": {\n        \"relationToFocus\": \"beforeSelected\",\n        \"anchorNodeId\": \"contact-95168399-1782090214204\",\n        \"anchorNodeVar\": \"???\",\n        \"insertAfterNodeId\": \"start-node-line\",\n        \"insertBeforeNodeId\": \"contact-95168399-1782090214204\",\n        \"parallelToNodeId\": \"\",\n        \"branchFromNodeId\": \"\",\n        \"branchToNodeId\": \"\",\n        \"portName\": \"\",\n        \"text\": \"在未命名1(contact-95168399-1782090214204) 常开触点前串联一个常开触点\"\n      },\n      \"addElement\": {\n        \"nodeType\": \"contact\",\n        \"displayLabel\": \"常开触点\",\n        \"variableSource\": \"userInput\",\n        \"variableName\": \"\",\n        \"dataType\": \"BOOL\",\n        \"userInputRequired\": true,\n        \"blockType\": \"\",\n        \"instanceSource\": \"\",\n        \"instanceName\": \"\"\n      }\n    },\n    {\n      \"id\": \"local-2\",\n      \"mode\": \"seriesAfter\",\n      \"confidence\": 1,\n      \"placement\": {\n        \"relationToFocus\": \"afterSelected\",\n        \"anchorNodeId\": \"contact-95168399-1782090214204\",\n        \"anchorNodeVar\": \"???\",\n        \"insertAfterNodeId\": \"contact-95168399-1782090214204\",\n        \"insertBeforeNodeId\": \"contact-76659572-1782090215460\",\n        \"parallelToNodeId\": \"\",\n        \"branchFromNodeId\": \"\",\n        \"branchToNodeId\": \"\",\n        \"portName\": \"\",\n        \"text\": \"在未命名1(contact-95168399-1782090214204) 常开触点和未命名2(contact-76659572-1782090215460) 常开触点之间串联一个常开触点\"\n      },\n      \"addElement\": {\n        \"nodeType\": \"contact\",\n        \"displayLabel\": \"常开触点\",\n        \"variableSource\": \"userInput\",\n        \"variableName\": \"\",\n        \"dataType\": \"BOOL\",\n        \"userInputRequired\": true,\n        \"blockType\": \"\",\n        \"instanceSource\": \"\",\n        \"instanceName\": \"\"\n      }\n    },\n    {\n      \"id\": \"local-3\",\n      \"mode\": \"functionBlockAfter\",\n      \"confidence\": 1,\n      \"placement\": {\n        \"relationToFocus\": \"afterSelected\",\n        \"anchorNodeId\": \"contact-95168399-1782090214204\",\n        \"anchorNodeVar\": \"???\",\n        \"insertAfterNodeId\": \"contact-95168399-1782090214204\",\n        \"insertBeforeNodeId\": \"contact-76659572-1782090215460\",\n        \"parallelToNodeId\": \"\",\n        \"branchFromNodeId\": \"\",\n        \"branchToNodeId\": \"\",\n        \"portName\": \"\",\n        \"text\": \"在未命名1(contact-95168399-1782090214204) 常开触点和未命名2(contact-76659572-1782090215460) 常开触点之间插入一个 CTD 功能块\"\n      },\n      \"addElement\": {\n        \"nodeType\": \"functionBlock\",\n        \"displayLabel\": \"CTD 功能块\",\n        \"variableSource\": \"userInput\",\n        \"variableName\": \"\",\n        \"dataType\": \"CTD\",\n        \"userInputRequired\": true,\n        \"blockType\": \"CTD\",\n        \"instanceSource\": \"userInput\",\n        \"instanceName\": \"\"\n      }\n    },\n    {\n      \"id\": \"local-4\",\n      \"mode\": \"seriesAfter\",\n      \"confidence\": 1,\n      \"placement\": {\n        \"relationToFocus\": \"afterSelected\",\n        \"anchorNodeId\": \"contact-95168399-1782090214204\",\n        \"anchorNodeVar\": \"???\",\n        \"insertAfterNodeId\": \"contact-95168399-1782090214204\",\n        \"insertBeforeNodeId\": \"FBD-compartment-RS-57191586-1782090437630\",\n        \"parallelToNodeId\": \"\",\n        \"branchFromNodeId\": \"\",\n        \"branchToNodeId\": \"\",\n        \"portName\": \"\",\n        \"text\": \"在未命名1(contact-95168399-1782090214204) 常开触点和RS 未命名10(FBD-compartment-RS-57191586-1782090437630) 功能块之间串联一个常开触点\"\n      },\n      \"addElement\": {\n        \"nodeType\": \"contact\",\n        \"displayLabel\": \"常开触点\",\n        \"variableSource\": \"userInput\",\n        \"variableName\": \"\",\n        \"dataType\": \"BOOL\",\n        \"userInputRequired\": true,\n        \"blockType\": \"\",\n        \"instanceSource\": \"\",\n        \"instanceName\": \"\"\n      }\n    },\n    {\n      \"id\": \"local-5\",\n      \"mode\": \"functionBlockAfter\",\n      \"confidence\": 1,\n      \"placement\": {\n        \"relationToFocus\": \"afterSelected\",\n        \"anchorNodeId\": \"contact-95168399-1782090214204\",\n        \"anchorNodeVar\": \"???\",\n        \"insertAfterNodeId\": \"contact-95168399-1782090214204\",\n        \"insertBeforeNodeId\": \"FBD-compartment-RS-57191586-1782090437630\",\n        \"parallelToNodeId\": \"\",\n        \"branchFromNodeId\": \"\",\n        \"branchToNodeId\": \"\",\n        \"portName\": \"\",\n        \"text\": \"在未命名1(contact-95168399-1782090214204) 常开触点和RS 未命名10(FBD-compartment-RS-57191586-1782090437630) 功能块之间插入一个 RS 功能块\"\n      },\n      \"addElement\": {\n        \"nodeType\": \"functionBlock\",\n        \"displayLabel\": \"RS 功能块\",\n        \"variableSource\": \"userInput\",\n        \"variableName\": \"\",\n        \"dataType\": \"RS\",\n        \"userInputRequired\": true,\n        \"blockType\": \"RS\",\n        \"instanceSource\": \"userInput\",\n        \"instanceName\": \"\"\n      }\n    },\n    {\n      \"id\": \"local-6\",\n      \"mode\": \"seriesAfter\",\n      \"confidence\": 1,\n      \"placement\": {\n        \"relationToFocus\": \"afterSelected\",\n        \"anchorNodeId\": \"contact-95168399-1782090214204\",\n        \"anchorNodeVar\": \"???\",\n        \"insertAfterNodeId\": \"contact-95168399-1782090214204\",\n        \"insertBeforeNodeId\": \"contact-57970777-1782090261468\",\n        \"parallelToNodeId\": \"\",\n        \"branchFromNodeId\": \"\",\n        \"branchToNodeId\": \"\",\n        \"portName\": \"\",\n        \"text\": \"在未命名1(contact-95168399-1782090214204) 常开触点和未命名7(contact-57970777-1782090261468) 常开触点之间串联一个常开触点\"\n      },\n      \"addElement\": {\n        \"nodeType\": \"contact\",\n        \"displayLabel\": \"常开触点\",\n        \"variableSource\": \"userInput\",\n        \"variableName\": \"\",\n        \"dataType\": \"BOOL\",\n        \"userInputRequired\": true,\n        \"blockType\": \"\",\n        \"instanceSource\": \"\",\n        \"instanceName\": \"\"\n      }\n    }\n  ]\n}"
+  },
+  "selectedInsertionPointId": "edit-node-rect",
+  "byInsertionPoint": {
+    "diagramPath": "C:\\Users\\Administrator\\.vscode\\extensions\\ytak.devuni-ide-vscode-1.0.21\\tool\\iec-runtime-gen-run\\.depworkspace\\transLd.txt",
+    "payload": {
+      "schemaVersion": "ide-agent.graph-completion.v1",
+      "action": "suggestGraphCompletions",
+      "source": "local-rules",
+      "segmentId": "segment-2",
+      "confidence": 1,
+      "recognizedFocus": {
+        "visualElement": "editRect contact:??? -> coil:???",
+        "matchedNodeId": "edit-node-rect",
+        "matchedNodeType": "editRect",
+        "matchedVar": "",
+        "confidence": 1,
+        "source": "provided",
+        "pouName": "TEST202606220900"
+      },
+      "suggestions": [
+        {
+          "id": "local-1",
+          "mode": "seriesBefore",
+          "confidence": 1,
+          "placement": {
+            "relationToFocus": "atInsertionPoint",
+            "anchorNodeId": "edit-node-rect",
+            "anchorNodeVar": "",
+            "insertAfterNodeId": "contact-38461590-1782090217612",
+            "insertBeforeNodeId": "coil-64352079-1782090404988",
+            "parallelToNodeId": "",
+            "branchFromNodeId": "",
+            "branchToNodeId": "",
+            "portName": "",
+            "text": "在未命名3(contact-38461590-1782090217612) 常开触点和未命名9(coil-64352079-1782090404988) 线圈之间串联一个常开触点"
+          },
+          "addElement": {
+            "nodeType": "contact",
+            "displayLabel": "常开触点",
+            "variableSource": "userInput",
+            "variableName": "",
+            "dataType": "BOOL",
+            "userInputRequired": true,
+            "blockType": "",
+            "instanceSource": "",
+            "instanceName": ""
+          }
+        },
+        {
+          "id": "local-2",
+          "mode": "functionBlockBefore",
+          "confidence": 1,
+          "placement": {
+            "relationToFocus": "atInsertionPoint",
+            "anchorNodeId": "edit-node-rect",
+            "anchorNodeVar": "",
+            "insertAfterNodeId": "contact-38461590-1782090217612",
+            "insertBeforeNodeId": "coil-64352079-1782090404988",
+            "parallelToNodeId": "",
+            "branchFromNodeId": "",
+            "branchToNodeId": "",
+            "portName": "",
+            "text": "在未命名3(contact-38461590-1782090217612) 常开触点和未命名9(coil-64352079-1782090404988) 线圈之间插入一个 SR 功能块"
+          },
+          "addElement": {
+            "nodeType": "functionBlock",
+            "displayLabel": "SR 功能块",
+            "variableSource": "userInput",
+            "variableName": "",
+            "dataType": "SR",
+            "userInputRequired": true,
+            "blockType": "SR",
+            "instanceSource": "userInput",
+            "instanceName": ""
+          }
+        }
+      ]
+    },
+    "jsonText": "{\n  \"schemaVersion\": \"ide-agent.graph-completion.v1\",\n  \"action\": \"suggestGraphCompletions\",\n  \"source\": \"local-rules\",\n  \"segmentId\": \"segment-2\",\n  \"confidence\": 1,\n  \"recognizedFocus\": {\n    \"visualElement\": \"editRect contact:??? -> coil:???\",\n    \"matchedNodeId\": \"edit-node-rect\",\n    \"matchedNodeType\": \"editRect\",\n    \"matchedVar\": \"\",\n    \"confidence\": 1,\n    \"source\": \"provided\",\n    \"pouName\": \"TEST202606220900\"\n  },\n  \"suggestions\": [\n    {\n      \"id\": \"local-1\",\n      \"mode\": \"seriesBefore\",\n      \"confidence\": 1,\n      \"placement\": {\n        \"relationToFocus\": \"atInsertionPoint\",\n        \"anchorNodeId\": \"edit-node-rect\",\n        \"anchorNodeVar\": \"\",\n        \"insertAfterNodeId\": \"contact-38461590-1782090217612\",\n        \"insertBeforeNodeId\": \"coil-64352079-1782090404988\",\n        \"parallelToNodeId\": \"\",\n        \"branchFromNodeId\": \"\",\n        \"branchToNodeId\": \"\",\n        \"portName\": \"\",\n        \"text\": \"在未命名3(contact-38461590-1782090217612) 常开触点和未命名9(coil-64352079-1782090404988) 线圈之间串联一个常开触点\"\n      },\n      \"addElement\": {\n        \"nodeType\": \"contact\",\n        \"displayLabel\": \"常开触点\",\n        \"variableSource\": \"userInput\",\n        \"variableName\": \"\",\n        \"dataType\": \"BOOL\",\n        \"userInputRequired\": true,\n        \"blockType\": \"\",\n        \"instanceSource\": \"\",\n        \"instanceName\": \"\"\n      }\n    },\n    {\n      \"id\": \"local-2\",\n      \"mode\": \"functionBlockBefore\",\n      \"confidence\": 1,\n      \"placement\": {\n        \"relationToFocus\": \"atInsertionPoint\",\n        \"anchorNodeId\": \"edit-node-rect\",\n        \"anchorNodeVar\": \"\",\n        \"insertAfterNodeId\": \"contact-38461590-1782090217612\",\n        \"insertBeforeNodeId\": \"coil-64352079-1782090404988\",\n        \"parallelToNodeId\": \"\",\n        \"branchFromNodeId\": \"\",\n        \"branchToNodeId\": \"\",\n        \"portName\": \"\",\n        \"text\": \"在未命名3(contact-38461590-1782090217612) 常开触点和未命名9(coil-64352079-1782090404988) 线圈之间插入一个 SR 功能块\"\n      },\n      \"addElement\": {\n        \"nodeType\": \"functionBlock\",\n        \"displayLabel\": \"SR 功能块\",\n        \"variableSource\": \"userInput\",\n        \"variableName\": \"\",\n        \"dataType\": \"SR\",\n        \"userInputRequired\": true,\n        \"blockType\": \"SR\",\n        \"instanceSource\": \"userInput\",\n        \"instanceName\": \"\"\n      }\n    }\n  ]\n}"
+  }
+}
