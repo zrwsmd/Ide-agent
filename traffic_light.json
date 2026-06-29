@@ -1,0 +1,713 @@
+[
+  {
+    "id": "segment-10000001-1782400000001",
+    "label": "",
+    "note": "Red Light Timer: 30s",
+    "height": 200,
+    "width": 900,
+    "isExpand": true,
+    "nodesObj": {
+      "start-node-line": {
+        "id": "start-node-line",
+        "type": "startLine",
+        "Xlayer": 0,
+        "Ylayer": 0,
+        "sourceIds": [],
+        "targetIds": ["contact-11110001-1782400000001"]
+      },
+      "contact-11110001-1782400000001": {
+        "id": "contact-11110001-1782400000001",
+        "type": "contact",
+        "sourceIds": ["start-node-line"],
+        "targetIds": ["FBD-compartment-TON-11110002-1782400000001"],
+        "varName": {
+          "name": "",
+          "value": "State_Red",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "FBD-compartment-TON-11110002-1782400000001": {
+        "id": "FBD-compartment-TON-11110002-1782400000001",
+        "type": "FBDCompartment",
+        "sourceIds": ["contact-11110001-1782400000001"],
+        "targetIds": ["edit-node-rect"],
+        "childrenNode": {
+          "type": "TON",
+          "isFunction": false,
+          "portInputs": [
+            {"name": "EN", "value": "", "scope": ""},
+            {"name": "IN", "value": "State_Red", "type": "BOOL", "scope": "VAR_INPUT"},
+            {"name": "PT", "value": "T#30s", "type": "TIME", "scope": "VAR_INPUT"}
+          ],
+          "portOutputs": [
+            {"name": "ENO", "value": "", "scope": "", "type": ""},
+            {"name": "Q", "value": "T_Red_Done", "type": "BOOL", "scope": "VAR_OUTPUT"},
+            {"name": "ET", "value": "T_Red_ET", "type": "TIME", "scope": "VAR_OUTPUT"}
+          ],
+          "varName": {"name": "", "value": "TON_Red", "type": "TON", "scope": "VAR"}
+        }
+      },
+      "edit-node-rect": {
+        "id": "edit-node-rect",
+        "type": "editRect",
+        "sourceIds": ["FBD-compartment-TON-11110002-1782400000001"],
+        "targetIds": ["coil-11110003-1782400000001"],
+        "children": [
+          {
+            "id": "edit-node-rect-left-port",
+            "type": "node:edgePort",
+            "side": "left",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-left-port"],
+            "position": {"x": -45, "y": 0},
+            "size": {"width": 45, "height": 22}
+          },
+          {
+            "id": "edit-node-rect-bottom-port",
+            "type": "node:edgeBottomPort",
+            "side": "bottom",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-bottom-port"],
+            "position": {"x": 0, "y": 0},
+            "size": {"width": 70, "height": 22}
+          }
+        ]
+      },
+      "coil-11110003-1782400000001": {
+        "id": "coil-11110003-1782400000001",
+        "type": "coil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "Red_Timing",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      }
+    }
+  },
+  {
+    "id": "segment-10000002-1782400000002",
+    "label": "",
+    "note": "Green Light Timer: 25s",
+    "height": 200,
+    "width": 900,
+    "isExpand": true,
+    "nodesObj": {
+      "start-node-line": {
+        "id": "start-node-line",
+        "type": "startLine",
+        "Xlayer": 0,
+        "Ylayer": 0,
+        "sourceIds": [],
+        "targetIds": ["contact-22220001-1782400000002"]
+      },
+      "contact-22220001-1782400000002": {
+        "id": "contact-22220001-1782400000002",
+        "type": "contact",
+        "sourceIds": ["start-node-line"],
+        "targetIds": ["FBD-compartment-TON-22220002-1782400000002"],
+        "varName": {
+          "name": "",
+          "value": "State_Green",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "FBD-compartment-TON-22220002-1782400000002": {
+        "id": "FBD-compartment-TON-22220002-1782400000002",
+        "type": "FBDCompartment",
+        "sourceIds": ["contact-22220001-1782400000002"],
+        "targetIds": ["edit-node-rect"],
+        "childrenNode": {
+          "type": "TON",
+          "isFunction": false,
+          "portInputs": [
+            {"name": "EN", "value": "", "scope": ""},
+            {"name": "IN", "value": "State_Green", "type": "BOOL", "scope": "VAR_INPUT"},
+            {"name": "PT", "value": "T#25s", "type": "TIME", "scope": "VAR_INPUT"}
+          ],
+          "portOutputs": [
+            {"name": "ENO", "value": "", "scope": "", "type": ""},
+            {"name": "Q", "value": "T_Green_Done", "type": "BOOL", "scope": "VAR_OUTPUT"},
+            {"name": "ET", "value": "T_Green_ET", "type": "TIME", "scope": "VAR_OUTPUT"}
+          ],
+          "varName": {"name": "", "value": "TON_Green", "type": "TON", "scope": "VAR"}
+        }
+      },
+      "edit-node-rect": {
+        "id": "edit-node-rect",
+        "type": "editRect",
+        "sourceIds": ["FBD-compartment-TON-22220002-1782400000002"],
+        "targetIds": ["coil-22220003-1782400000002"],
+        "children": [
+          {
+            "id": "edit-node-rect-left-port",
+            "type": "node:edgePort",
+            "side": "left",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-left-port"],
+            "position": {"x": -45, "y": 0},
+            "size": {"width": 45, "height": 22}
+          },
+          {
+            "id": "edit-node-rect-bottom-port",
+            "type": "node:edgeBottomPort",
+            "side": "bottom",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-bottom-port"],
+            "position": {"x": 0, "y": 0},
+            "size": {"width": 70, "height": 22}
+          }
+        ]
+      },
+      "coil-22220003-1782400000002": {
+        "id": "coil-22220003-1782400000002",
+        "type": "coil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "Green_Timing",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      }
+    }
+  },
+  {
+    "id": "segment-10000003-1782400000003",
+    "label": "",
+    "note": "Yellow Light Timer: 5s",
+    "height": 200,
+    "width": 900,
+    "isExpand": true,
+    "nodesObj": {
+      "start-node-line": {
+        "id": "start-node-line",
+        "type": "startLine",
+        "Xlayer": 0,
+        "Ylayer": 0,
+        "sourceIds": [],
+        "targetIds": ["contact-33330001-1782400000003"]
+      },
+      "contact-33330001-1782400000003": {
+        "id": "contact-33330001-1782400000003",
+        "type": "contact",
+        "sourceIds": ["start-node-line"],
+        "targetIds": ["FBD-compartment-TON-33330002-1782400000003"],
+        "varName": {
+          "name": "",
+          "value": "State_Yellow",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "FBD-compartment-TON-33330002-1782400000003": {
+        "id": "FBD-compartment-TON-33330002-1782400000003",
+        "type": "FBDCompartment",
+        "sourceIds": ["contact-33330001-1782400000003"],
+        "targetIds": ["edit-node-rect"],
+        "childrenNode": {
+          "type": "TON",
+          "isFunction": false,
+          "portInputs": [
+            {"name": "EN", "value": "", "scope": ""},
+            {"name": "IN", "value": "State_Yellow", "type": "BOOL", "scope": "VAR_INPUT"},
+            {"name": "PT", "value": "T#5s", "type": "TIME", "scope": "VAR_INPUT"}
+          ],
+          "portOutputs": [
+            {"name": "ENO", "value": "", "scope": "", "type": ""},
+            {"name": "Q", "value": "T_Yellow_Done", "type": "BOOL", "scope": "VAR_OUTPUT"},
+            {"name": "ET", "value": "T_Yellow_ET", "type": "TIME", "scope": "VAR_OUTPUT"}
+          ],
+          "varName": {"name": "", "value": "TON_Yellow", "type": "TON", "scope": "VAR"}
+        }
+      },
+      "edit-node-rect": {
+        "id": "edit-node-rect",
+        "type": "editRect",
+        "sourceIds": ["FBD-compartment-TON-33330002-1782400000003"],
+        "targetIds": ["coil-33330003-1782400000003"],
+        "children": [
+          {
+            "id": "edit-node-rect-left-port",
+            "type": "node:edgePort",
+            "side": "left",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-left-port"],
+            "position": {"x": -45, "y": 0},
+            "size": {"width": 45, "height": 22}
+          },
+          {
+            "id": "edit-node-rect-bottom-port",
+            "type": "node:edgeBottomPort",
+            "side": "bottom",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-bottom-port"],
+            "position": {"x": 0, "y": 0},
+            "size": {"width": 70, "height": 22}
+          }
+        ]
+      },
+      "coil-33330003-1782400000003": {
+        "id": "coil-33330003-1782400000003",
+        "type": "coil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "Yellow_Timing",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      }
+    }
+  },
+  {
+    "id": "segment-10000004-1782400000004",
+    "label": "",
+    "note": "Red -> Green transition",
+    "height": 200,
+    "width": 900,
+    "isExpand": true,
+    "nodesObj": {
+      "start-node-line": {
+        "id": "start-node-line",
+        "type": "startLine",
+        "Xlayer": 0,
+        "Ylayer": 0,
+        "sourceIds": [],
+        "targetIds": ["contact-44440001-1782400000004"]
+      },
+      "contact-44440001-1782400000004": {
+        "id": "contact-44440001-1782400000004",
+        "type": "contact",
+        "sourceIds": ["start-node-line"],
+        "targetIds": ["edit-node-rect"],
+        "varName": {
+          "name": "",
+          "value": "T_Red_Done",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "edit-node-rect": {
+        "id": "edit-node-rect",
+        "type": "editRect",
+        "sourceIds": ["contact-44440001-1782400000004"],
+        "targetIds": ["coil-44440002-1782400000004", "coil-44440003-1782400000004"],
+        "children": [
+          {
+            "id": "edit-node-rect-left-port",
+            "type": "node:edgePort",
+            "side": "left",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-left-port"],
+            "position": {"x": -45, "y": 0},
+            "size": {"width": 45, "height": 22}
+          },
+          {
+            "id": "edit-node-rect-bottom-port",
+            "type": "node:edgeBottomPort",
+            "side": "bottom",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-bottom-port"],
+            "position": {"x": 0, "y": 0},
+            "size": {"width": 70, "height": 22}
+          }
+        ]
+      },
+      "coil-44440002-1782400000004": {
+        "id": "coil-44440002-1782400000004",
+        "type": "resetCoil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "State_Red",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "coil-44440003-1782400000004": {
+        "id": "coil-44440003-1782400000004",
+        "type": "setCoil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "State_Green",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      }
+    }
+  },
+  {
+    "id": "segment-10000005-1782400000005",
+    "label": "",
+    "note": "Green -> Yellow transition",
+    "height": 200,
+    "width": 900,
+    "isExpand": true,
+    "nodesObj": {
+      "start-node-line": {
+        "id": "start-node-line",
+        "type": "startLine",
+        "Xlayer": 0,
+        "Ylayer": 0,
+        "sourceIds": [],
+        "targetIds": ["contact-55550001-1782400000005"]
+      },
+      "contact-55550001-1782400000005": {
+        "id": "contact-55550001-1782400000005",
+        "type": "contact",
+        "sourceIds": ["start-node-line"],
+        "targetIds": ["edit-node-rect"],
+        "varName": {
+          "name": "",
+          "value": "T_Green_Done",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "edit-node-rect": {
+        "id": "edit-node-rect",
+        "type": "editRect",
+        "sourceIds": ["contact-55550001-1782400000005"],
+        "targetIds": ["coil-55550002-1782400000005", "coil-55550003-1782400000005"],
+        "children": [
+          {
+            "id": "edit-node-rect-left-port",
+            "type": "node:edgePort",
+            "side": "left",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-left-port"],
+            "position": {"x": -45, "y": 0},
+            "size": {"width": 45, "height": 22}
+          },
+          {
+            "id": "edit-node-rect-bottom-port",
+            "type": "node:edgeBottomPort",
+            "side": "bottom",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-bottom-port"],
+            "position": {"x": 0, "y": 0},
+            "size": {"width": 70, "height": 22}
+          }
+        ]
+      },
+      "coil-55550002-1782400000005": {
+        "id": "coil-55550002-1782400000005",
+        "type": "resetCoil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "State_Green",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "coil-55550003-1782400000005": {
+        "id": "coil-55550003-1782400000005",
+        "type": "setCoil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "State_Yellow",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      }
+    }
+  },
+  {
+    "id": "segment-10000006-1782400000006",
+    "label": "",
+    "note": "Yellow -> Red transition",
+    "height": 200,
+    "width": 900,
+    "isExpand": true,
+    "nodesObj": {
+      "start-node-line": {
+        "id": "start-node-line",
+        "type": "startLine",
+        "Xlayer": 0,
+        "Ylayer": 0,
+        "sourceIds": [],
+        "targetIds": ["contact-66660001-1782400000006"]
+      },
+      "contact-66660001-1782400000006": {
+        "id": "contact-66660001-1782400000006",
+        "type": "contact",
+        "sourceIds": ["start-node-line"],
+        "targetIds": ["edit-node-rect"],
+        "varName": {
+          "name": "",
+          "value": "T_Yellow_Done",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "edit-node-rect": {
+        "id": "edit-node-rect",
+        "type": "editRect",
+        "sourceIds": ["contact-66660001-1782400000006"],
+        "targetIds": ["coil-66660002-1782400000006", "coil-66660003-1782400000006"],
+        "children": [
+          {
+            "id": "edit-node-rect-left-port",
+            "type": "node:edgePort",
+            "side": "left",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-left-port"],
+            "position": {"x": -45, "y": 0},
+            "size": {"width": 45, "height": 22}
+          },
+          {
+            "id": "edit-node-rect-bottom-port",
+            "type": "node:edgeBottomPort",
+            "side": "bottom",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-bottom-port"],
+            "position": {"x": 0, "y": 0},
+            "size": {"width": 70, "height": 22}
+          }
+        ]
+      },
+      "coil-66660002-1782400000006": {
+        "id": "coil-66660002-1782400000006",
+        "type": "resetCoil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "State_Yellow",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "coil-66660003-1782400000006": {
+        "id": "coil-66660003-1782400000006",
+        "type": "setCoil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "State_Red",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      }
+    }
+  },
+  {
+    "id": "segment-10000007-1782400000007",
+    "label": "",
+    "note": "Red Light Output",
+    "height": 100,
+    "width": 600,
+    "isExpand": true,
+    "nodesObj": {
+      "start-node-line": {
+        "id": "start-node-line",
+        "type": "startLine",
+        "Xlayer": 0,
+        "Ylayer": 0,
+        "sourceIds": [],
+        "targetIds": ["contact-77770001-1782400000007"]
+      },
+      "contact-77770001-1782400000007": {
+        "id": "contact-77770001-1782400000007",
+        "type": "contact",
+        "sourceIds": ["start-node-line"],
+        "targetIds": ["edit-node-rect"],
+        "varName": {
+          "name": "",
+          "value": "State_Red",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "edit-node-rect": {
+        "id": "edit-node-rect",
+        "type": "editRect",
+        "sourceIds": ["contact-77770001-1782400000007"],
+        "targetIds": ["coil-77770002-1782400000007"],
+        "children": [
+          {
+            "id": "edit-node-rect-left-port",
+            "type": "node:edgePort",
+            "side": "left",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-left-port"],
+            "position": {"x": -45, "y": 0},
+            "size": {"width": 45, "height": 22}
+          },
+          {
+            "id": "edit-node-rect-bottom-port",
+            "type": "node:edgeBottomPort",
+            "side": "bottom",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-bottom-port"],
+            "position": {"x": 0, "y": 0},
+            "size": {"width": 70, "height": 22}
+          }
+        ]
+      },
+      "coil-77770002-1782400000007": {
+        "id": "coil-77770002-1782400000007",
+        "type": "coil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "Light_Red",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      }
+    }
+  },
+  {
+    "id": "segment-10000008-1782400000008",
+    "label": "",
+    "note": "Green Light Output",
+    "height": 100,
+    "width": 600,
+    "isExpand": true,
+    "nodesObj": {
+      "start-node-line": {
+        "id": "start-node-line",
+        "type": "startLine",
+        "Xlayer": 0,
+        "Ylayer": 0,
+        "sourceIds": [],
+        "targetIds": ["contact-88880001-1782400000008"]
+      },
+      "contact-88880001-1782400000008": {
+        "id": "contact-88880001-1782400000008",
+        "type": "contact",
+        "sourceIds": ["start-node-line"],
+        "targetIds": ["edit-node-rect"],
+        "varName": {
+          "name": "",
+          "value": "State_Green",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "edit-node-rect": {
+        "id": "edit-node-rect",
+        "type": "editRect",
+        "sourceIds": ["contact-88880001-1782400000008"],
+        "targetIds": ["coil-88880002-1782400000008"],
+        "children": [
+          {
+            "id": "edit-node-rect-left-port",
+            "type": "node:edgePort",
+            "side": "left",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-left-port"],
+            "position": {"x": -45, "y": 0},
+            "size": {"width": 45, "height": 22}
+          },
+          {
+            "id": "edit-node-rect-bottom-port",
+            "type": "node:edgeBottomPort",
+            "side": "bottom",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-bottom-port"],
+            "position": {"x": 0, "y": 0},
+            "size": {"width": 70, "height": 22}
+          }
+        ]
+      },
+      "coil-88880002-1782400000008": {
+        "id": "coil-88880002-1782400000008",
+        "type": "coil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "Light_Green",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      }
+    }
+  },
+  {
+    "id": "segment-10000009-1782400000009",
+    "label": "",
+    "note": "Yellow Light Output",
+    "height": 100,
+    "width": 600,
+    "isExpand": true,
+    "nodesObj": {
+      "start-node-line": {
+        "id": "start-node-line",
+        "type": "startLine",
+        "Xlayer": 0,
+        "Ylayer": 0,
+        "sourceIds": [],
+        "targetIds": ["contact-99990001-1782400000009"]
+      },
+      "contact-99990001-1782400000009": {
+        "id": "contact-99990001-1782400000009",
+        "type": "contact",
+        "sourceIds": ["start-node-line"],
+        "targetIds": ["edit-node-rect"],
+        "varName": {
+          "name": "",
+          "value": "State_Yellow",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "edit-node-rect": {
+        "id": "edit-node-rect",
+        "type": "editRect",
+        "sourceIds": ["contact-99990001-1782400000009"],
+        "targetIds": ["coil-99990002-1782400000009"],
+        "children": [
+          {
+            "id": "edit-node-rect-left-port",
+            "type": "node:edgePort",
+            "side": "left",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-left-port"],
+            "position": {"x": -45, "y": 0},
+            "size": {"width": 45, "height": 22}
+          },
+          {
+            "id": "edit-node-rect-bottom-port",
+            "type": "node:edgeBottomPort",
+            "side": "bottom",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-bottom-port"],
+            "position": {"x": 0, "y": 0},
+            "size": {"width": 70, "height": 22}
+          }
+        ]
+      },
+      "coil-99990002-1782400000009": {
+        "id": "coil-99990002-1782400000009",
+        "type": "coil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "Light_Yellow",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      }
+    }
+  }
+]

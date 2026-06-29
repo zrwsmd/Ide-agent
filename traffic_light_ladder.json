@@ -1,0 +1,246 @@
+[
+  {
+    "id": "segment-12345678-1719388800000",
+    "label": "",
+    "note": "",
+    "height": 436,
+    "width": 1430,
+    "isExpand": true,
+    "nodesObj": {
+      "start-node-line": {
+        "id": "start-node-line",
+        "type": "startLine",
+        "Xlayer": 0,
+        "Ylayer": 0,
+        "sourceIds": [],
+        "targetIds": ["contact-11111111-1719388800001"]
+      },
+      "contact-11111111-1719388800001": {
+        "id": "contact-11111111-1719388800001",
+        "type": "negatedContact",
+        "sourceIds": ["start-node-line"],
+        "targetIds": ["contact-22222222-1719388800002", "contact-33333333-1719388800003", "contact-44444444-1719388800004"],
+        "varName": {
+          "name": "",
+          "value": "btnStop",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-22222222-1719388800002": {
+        "id": "contact-22222222-1719388800002",
+        "type": "contact",
+        "sourceIds": ["contact-11111111-1719388800001"],
+        "targetIds": ["contact-55555555-1719388800005"],
+        "varName": {
+          "name": "",
+          "value": "btnStart",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-55555555-1719388800005": {
+        "id": "contact-55555555-1719388800005",
+        "type": "contact",
+        "sourceIds": ["contact-22222222-1719388800002"],
+        "targetIds": ["contact-66666666-1719388800006"],
+        "varName": {
+          "name": "",
+          "value": "autoMode",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-33333333-1719388800003": {
+        "id": "contact-33333333-1719388800003",
+        "type": "contact",
+        "sourceIds": ["contact-11111111-1719388800001"],
+        "targetIds": ["contact-66666666-1719388800006"],
+        "varName": {
+          "name": "",
+          "value": "manualRed",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-44444444-1719388800004": {
+        "id": "contact-44444444-1719388800004",
+        "type": "risingContact",
+        "sourceIds": ["contact-11111111-1719388800001"],
+        "targetIds": ["contact-66666666-1719388800006"],
+        "varName": {
+          "name": "",
+          "value": "timer2_Q",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-66666666-1719388800006": {
+        "id": "contact-66666666-1719388800006",
+        "type": "negatedContact",
+        "sourceIds": ["contact-55555555-1719388800005", "contact-33333333-1719388800003", "contact-44444444-1719388800004"],
+        "targetIds": ["edit-node-rect"],
+        "varName": {
+          "name": "",
+          "value": "emergencyStop",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "edit-node-rect": {
+        "id": "edit-node-rect",
+        "type": "editRect",
+        "sourceIds": ["contact-66666666-1719388800006"],
+        "targetIds": ["coil-77777777-1719388800007"],
+        "children": [
+          {
+            "id": "edit-node-rect-left-port",
+            "type": "node:edgePort",
+            "side": "left",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-left-port"],
+            "position": {"x": -45, "y": 0},
+            "size": {"width": 45, "height": 22}
+          },
+          {
+            "id": "edit-node-rect-bottom-port",
+            "type": "node:edgeBottomPort",
+            "side": "bottom",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-bottom-port"],
+            "position": {"x": 0, "y": 0},
+            "size": {"width": 70, "height": 22}
+          }
+        ]
+      },
+      "coil-77777777-1719388800007": {
+        "id": "coil-77777777-1719388800007",
+        "type": "coil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "redLight",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      }
+    }
+  },
+  {
+    "id": "segment-87654321-1719388800100",
+    "label": "",
+    "note": "",
+    "height": 436,
+    "width": 1430,
+    "isExpand": true,
+    "nodesObj": {
+      "start-node-line": {
+        "id": "start-node-line",
+        "type": "startLine",
+        "Xlayer": 0,
+        "Ylayer": 0,
+        "sourceIds": [],
+        "targetIds": ["contact-88888888-1719388800101"]
+      },
+      "contact-88888888-1719388800101": {
+        "id": "contact-88888888-1719388800101",
+        "type": "negatedContact",
+        "sourceIds": ["start-node-line"],
+        "targetIds": ["contact-99999999-1719388800102", "contact-10101010-1719388800103"],
+        "varName": {
+          "name": "",
+          "value": "emergencyStop",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-99999999-1719388800102": {
+        "id": "contact-99999999-1719388800102",
+        "type": "contact",
+        "sourceIds": ["contact-88888888-1719388800101"],
+        "targetIds": ["contact-20202020-1719388800104"],
+        "varName": {
+          "name": "",
+          "value": "autoMode",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-20202020-1719388800104": {
+        "id": "contact-20202020-1719388800104",
+        "type": "contact",
+        "sourceIds": ["contact-99999999-1719388800102"],
+        "targetIds": ["edit-node-rect"],
+        "varName": {
+          "name": "",
+          "value": "timer1_Q",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-10101010-1719388800103": {
+        "id": "contact-10101010-1719388800103",
+        "type": "negatedContact",
+        "sourceIds": ["contact-88888888-1719388800101"],
+        "targetIds": ["contact-30303030-1719388800105"],
+        "varName": {
+          "name": "",
+          "value": "redLight",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "contact-30303030-1719388800105": {
+        "id": "contact-30303030-1719388800105",
+        "type": "risingContact",
+        "sourceIds": ["contact-10101010-1719388800103"],
+        "targetIds": ["edit-node-rect"],
+        "varName": {
+          "name": "",
+          "value": "btnStart",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      },
+      "edit-node-rect": {
+        "id": "edit-node-rect",
+        "type": "editRect",
+        "sourceIds": ["contact-20202020-1719388800104", "contact-30303030-1719388800105"],
+        "targetIds": ["coil-40404040-1719388800106"],
+        "children": [
+          {
+            "id": "edit-node-rect-left-port",
+            "type": "node:edgePort",
+            "side": "left",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-left-port"],
+            "position": {"x": -45, "y": 0},
+            "size": {"width": 45, "height": 22}
+          },
+          {
+            "id": "edit-node-rect-bottom-port",
+            "type": "node:edgeBottomPort",
+            "side": "bottom",
+            "parentId": "edit-node-rect",
+            "cssClasses": ["contact-bottom-port"],
+            "position": {"x": 0, "y": 0},
+            "size": {"width": 70, "height": 22}
+          }
+        ]
+      },
+      "coil-40404040-1719388800106": {
+        "id": "coil-40404040-1719388800106",
+        "type": "coil",
+        "sourceIds": ["edit-node-rect"],
+        "targetIds": [],
+        "varName": {
+          "name": "",
+          "value": "greenLight",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
+      }
+    }
+  }
+]
