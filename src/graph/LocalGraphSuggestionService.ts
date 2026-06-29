@@ -16,9 +16,26 @@ export interface LocalGraphSuggestionOptions {
   focusQuery?: string;
 }
 
-interface LocalGraphSuggestionResult {
+export interface LocalGraphSuggestionRequest {
+  diagramPath: string;
+  selectedNodeId?: string;
+  selectedInsertionPointId?: string;
+}
+
+export interface LocalGraphSuggestionPayload {
+  schemaVersion: string;
+  action: string;
+  source: string;
+  segmentId: string;
+  confidence: number;
+  recognizedFocus: Record<string, unknown>;
+  suggestions: LocalSuggestion[];
+}
+
+export interface LocalGraphSuggestionResult {
   diagramPath: string;
   jsonText: string;
+  payload: LocalGraphSuggestionPayload;
   summary: DiagramSummary;
 }
 
@@ -78,6 +95,47 @@ const COMMON_FUNCTION_BLOCK_TYPES = [
 export class LocalGraphSuggestionService {
   constructor(private readonly outputChannel: vscode.OutputChannel) {}
 
+  async suggestFromDiagram(
+    request: LocalGraphSuggestionRequest | undefined,
+  ): Promise<LocalGraphSuggestionResult | undefined> {
+    const diagramPath = request?.diagramPath?.trim();
+    if (!diagramPath) {
+      this.log("local graph command cancelled: missing diagramPath");
+      return undefined;
+    }
+    const focusOptions: LocalGraphSuggestionOptions = {
+      selectedNodeId: request?.selectedNodeId,
+      selectedInsertionPointId: request?.selectedInsertionPointId,
+    };
+
+    this.log(
+      `local graph command requested path=${diagramPath} focus=${formatFocusOptions(focusOptions)}`,
+    );
+
+    let summary: DiagramSummary;
+    try {
+      summary = await loadDiagramSummary(diagramPath);
+    } catch (error) {
+      this.log(
+        `local graph command failed: cannot load diagram json: ${formatUnknownError(error)}`,
+      );
+      return undefined;
+    }
+
+    const focus = findFocusByOptions(summary, focusOptions);
+    if (!focus) {
+      this.log(
+        `local graph command cancelled: focus not found ${formatFocusOptions(focusOptions)}`,
+      );
+      return undefined;
+    }
+
+    return this.createResult(diagramPath, summary, {
+      ...focus,
+      source: "provided",
+    });
+  }
+
   async suggestFromActiveEditor(
     options: LocalGraphSuggestionOptions = {},
   ): Promise<LocalGraphSuggestionResult | undefined> {
@@ -110,8 +168,7 @@ export class LocalGraphSuggestionService {
       return undefined;
     }
 
-    const payload = buildLocalPayload(summary, focus);
-    const jsonText = JSON.stringify(payload, null, 2);
+    const result = this.createResult(diagramPath, summary, focus);
 
     this.log(
       `local graph focus source=${focus.source} nodeId=${getFocusId(focus)} type=${getFocusType(focus)} var=${getFocusVar(focus) || "(none)"}`,
@@ -120,23 +177,19 @@ export class LocalGraphSuggestionService {
     this.log(
       `local graph state partial=${graphState.isPartialGraph} hasLogic=${graphState.hasLogicNode} hasOutput=${graphState.hasOutputNode}`,
     );
-    this.log(`local graph suggestions count=${payload.suggestions.length}`);
-    for (const [index, suggestion] of payload.suggestions.entries()) {
+    this.log(`local graph suggestions count=${result.payload.suggestions.length}`);
+    for (const [index, suggestion] of result.payload.suggestions.entries()) {
       this.log(
         `local graph suggestion #${index + 1} mode=${suggestion.mode} placement=${suggestion.placement.text} add=${suggestion.addElement.displayLabel}`,
       );
     }
-    this.log(`local graph suggestions JSON=${jsonText}`);
-    void vscode.env.clipboard.writeText(jsonText);
+    this.log(`local graph suggestions JSON=${result.jsonText}`);
+    void vscode.env.clipboard.writeText(result.jsonText);
     void vscode.window.showInformationMessage(
       "Ide Agent: local graph suggestions copied to clipboard.",
     );
 
-    return {
-      diagramPath,
-      jsonText,
-      summary,
-    };
+    return result;
   }
 
   private log(message: string): void {
@@ -144,20 +197,32 @@ export class LocalGraphSuggestionService {
     this.outputChannel.appendLine(line);
     console.log(`[IdeAgent:LocalGraphSuggestion] ${message}`);
   }
+
+  private createResult(
+    diagramPath: string,
+    summary: DiagramSummary,
+    focus: FocusContext,
+  ): LocalGraphSuggestionResult {
+    const payload = buildLocalPayload(summary, focus);
+    const jsonText = JSON.stringify(payload, null, 2);
+
+    this.log(
+      `local graph result path=${diagramPath} source=${focus.source} nodeId=${getFocusId(focus)} insertionPoint=${focus.insertionPoint?.id ?? ""} suggestions=${payload.suggestions.length}`,
+    );
+
+    return {
+      diagramPath,
+      jsonText,
+      payload,
+      summary,
+    };
+  }
 }
 
 function buildLocalPayload(
   summary: DiagramSummary,
   focus: FocusContext,
-): {
-  schemaVersion: string;
-  action: string;
-  source: string;
-  segmentId: string;
-  confidence: number;
-  recognizedFocus: Record<string, unknown>;
-  suggestions: LocalSuggestion[];
-} {
+): LocalGraphSuggestionPayload {
   const suggestions = buildSuggestions(focus);
 
   return {

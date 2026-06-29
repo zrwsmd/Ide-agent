@@ -49,6 +49,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('ide-agent.openPanel', () => vscode.commands.executeCommand(`${ConfigPanelProvider.viewType}.focus`)),
     vscode.commands.registerCommand('ide-agent.triggerCompletion', triggerCompletion),
     vscode.commands.registerCommand('ide-agent.localGraphSuggestions', () => localGraphSuggestionService.suggestFromActiveEditor()),
+    vscode.commands.registerCommand('ide-agent.getLocalGraphSuggestions', (args) => localGraphSuggestionService.suggestFromDiagram(args)),
     vscode.commands.registerCommand('ide-agent.predictGraphCompletion', () => graphCompletionService.predictFromActiveEditor()),
     vscode.commands.registerCommand('ide-agent.predictGraphCompletionWithScreenshot', () => graphCompletionService.predictFromActiveEditor({ includeScreenshot: true })),
     vscode.commands.registerCommand('ide-agent.showLogs', () => outputChannel?.show(true))
