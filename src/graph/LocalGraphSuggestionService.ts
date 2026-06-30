@@ -319,11 +319,11 @@ function addContactSuggestions(
 
   const leftNodes = neighborNodes(focus.segment, node.from, "backward");
   const rightNodes = neighborNodes(focus.segment, node.to, "forward");
-  const nodeText = nodeLabelWithSegment(focus.segment, node);
+  const nodeText = nodePlacementLabelWithSegment(focus.segment, node);
 
   if (leftNodes.length) {
     for (const leftNode of leftNodes) {
-      const leftText = nodeLabelWithSegment(focus.segment, leftNode);
+      const leftText = nodePlacementLabelWithSegment(focus.segment, leftNode);
       suggestions.push(
         makeSuggestion(focus, {
           mode: "seriesBefore",
@@ -350,7 +350,7 @@ function addContactSuggestions(
 
   if (rightNodes.length) {
     for (const rightNode of rightNodes) {
-      const rightText = nodeLabelWithSegment(focus.segment, rightNode);
+      const rightText = nodePlacementLabelWithSegment(focus.segment, rightNode);
       suggestions.push(
         makeSuggestion(focus, {
           mode: "seriesAfter",
@@ -441,11 +441,11 @@ function addFunctionBlockSuggestions(
   const firstOutputPort = Object.keys(node.outputs ?? {})[0] ?? "";
   const leftNodes = neighborNodes(focus.segment, node.from, "backward");
   const rightNodes = neighborNodes(focus.segment, node.to, "forward");
-  const nodeText = nodeLabelWithSegment(focus.segment, node);
+  const nodeText = nodePlacementLabelWithSegment(focus.segment, node);
 
   if (leftNodes.length) {
     for (const leftNode of leftNodes) {
-      const leftText = nodeLabelWithSegment(focus.segment, leftNode);
+      const leftText = nodePlacementLabelWithSegment(focus.segment, leftNode);
       suggestions.push(
         makeSuggestion(focus, {
           mode: "seriesBefore",
@@ -488,7 +488,7 @@ function addFunctionBlockSuggestions(
 
   if (rightNodes.length) {
     for (const rightNode of rightNodes) {
-      const rightText = nodeLabelWithSegment(focus.segment, rightNode);
+      const rightText = nodePlacementLabelWithSegment(focus.segment, rightNode);
       suggestions.push(
         makeSuggestion(focus, {
           mode: "seriesAfter",
@@ -525,7 +525,7 @@ function addCoilSuggestions(
     return;
   }
 
-  const nodeText = nodeLabelWithSegment(focus.segment, node);
+  const nodeText = nodePlacementLabelWithSegment(focus.segment, node);
 
   suggestions.push(
     makeSuggestion(focus, {
@@ -1163,7 +1163,7 @@ function neighborListText(
   direction: "forward" | "backward",
 ): string {
   const labels = neighborNodes(segment, nodeIds, direction).map((node) =>
-    nodeLabelWithSegment(segment, node),
+    nodePlacementLabelWithSegment(segment, node),
   );
 
   if (!labels.length) {
@@ -1171,6 +1171,18 @@ function neighborListText(
   }
 
   return [...new Set(labels)].join(" / ");
+}
+
+function nodePlacementLabelWithSegment(
+  segment: DiagramSegmentSummary,
+  node: DiagramNodeSummary,
+): string {
+  const label = nodeLabelWithSegment(segment, node);
+  if (label.includes(`(${node.id})`)) {
+    return label;
+  }
+
+  return `${label}(${node.id})`;
 }
 
 function neighborNodes(
