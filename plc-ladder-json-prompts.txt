@@ -14,7 +14,7 @@
 
 ---
 
-3. CODESYS 恒压供水单泵 PID 控制
+3. CODESYS 恒压供水单泵 PID 控制(constant_pressure_water_supply.json)
 
 实现一个在 CODESYS V3 上运行的恒压供水系统，控制一台变频水泵：系统启停、自保持、急停联锁、过载保护，基于压力反馈和设定值的 PID 控制输出频率指令，以及故障报警与复位逻辑。
 
