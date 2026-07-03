@@ -1,0 +1,615 @@
+Ide Agent 本地 LD/FBD Suggest 规则说明
+
+一、功能定位
+
+本地 LD/FBD suggest 用于在不请求大模型的情况下，根据前端生成的图 JSON/TXT 和当前选中的节点，返回一组可供前端渲染的图形补全建议。
+
+当前外部调用命令：
+
+ide-agent.getLocalGraphSuggestions
+
+调用时需要传入：
+
+{
+  "diagramPath": "图 JSON/TXT 文件路径",
+  "selectedNodeId": "当前选中的节点 id"
+}
+
+或者：
+
+{
+  "diagramPath": "图 JSON/TXT 文件路径",
+  "selectedInsertionPointId": "当前选中的插入点 id"
+}
+
+该功能完全走本地规则，不请求大模型，不需要 API Key。
+
+
+二、几个概念
+
+1. 实际图元节点
+
+实际图元节点指用户在 LD/FBD 图上能看到、能作为逻辑元件使用的节点，例如：
+
+- 触点：contact、negatedContact、risingContact、fallingContact
+- 线圈：coil、setCoil、resetCoil
+- 功能块：FBDCompartment
+
+不属于实际图元节点的内容包括：
+
+- 起点线
+- 终点线
+- 普通连线
+- 插入占位框
+- 分支辅助节点
+- 其他仅用于前端连线或布局的辅助节点
+
+所以文档中说“左侧实际图元节点”或“右侧实际图元节点”，意思是沿连线方向查找后，找到的触点、线圈、功能块这类节点。
+
+
+2. suggestion
+
+suggestion 表示一条图形补全建议。
+
+每条 suggestion 大致包含：
+
+- mode：建议类型，例如 seriesBefore、seriesAfter、parallelBranch
+- placement：建议插入位置，包括前后节点 id、并联分支 id、展示文案等
+- addElement：建议新增的图元类型，例如常开触点、线圈、TON 功能块等
+
+
+3. placement 里的关键字段
+
+insertAfterNodeId：
+表示新节点插入在哪个节点之后。
+
+insertBeforeNodeId：
+表示新节点插入在哪个节点之前。
+
+parallelToNodeId：
+表示新节点和哪个节点并联。
+
+branchFromNodeId：
+表示并联分支从哪个节点或位置分出去。
+
+branchToNodeId：
+表示并联分支在哪个节点或位置汇合。
+
+portName：
+表示功能块相关建议使用的端口名，目前主要用于功能块输出端口。
+
+text：
+给前端或日志展示的人类可读说明，例如：
+
+在 f 常开触点(contact-xxx) 和 CTD g 功能块(FBD-compartment-xxx) 之间串联一个常开触点
+
+
+三、当前支持的 mode
+
+1. seriesBefore
+
+表示在当前选中节点前面串联插入一个节点。
+
+常见例子：
+
+在 d 常开触点前串联一个常开触点
+在 b 常开触点和 CTU n 功能块之间串联一个常开触点
+
+
+2. seriesAfter
+
+表示在当前选中节点后面串联插入一个节点。
+
+常见例子：
+
+在 d 常开触点后串联一个常开触点
+在 d 常开触点和 e 常开触点之间串联一个常开触点
+
+
+3. functionBlockAfter
+
+表示在当前选中节点后面插入一个功能块。
+
+常见例子：
+
+在 d 常开触点和 e 常开触点之间插入一个 TON 功能块
+
+
+4. functionBlockBefore
+
+表示在目标节点前面插入一个功能块。
+
+常见例子：
+
+在 CTU n 功能块和 t 线圈之间插入一个 TP 功能块
+
+
+5. parallelBranch
+
+表示围绕当前选中节点添加一条并联分支。
+
+常见例子：
+
+与 d 常开触点并联一个常开触点
+与 d 常开触点并联一个 TON 功能块
+与 t 线圈并联一个线圈
+
+
+6. outputCoil
+
+表示添加一个输出线圈。
+
+常见例子：
+
+当前回路还没有输出节点，在 d 常开触点后添加一个线圈
+在 CTU n 功能块输出端后添加一个线圈
+
+
+7. outputFunctionBlock
+
+表示添加一个功能块作为输出侧节点。
+
+常见于半成品图：当前图里已经有触点或功能块，但还没有线圈或输出功能块。
+
+常见例子：
+
+当前回路还没有输出节点，在 d 常开触点后添加一个 TON 功能块作为输出节点
+
+
+8. replaceSelected
+
+表示替换当前选中的节点。
+
+常见例子：
+
+将 t 线圈改成置位线圈
+
+
+四、按选中节点类型划分的规则
+
+1. 选中触点
+
+触点类型包括：
+
+- contact：常开触点
+- negatedContact：常闭触点
+- risingContact：上升沿
+- fallingContact：下降沿
+
+如果当前触点左侧存在实际图元节点：
+
+返回：
+
+在左侧实际图元节点和当前触点之间串联一个常开触点
+
+mode：
+
+seriesBefore
+
+关键定位字段：
+
+insertAfterNodeId = 左侧实际图元节点 id
+insertBeforeNodeId = 当前触点 id
+
+
+如果当前触点左侧不存在实际图元节点：
+
+返回：
+
+在当前触点前串联一个常开触点
+
+mode：
+
+seriesBefore
+
+
+如果当前触点右侧存在实际图元节点：
+
+返回两类建议：
+
+1. 在当前触点和右侧实际图元节点之间串联一个常开触点
+
+mode：
+
+seriesAfter
+
+关键定位字段：
+
+insertAfterNodeId = 当前触点 id
+insertBeforeNodeId = 右侧实际图元节点 id
+
+2. 在当前触点和右侧实际图元节点之间插入一个功能块
+
+mode：
+
+functionBlockAfter
+
+关键定位字段：
+
+insertAfterNodeId = 当前触点 id
+insertBeforeNodeId = 右侧实际图元节点 id
+
+
+如果当前触点右侧不存在实际图元节点：
+
+返回两类建议：
+
+1. 在当前触点后串联一个常开触点
+
+mode：
+
+seriesAfter
+
+2. 在当前触点后串联一个功能块
+
+mode：
+
+functionBlockAfter
+
+
+触点固定还会返回并联建议：
+
+1. 与当前触点并联一个常开触点
+
+mode：
+
+parallelBranch
+
+关键定位字段：
+
+parallelToNodeId = 当前触点 id
+branchFromNodeId = 当前触点左侧连接点
+branchToNodeId = 当前触点右侧连接点
+
+2. 与当前触点并联一个功能块
+
+mode：
+
+parallelBranch
+
+
+如果当前触点后面没有下游输出节点：
+
+返回：
+
+在当前触点后添加一个线圈
+
+mode：
+
+outputCoil
+
+
+2. 选中功能块
+
+功能块节点类型：
+
+FBDCompartment
+
+如果当前功能块左侧存在实际图元节点：
+
+返回：
+
+在左侧实际图元节点和当前功能块之间串联一个常开触点
+
+mode：
+
+seriesBefore
+
+关键定位字段：
+
+insertAfterNodeId = 左侧实际图元节点 id
+insertBeforeNodeId = 当前功能块 id
+
+
+如果当前功能块左侧不存在实际图元节点：
+
+返回：
+
+在当前功能块前串联一个常开触点
+
+mode：
+
+seriesBefore
+
+
+如果当前功能块后面没有下游输出节点：
+
+返回：
+
+在当前功能块输出端后添加一个线圈
+
+mode：
+
+outputCoil
+
+关键定位字段：
+
+insertAfterNodeId = 当前功能块 id
+portName = 当前功能块的第一个输出端口
+
+
+如果当前功能块右侧存在实际图元节点：
+
+返回：
+
+在当前功能块和右侧实际图元节点之间串联一个常开触点
+
+mode：
+
+seriesAfter
+
+关键定位字段：
+
+insertAfterNodeId = 当前功能块 id
+insertBeforeNodeId = 右侧实际图元节点 id
+portName = 当前功能块的第一个输出端口
+
+
+如果当前功能块右侧不存在实际图元节点：
+
+返回：
+
+在当前功能块输出端后添加一个常开触点
+
+mode：
+
+seriesAfter
+
+
+3. 选中线圈
+
+线圈类型包括：
+
+- coil：线圈
+- setCoil：置位线圈
+- resetCoil：复位线圈
+
+当前规则固定返回以下建议：
+
+1. 在线圈前串联一个常开触点
+
+mode：
+
+seriesBefore
+
+关键定位字段：
+
+insertBeforeNodeId = 当前线圈 id
+
+
+2. 与当前线圈并联一个线圈
+
+mode：
+
+parallelBranch
+
+关键定位字段：
+
+parallelToNodeId = 当前线圈 id
+branchFromNodeId = 当前线圈左侧连接点
+branchToNodeId = 当前线圈右侧连接点
+
+
+3. 将当前线圈改成置位线圈
+
+mode：
+
+replaceSelected
+
+
+4. 在线圈前插入一个功能块
+
+mode：
+
+seriesBefore
+
+关键定位字段：
+
+insertBeforeNodeId = 当前线圈 id
+
+
+4. 选中插入点
+
+插入点一般对应前端图上的虚线框或可插入位置。
+
+本地规则会根据插入点右侧目标判断。
+
+
+如果插入点右侧是线圈：
+
+返回两类建议：
+
+1. 在左侧实际图元节点和线圈之间串联一个常开触点
+
+mode：
+
+seriesBefore
+
+关键定位字段：
+
+insertAfterNodeId = 插入点左侧连接点
+insertBeforeNodeId = 右侧线圈 id
+
+2. 在左侧实际图元节点和线圈之间插入一个功能块
+
+mode：
+
+functionBlockBefore
+
+
+如果插入点右侧是功能块：
+
+返回：
+
+在功能块 EN 前串联一个常开触点
+
+mode：
+
+seriesBefore
+
+关键定位字段：
+
+insertBeforeNodeId = 右侧功能块 id
+
+
+如果插入点右侧没有目标节点，并且当前图是半成品图：
+
+半成品图指当前图中已经有触点或功能块等逻辑节点，但还没有输出节点。
+
+返回三类建议：
+
+1. 在左侧实际图元节点后添加一个输出线圈
+
+mode：
+
+outputCoil
+
+2. 在左侧实际图元节点后添加一个功能块作为输出节点
+
+mode：
+
+outputFunctionBlock
+
+3. 在左侧实际图元节点后继续串联一个常开触点
+
+mode：
+
+seriesAfter
+
+
+如果插入点右侧没有目标节点，但当前图不是半成品图：
+
+返回：
+
+在左侧实际图元节点后添加一个输出线圈
+
+mode：
+
+outputCoil
+
+
+如果插入点左右两侧都有实际图元节点：
+
+返回两类建议：
+
+1. 在左侧实际图元节点和右侧实际图元节点之间串联一个常开触点
+
+mode：
+
+seriesAfter
+
+2. 在左侧实际图元节点和右侧实际图元节点之间插入一个功能块
+
+mode：
+
+functionBlockAfter
+
+
+五、功能块类型选择
+
+当建议新增功能块时，当前本地规则会从以下常见 IEC 功能块中选择一个：
+
+- TON
+- TOF
+- TP
+- CTU
+- CTD
+- CTUD
+- SR
+- RS
+
+返回结果中会在 addElement 里明确写出：
+
+- nodeType = functionBlock
+- displayLabel = 例如 TON 功能块
+- dataType = 例如 TON
+- blockType = 例如 TON
+
+展示文案里也会明确写出具体功能块类型，不会只写“插入一个功能块”。
+
+
+六、返回数量与去重
+
+本地规则会先生成候选 suggestions，然后做简单去重。
+
+去重依据包括：
+
+- mode
+- relationToFocus
+- insertAfterNodeId
+- insertBeforeNodeId
+- parallelToNodeId
+- branchFromNodeId
+- branchToNodeId
+- addElement.nodeType
+- addElement.blockType
+
+最终最多返回 6 条 suggestions。
+
+
+七、异常情况
+
+1. diagramPath 不存在或读取失败
+
+返回 undefined。
+
+不会请求大模型。
+不会自动使用默认图。
+
+
+2. selectedNodeId 或 selectedInsertionPointId 不存在
+
+返回 undefined。
+
+不会自动选择第一个节点。
+不会生成误导性的 suggestion。
+
+
+3. 未命名节点
+
+如果节点变量名为空或为 ???，展示文案会按从左到右、从上到下的顺序命名为：
+
+- 未命名1
+- 未命名2
+- 未命名3
+
+同时会带上节点 id，例如：
+
+在 未命名2(contact-xxx) 常开触点 和 未命名3(contact-yyy) 常开触点 之间串联一个常开触点
+
+
+4. 已命名节点
+
+已命名节点也会在展示文案里带上 id，例如：
+
+在 f 常开触点(contact-xxx) 和 CTD g 功能块(FBD-compartment-yyy) 之间串联一个常开触点
+
+这样前端和日志都能直接看到唯一节点 id。
+
+
+八、前端使用建议
+
+前端应优先使用结构化字段定位，不要只解析 text。
+
+串联类建议：
+
+主要看：
+
+- insertAfterNodeId
+- insertBeforeNodeId
+
+并联类建议：
+
+主要看：
+
+- parallelToNodeId
+- branchFromNodeId
+- branchToNodeId
+
+功能块端口类建议：
+
+主要看：
+
+- portName
+
+text 字段主要用于展示、日志和调试，不建议作为真正的图编辑依据。
