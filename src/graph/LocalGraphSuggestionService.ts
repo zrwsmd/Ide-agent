@@ -1124,6 +1124,10 @@ function getFallbackFocusLabel(
 
 function nodeLabel(node: DiagramNodeSummary): string {
   if (node.kind === "FBDCompartment") {
+    if (node.isFunction) {
+      return `${node.blockType || "FUN"} 函数(${node.id})`;
+    }
+
     const instance = node.instance ? ` ${node.instance}` : "";
     return `${node.blockType || "功能块"}${instance} 功能块`;
   }
@@ -1144,6 +1148,10 @@ function nodeLabelWithSegment(
   node: DiagramNodeSummary,
 ): string {
   if (node.kind === "FBDCompartment") {
+    if (node.isFunction) {
+      return `${node.blockType || "FUN"} 函数(${node.id})`;
+    }
+
     const instance = displayNodeName(segment, node);
     return instance ? `${node.blockType || "功能块"} ${instance} 功能块` : `${node.blockType || "功能块"} 功能块`;
   }
@@ -1262,6 +1270,7 @@ function unnamedNodeIndex(
 ): number {
   const unnamedNodes = segment.nodes
     .filter((node) => isRealGraphElementKind(node.kind))
+    .filter((node) => !node.isFunction)
     .filter((node) => isUnnamedPlaceholder(node.var || node.instance || ""))
     .sort(compareDisplayOrder);
 

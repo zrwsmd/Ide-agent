@@ -19,6 +19,7 @@ export interface DiagramNodeSummary {
   dataType?: string;
   scope?: string;
   blockType?: string;
+  isFunction?: boolean;
   instance?: string;
   inputs?: Record<string, string>;
   outputs?: Record<string, string>;
@@ -230,6 +231,7 @@ function summarizeNode(
   if (child) {
     const childVarName = asRecord(child.varName);
     summary.blockType = asString(child.type);
+    summary.isFunction = asBoolean(child.isFunction);
     summary.instance = childVarName ? asString(childVarName.value) : undefined;
     summary.inputs = summarizePorts(child.portInputs, ["EN"]);
     summary.outputs = summarizePorts(child.portOutputs, ["ENO"]);
@@ -263,6 +265,10 @@ function summarizePorts(
 
 function labelNode(node: DiagramNodeSummary): string {
   if (node.kind === "FBDCompartment") {
+    if (node.isFunction) {
+      return `${node.blockType || "FUN"} 函数`;
+    }
+
     const instance = node.instance ? `(${node.instance})` : "";
     return `${node.blockType || "FB"}${instance}`;
   }
@@ -288,6 +294,10 @@ function asArray(value: unknown): unknown[] {
 
 function asString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function asBoolean(value: unknown): boolean {
+  return value === true;
 }
 
 function asOptionalNumber(value: unknown): number | undefined {

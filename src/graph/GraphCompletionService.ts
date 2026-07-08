@@ -304,7 +304,7 @@ function compactForPrompt(summary: DiagramSummary, omitInsertionPoints: boolean)
         id: node.id,
         kind: node.kind,
         displayName: nodeLabel(segment, node),
-        typeLabel: elementKindLabel(node.kind),
+        typeLabel: node.isFunction ? '函数' : elementKindLabel(node.kind),
         var: node.var,
         dataType: node.dataType,
         blockType: node.blockType,
@@ -424,6 +424,10 @@ function findNearestDisplayNode(
 
 function nodeLabel(segment: DiagramSegmentSummary, node: DiagramNodeSummary): string {
   if (node.kind === 'FBDCompartment') {
+    if (node.isFunction) {
+      return `${node.blockType || 'FUN'} 函数(${node.id})`;
+    }
+
     const instance = displayNodeName(segment, node);
     return instance ? `${node.blockType || '功能块'} ${instance} 功能块` : `${node.blockType || '功能块'} 功能块`;
   }
@@ -453,6 +457,7 @@ function displayNodeName(segment: DiagramSegmentSummary, node: DiagramNodeSummar
 function unnamedNodeIndex(segment: DiagramSegmentSummary, targetNode: DiagramNodeSummary): number {
   const unnamedNodes = segment.nodes
     .filter((node) => isRealGraphElementKind(node.kind))
+    .filter((node) => !node.isFunction)
     .filter((node) => isUnnamedPlaceholder(node.var || node.instance || ''))
     .sort(compareDisplayOrder);
 
