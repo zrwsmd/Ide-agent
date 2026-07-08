@@ -44,6 +44,8 @@ export interface DiagramInsertionPointSummary {
 
 export interface DiagramSegmentSummary {
   segmentId: string;
+  pouName?: string;
+  pouType?: string;
   width?: number;
   height?: number;
   nodeCount: number;
@@ -77,42 +79,81 @@ export function summarizeDiagramJson(
   parsed: unknown,
   sourcePath: string,
 ): DiagramSummary {
-  const roots = Array.isArray(parsed) ? parsed : [parsed];
-  const root = asRecord(roots[0]);
+  const roots = (Array.isArray(parsed) ? parsed : [parsed])
+    .map(asRecord)
+    .filter((item): item is Record<string, unknown> => Boolean(item));
 
-  if (!root) {
+  if (!roots.length) {
     throw new Error("Diagram JSON is empty or not an object.");
   }
 
-  const variables = asArray(root.variableList)
-    .map(asRecord)
-    .filter((item): item is Record<string, unknown> => Boolean(item))
-    .map(
-      (item): DiagramVariableSummary => ({
-        name: asString(item.name),
-        type: asString(item.type),
-        scope: asString(item.scope),
-      }),
-    )
-    .filter((item) => item.name.length > 0);
+  const variables = dedupeVariables(
+    roots.flatMap((root) =>
+      asArray(root.variableList)
+        .map(asRecord)
+        .filter((item): item is Record<string, unknown> => Boolean(item))
+        .map(
+          (item): DiagramVariableSummary => ({
+            name: asString(item.name),
+            type: asString(item.type),
+            scope: asString(item.scope),
+          }),
+        )
+        .filter((item) => item.name.length > 0),
+    ),
+  );
 
-  const segments = asArray(root.segmentList)
-    .map(asRecord)
-    .filter((item): item is Record<string, unknown> => Boolean(item))
-    .map(summarizeSegment);
+  const segments = roots.flatMap((root) => {
+    const pouName = asString(root.pouName);
+    const pouType = asString(root.pouType);
+
+    return asArray(root.segmentList)
+      .map(asRecord)
+      .filter((item): item is Record<string, unknown> => Boolean(item))
+      .map((segment) => summarizeSegment(segment, pouName, pouType));
+  });
 
   return {
     sourcePath,
-    pouName: asString(root.pouName),
-    pouType: asString(root.pouType),
+    pouName: uniqueNonEmpty(roots.map((root) => asString(root.pouName))).join(
+      ", ",
+    ),
+    pouType: uniqueNonEmpty(roots.map((root) => asString(root.pouType))).join(
+      ", ",
+    ),
     variableCount: variables.length,
     variables,
     segments,
   };
 }
 
+function dedupeVariables(
+  variables: DiagramVariableSummary[],
+): DiagramVariableSummary[] {
+  const seen = new Set<string>();
+  const result: DiagramVariableSummary[] = [];
+
+  for (const variable of variables) {
+    const key = `${variable.scope}\u0000${variable.name}\u0000${variable.type}`;
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    result.push(variable);
+  }
+
+  return result;
+}
+
+function uniqueNonEmpty(values: string[]): string[] {
+  return [...new Set(values.filter((value) => value.length > 0))];
+}
+
 function summarizeSegment(
   segment: Record<string, unknown>,
+  pouName?: string,
+  pouType?: string,
 ): DiagramSegmentSummary {
   const nodesObj = asRecord(segment.nodesObj) ?? {};
   const nodes = Object.entries(nodesObj)
@@ -146,6 +187,8 @@ function summarizeSegment(
 
   return {
     segmentId: asString(segment.id),
+    pouName,
+    pouType,
     width: asOptionalNumber(segment.width),
     height: asOptionalNumber(segment.height),
     nodeCount: nodes.length,

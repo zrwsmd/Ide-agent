@@ -221,10 +221,12 @@ export class LocalGraphSuggestionService {
     focus: FocusContext,
   ): LocalGraphSuggestionResult {
     const payload = buildLocalPayload(summary, focus);
+    const focusPouName = focus.segment.pouName || summary.pouName;
+    const focusPouType = focus.segment.pouType || summary.pouType;
     const resultSummary = {
       sourcePath: summary.sourcePath,
-      pouName: summary.pouName,
-      pouType: summary.pouType,
+      pouName: focusPouName,
+      pouType: focusPouType,
       variableCount: summary.variableCount,
       suggestionOverview: buildSuggestionOverview(payload.suggestions),
     };
@@ -279,7 +281,7 @@ function buildLocalPayload(
       matchedVar: getFocusVar(focus),
       confidence: 1,
       source: focus.source,
-      pouName: summary.pouName,
+      pouName: focus.segment.pouName || summary.pouName,
     },
     suggestions,
   };
