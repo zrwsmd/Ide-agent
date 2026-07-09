@@ -25,13 +25,20 @@ export async function run(): Promise<void> {
   await extension.activate();
 
   const summary = await loadDiagramSummary(DIAGRAM_PATH);
-  const selectedNode = summary.segments
-    .flatMap((item) => item.nodes)
-    .find((node) => SUGGESTABLE_NODE_KINDS.has(node.kind));
+  const selectedNodeEntry = summary.segments
+    .flatMap((segment) =>
+      segment.nodes.map((node) => ({
+        segment,
+        node,
+      })),
+    )
+    .find((entry) => SUGGESTABLE_NODE_KINDS.has(entry.node.kind));
   assert.ok(
-    selectedNode,
+    selectedNodeEntry,
     "expected at least one suggestable graph node in diagram JSON",
   );
+  const selectedNode = selectedNodeEntry.node;
+  const selectedSegment = selectedNodeEntry.segment;
 
   const byNode = await vscode.commands.executeCommand<{
     payload?: {
@@ -41,6 +48,7 @@ export async function run(): Promise<void> {
     diagramPath?: string;
   }>("ide-agent.getLocalGraphSuggestions", {
     diagramPath: DIAGRAM_PATH,
+    segmentId: selectedSegment.segmentId,
     selectedNodeId: selectedNode.id,
   });
 
@@ -57,7 +65,12 @@ export async function run(): Promise<void> {
   );
 
   const selectedInsertionPoint = summary.segments
-    .flatMap((item) => item.insertionPoints)
+    .flatMap((segment) =>
+      segment.insertionPoints.map((insertionPoint) => ({
+        segment,
+        insertionPoint,
+      })),
+    )
     .find(Boolean);
   const byInsertionPoint = selectedInsertionPoint
     ? await vscode.commands.executeCommand<{
@@ -67,7 +80,8 @@ export async function run(): Promise<void> {
         };
       }>("ide-agent.getLocalGraphSuggestions", {
         diagramPath: DIAGRAM_PATH,
-        selectedInsertionPointId: selectedInsertionPoint.id,
+        segmentId: selectedInsertionPoint.segment.segmentId,
+        selectedInsertionPointId: selectedInsertionPoint.insertionPoint.id,
       })
     : undefined;
 
@@ -78,7 +92,7 @@ export async function run(): Promise<void> {
     );
     assert.strictEqual(
       byInsertionPoint?.payload?.recognizedFocus?.matchedNodeId,
-      selectedInsertionPoint.id,
+      selectedInsertionPoint.insertionPoint.id,
     );
   }
 

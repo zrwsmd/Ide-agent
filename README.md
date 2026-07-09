@@ -118,6 +118,7 @@ const result = await vscode.commands.executeCommand(
   "ide-agent.getLocalGraphSuggestions",
   {
     diagramPath: "C:\\Users\\Administrator\\.vscode\\extensions\\ytak.devuni-ide-vscode-1.0.21\\tool\\iec-runtime-gen-run\\.depworkspace\\transLd.txt",
+    segmentId: "segment-xxx",
     selectedNodeId: "contact-47078324-1782348633397"
   }
 );
@@ -130,10 +131,13 @@ const result = await vscode.commands.executeCommand(
   "ide-agent.getLocalGraphSuggestions",
   {
     diagramPath: "C:\\Users\\Administrator\\.vscode\\extensions\\ytak.devuni-ide-vscode-1.0.21\\tool\\iec-runtime-gen-run\\.depworkspace\\transLd.txt",
+    segmentId: "segment-xxx",
     selectedInsertionPointId: "edit-node-rect"
   }
 );
 ```
+
+`segmentId` 用来限定当前区段。建议前端正式接入时始终传入当前选中节点所在的 `segmentId`；如果不传，命令仍会按旧逻辑在整个图 JSON 里查找节点，保持兼容。
 
 返回结果里主要看：
 
@@ -385,6 +389,7 @@ npm run test:local-graph-command
 
 - `diagramPath`：本次读取的图 JSON / `transLd.txt` 路径。
 - `payload`：结构化建议结果。
+- `payload.segmentId`：本次实际命中的区段 id。
 - `payload.suggestions`：前端真正需要渲染的建议数组。
 - `summary`：轻量调试摘要，不包含完整图拓扑。
 - `summary.suggestionOverview`：从 `payload.suggestions` 提取出来的人类可读概览，便于快速扫一眼本次返回了哪些建议。
@@ -409,6 +414,7 @@ selectedNodeId: selectedNode.id,
 改成：
 
 ```ts
+segmentId: "segment-xxxx",
 selectedNodeId: "contact-xxxx",
 ```
 
@@ -421,6 +427,7 @@ selectedInsertionPointId: selectedInsertionPoint.id,
 改成：
 
 ```ts
+segmentId: "segment-xxxx",
 selectedInsertionPointId: "edit-node-rect",
 ```
 

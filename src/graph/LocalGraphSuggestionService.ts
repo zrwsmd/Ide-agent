@@ -9,6 +9,7 @@ import {
 } from "../diagram/DiagramSummary";
 
 export interface LocalGraphSuggestionOptions {
+  segmentId?: string;
   selectedNodeId?: string;
   selectedInsertionPointId?: string;
   selectedVar?: string;
@@ -18,6 +19,7 @@ export interface LocalGraphSuggestionOptions {
 
 export interface LocalGraphSuggestionRequest {
   diagramPath: string;
+  segmentId?: string;
   selectedNodeId?: string;
   selectedInsertionPointId?: string;
 }
@@ -120,6 +122,7 @@ export class LocalGraphSuggestionService {
       return undefined;
     }
     const focusOptions: LocalGraphSuggestionOptions = {
+      segmentId: request?.segmentId,
       selectedNodeId: request?.selectedNodeId,
       selectedInsertionPointId: request?.selectedInsertionPointId,
     };
@@ -742,14 +745,19 @@ async function resolveFocus(
     return undefined;
   }
 
-  const fromManualInput = findFocusByQuery(summary, manualQuery);
+  const fromManualInput = findFocusByQuery(
+    summary,
+    manualQuery,
+    options.segmentId,
+  );
   if (fromManualInput) {
     return { ...fromManualInput, source: "manualInput" };
   }
 
   const fallback =
-    findFirstInsertionPoint(summary) || findFirstRealNode(summary);
-  const picked = await pickFocus(summary, fallback);
+    findFirstInsertionPoint(summary, options.segmentId) ||
+    findFirstRealNode(summary, options.segmentId);
+  const picked = await pickFocus(summary, fallback, options.segmentId);
   if (picked) {
     return { ...picked, source: "quickPick" };
   }
@@ -770,7 +778,11 @@ function findFocusByOptions(
   options: LocalGraphSuggestionOptions,
 ): Omit<FocusContext, "source"> | undefined {
   if (options.selectedNodeId) {
-    const byNodeId = findNodeFocus(summary, options.selectedNodeId);
+    const byNodeId = findNodeFocus(
+      summary,
+      options.selectedNodeId,
+      options.segmentId,
+    );
     if (byNodeId) {
       return byNodeId;
     }
@@ -780,6 +792,7 @@ function findFocusByOptions(
     const byInsertionId = findInsertionPointFocus(
       summary,
       options.selectedInsertionPointId,
+      options.segmentId,
     );
     if (byInsertionId) {
       return byInsertionId;
@@ -787,11 +800,11 @@ function findFocusByOptions(
   }
 
   if (options.selectedVar) {
-    return findFocusByToken(summary, options.selectedVar);
+    return findFocusByToken(summary, options.selectedVar, options.segmentId);
   }
 
   if (options.focusQuery) {
-    return findFocusByQuery(summary, options.focusQuery);
+    return findFocusByQuery(summary, options.focusQuery, options.segmentId);
   }
 
   return undefined;
@@ -800,6 +813,7 @@ function findFocusByOptions(
 function findFocusByQuery(
   summary: DiagramSummary,
   query: string,
+  segmentId?: string,
 ): Omit<FocusContext, "source"> | undefined {
   const trimmed = query.trim();
   if (!trimmed) {
@@ -807,22 +821,23 @@ function findFocusByQuery(
   }
 
   return (
-    findNodeFocus(summary, trimmed) ||
-    findInsertionPointFocus(summary, trimmed) ||
-    findFocusByToken(summary, trimmed)
+    findNodeFocus(summary, trimmed, segmentId) ||
+    findInsertionPointFocus(summary, trimmed, segmentId) ||
+    findFocusByToken(summary, trimmed, segmentId)
   );
 }
 
 function findFocusByToken(
   summary: DiagramSummary,
   token: string,
+  segmentId?: string,
 ): Omit<FocusContext, "source"> | undefined {
   if (!token) {
     return undefined;
   }
 
   const normalized = token.toLowerCase();
-  const matches = summary.segments.flatMap((segment) =>
+  const matches = focusSegments(summary, segmentId).flatMap((segment) =>
     segment.nodes
       .filter((node) => isRealGraphElementKind(node.kind))
       .filter((node) =>
@@ -839,8 +854,9 @@ function findFocusByToken(
 function findNodeFocus(
   summary: DiagramSummary,
   nodeId: string,
+  segmentId?: string,
 ): Omit<FocusContext, "source"> | undefined {
-  for (const segment of summary.segments) {
+  for (const segment of focusSegments(summary, segmentId)) {
     const node = findNode(segment, nodeId);
     if (node) {
       return { segment, node };
@@ -853,8 +869,9 @@ function findNodeFocus(
 function findInsertionPointFocus(
   summary: DiagramSummary,
   insertionPointId: string,
+  segmentId?: string,
 ): Omit<FocusContext, "source"> | undefined {
-  for (const segment of summary.segments) {
+  for (const segment of focusSegments(summary, segmentId)) {
     const insertionPoint = segment.insertionPoints.find(
       (item) => item.id === insertionPointId,
     );
@@ -866,10 +883,23 @@ function findInsertionPointFocus(
   return undefined;
 }
 
+function focusSegments(
+  summary: DiagramSummary,
+  segmentId: string | undefined,
+): DiagramSegmentSummary[] {
+  const trimmed = segmentId?.trim();
+  if (!trimmed) {
+    return summary.segments;
+  }
+
+  return summary.segments.filter((segment) => segment.segmentId === trimmed);
+}
+
 function findFirstInsertionPoint(
   summary: DiagramSummary,
+  segmentId?: string,
 ): Omit<FocusContext, "source"> | undefined {
-  const segment = summary.segments.find(
+  const segment = focusSegments(summary, segmentId).find(
     (item) => item.insertionPoints.length > 0,
   );
   const insertionPoint = segment?.insertionPoints[0];
@@ -878,8 +908,9 @@ function findFirstInsertionPoint(
 
 function findFirstRealNode(
   summary: DiagramSummary,
+  segmentId?: string,
 ): Omit<FocusContext, "source"> | undefined {
-  for (const segment of summary.segments) {
+  for (const segment of focusSegments(summary, segmentId)) {
     const node = segment.nodes.find((item) =>
       isRealGraphElementKind(item.kind),
     );
@@ -894,8 +925,9 @@ function findFirstRealNode(
 async function pickFocus(
   summary: DiagramSummary,
   fallback: Omit<FocusContext, "source"> | undefined,
+  segmentId?: string,
 ): Promise<Omit<FocusContext, "source"> | undefined> {
-  const items = summary.segments.flatMap((segment) =>
+  const items = focusSegments(summary, segmentId).flatMap((segment) =>
     segment.nodes
       .filter((node) => isRealGraphElementKind(node.kind))
       .map((node) => ({
@@ -1361,6 +1393,7 @@ function first(values: string[] | undefined): string {
 function formatFocusOptions(options: LocalGraphSuggestionOptions): string {
   return (
     [
+      options.segmentId ? `segmentId=${options.segmentId}` : "",
       options.selectedNodeId ? `nodeId=${options.selectedNodeId}` : "",
       options.selectedInsertionPointId
         ? `insertionPointId=${options.selectedInsertionPointId}`
