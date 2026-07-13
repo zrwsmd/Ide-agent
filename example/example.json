@@ -1,0 +1,2616 @@
+[{
+	"segmentList": [{
+		"id": "segment-69IGBk-1783925316502",
+		"label": "",
+		"note": "",
+		"height": 374,
+		"width": 2230,
+		"isExpand": true,
+		"nodesObj": {
+			"start-node-line": {
+				"id": "start-node-line",
+				"type": "startLine",
+				"Xlayer": 0,
+				"Ylayer": 0,
+				"sourceIds": [],
+				"targetIds": ["contact-11081985-1781570630470"]
+			},
+			"edit-node-rect": {
+				"id": "edit-node-rect",
+				"type": "editRect",
+				"sourceIds": ["contact-52650927-1781570746886"],
+				"targetIds": ["coil-70987424-1781570657431"],
+				"children": [{
+					"id": "edit-node-rect-left-port",
+					"type": "node:edgePort",
+					"side": "left",
+					"parentId": "edit-node-rect",
+					"cssClasses": ["contact-left-port"],
+					"position": {
+						"x": -45,
+						"y": 0
+					},
+					"size": {
+						"width": 45,
+						"height": 22
+					}
+				}, {
+					"id": "edit-node-rect-bottom-port",
+					"type": "node:edgeBottomPort",
+					"side": "bottom",
+					"parentId": "edit-node-rect",
+					"cssClasses": ["contact-bottom-port"],
+					"position": {
+						"x": 0,
+						"y": 0
+					},
+					"size": {
+						"width": 70,
+						"height": 22
+					}
+				}]
+			},
+			"contact-11081985-1781570630470": {
+				"id": "contact-11081985-1781570630470",
+				"type": "contact",
+				"sourceIds": ["start-node-line"],
+				"targetIds": ["FBD-compartment-CTU-32650856-1781570714366"],
+				"varName": {
+					"name": "",
+					"value": "a",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-88766029-1781570631854": {
+				"id": "contact-88766029-1781570631854",
+				"type": "contact",
+				"sourceIds": ["FBD-compartment-CTU-32650856-1781570714366"],
+				"targetIds": ["FBD-compartment-SR-45750777-1781570650120"],
+				"varName": {
+					"name": "",
+					"value": "h",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-07095946-1781570632822": {
+				"id": "contact-07095946-1781570632822",
+				"type": "contact",
+				"sourceIds": ["contact-12421871-1781570642038", "contact-97833501-1781570694870", "contact-87196519-1781570637590", "contact-13665134-1781570641118"],
+				"targetIds": ["contact-52650927-1781570746886"],
+				"varName": {
+					"name": "",
+					"value": "t",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-87196519-1781570637590": {
+				"id": "contact-87196519-1781570637590",
+				"type": "contact",
+				"sourceIds": ["FBD-compartment-CTU-32650856-1781570714366"],
+				"targetIds": ["contact-07095946-1781570632822", "contact-98818092-1781570765750", "contact-28180463-1781570786974"],
+				"varName": {
+					"name": "",
+					"value": "m",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-13665134-1781570641118": {
+				"id": "contact-13665134-1781570641118",
+				"type": "contact",
+				"sourceIds": ["FBD-compartment-CTU-32650856-1781570714366"],
+				"targetIds": ["contact-07095946-1781570632822", "contact-98818092-1781570765750", "contact-28180463-1781570786974"],
+				"varName": {
+					"name": "",
+					"value": "n",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-12421871-1781570642038": {
+				"id": "contact-12421871-1781570642038",
+				"type": "contact",
+				"sourceIds": ["FBD-compartment-SR-45750777-1781570650120"],
+				"targetIds": ["contact-07095946-1781570632822", "contact-98818092-1781570765750", "contact-28180463-1781570786974"],
+				"varName": {
+					"name": "",
+					"value": "o",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"FBD-compartment-SR-45750777-1781570650120": {
+				"id": "FBD-compartment-SR-45750777-1781570650120",
+				"type": "FBDCompartment",
+				"sourceIds": ["contact-88766029-1781570631854"],
+				"targetIds": ["contact-12421871-1781570642038", "contact-58412550-1781570697110", "contact-39289363-1781570706838"],
+				"childrenNode": {
+					"type": "SR",
+					"isFunction": false,
+					"portInputs": [{
+						"name": "EN",
+						"value": "",
+						"scope": ""
+					}, {
+						"name": "S1",
+						"value": "j",
+						"type": "BOOL",
+						"scope": "VAR_INPUT"
+					}, {
+						"name": "R",
+						"value": "k",
+						"type": "BOOL",
+						"scope": "VAR_INPUT"
+					}],
+					"portOutputs": [{
+						"name": "ENO",
+						"value": "",
+						"scope": "",
+						"type": ""
+					}, {
+						"name": "Q1",
+						"value": "l",
+						"type": "BOOL",
+						"scope": "VAR_OUTPUT"
+					}],
+					"varName": {
+						"name": "",
+						"value": "i",
+						"type": "SR",
+						"scope": "VAR"
+					}
+				}
+			},
+			"coil-70987424-1781570657431": {
+				"id": "coil-70987424-1781570657431",
+				"type": "coil",
+				"sourceIds": ["edit-node-rect"],
+				"targetIds": [],
+				"varName": {
+					"name": "",
+					"value": "out1",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-97833501-1781570694870": {
+				"id": "contact-97833501-1781570694870",
+				"type": "contact",
+				"sourceIds": ["contact-52141284-1781570711519", "contact-39289363-1781570706838"],
+				"targetIds": ["contact-07095946-1781570632822", "contact-98818092-1781570765750", "contact-28180463-1781570786974"],
+				"varName": {
+					"name": "",
+					"value": "s",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-58412550-1781570697110": {
+				"id": "contact-58412550-1781570697110",
+				"type": "contact",
+				"sourceIds": ["FBD-compartment-SR-45750777-1781570650120"],
+				"targetIds": ["contact-52141284-1781570711519"],
+				"varName": {
+					"name": "",
+					"value": "p",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-39289363-1781570706838": {
+				"id": "contact-39289363-1781570706838",
+				"type": "contact",
+				"sourceIds": ["FBD-compartment-SR-45750777-1781570650120"],
+				"targetIds": ["contact-97833501-1781570694870"],
+				"varName": {
+					"name": "",
+					"value": "q",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-52141284-1781570711519": {
+				"id": "contact-52141284-1781570711519",
+				"type": "contact",
+				"sourceIds": ["contact-58412550-1781570697110"],
+				"targetIds": ["contact-97833501-1781570694870"],
+				"varName": {
+					"name": "",
+					"value": "r",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"FBD-compartment-CTU-32650856-1781570714366": {
+				"id": "FBD-compartment-CTU-32650856-1781570714366",
+				"type": "FBDCompartment",
+				"sourceIds": ["contact-11081985-1781570630470"],
+				"targetIds": ["contact-88766029-1781570631854", "contact-87196519-1781570637590", "contact-13665134-1781570641118"],
+				"childrenNode": {
+					"type": "CTU",
+					"isFunction": false,
+					"portInputs": [{
+						"name": "EN",
+						"value": "",
+						"scope": ""
+					}, {
+						"name": "CU",
+						"value": "c",
+						"type": "BOOL",
+						"scope": "VAR_INPUT"
+					}, {
+						"name": "R",
+						"value": "d",
+						"type": "BOOL",
+						"scope": "VAR_INPUT"
+					}, {
+						"name": "PV",
+						"value": "e",
+						"type": "INT",
+						"scope": "VAR_INPUT"
+					}],
+					"portOutputs": [{
+						"name": "ENO",
+						"value": "",
+						"scope": "",
+						"type": ""
+					}, {
+						"name": "Q",
+						"value": "f",
+						"type": "BOOL",
+						"scope": "VAR_OUTPUT"
+					}, {
+						"name": "CV",
+						"value": "g",
+						"type": "INT",
+						"scope": "VAR_OUTPUT"
+					}],
+					"varName": {
+						"name": "",
+						"value": "b",
+						"type": "CTU",
+						"scope": "VAR"
+					}
+				}
+			},
+			"contact-52650927-1781570746886": {
+				"id": "contact-52650927-1781570746886",
+				"type": "contact",
+				"sourceIds": ["contact-07095946-1781570632822", "contact-63812762-1781570749310", "contact-28180463-1781570786974"],
+				"targetIds": ["edit-node-rect"],
+				"varName": {
+					"name": "",
+					"value": "a3",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-63812762-1781570749310": {
+				"id": "contact-63812762-1781570749310",
+				"type": "contact",
+				"sourceIds": ["FBD-compartment-TP-64948001-1781570792848"],
+				"targetIds": ["contact-52650927-1781570746886"],
+				"varName": {
+					"name": "",
+					"value": "a2",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-98818092-1781570765750": {
+				"id": "contact-98818092-1781570765750",
+				"type": "contact",
+				"sourceIds": ["contact-12421871-1781570642038", "contact-97833501-1781570694870", "contact-87196519-1781570637590", "contact-13665134-1781570641118"],
+				"targetIds": ["FBD-compartment-TP-64948001-1781570792848"],
+				"varName": {
+					"name": "",
+					"value": "u",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-28180463-1781570786974": {
+				"id": "contact-28180463-1781570786974",
+				"type": "contact",
+				"sourceIds": ["contact-12421871-1781570642038", "contact-97833501-1781570694870", "contact-87196519-1781570637590", "contact-13665134-1781570641118"],
+				"targetIds": ["contact-52650927-1781570746886"],
+				"varName": {
+					"name": "",
+					"value": "v",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"FBD-compartment-TP-64948001-1781570792848": {
+				"id": "FBD-compartment-TP-64948001-1781570792848",
+				"type": "FBDCompartment",
+				"sourceIds": ["contact-98818092-1781570765750"],
+				"targetIds": ["contact-63812762-1781570749310"],
+				"childrenNode": {
+					"type": "TP",
+					"isFunction": false,
+					"portInputs": [{
+						"name": "EN",
+						"value": "",
+						"scope": ""
+					}, {
+						"name": "IN",
+						"value": "x",
+						"type": "BOOL",
+						"scope": "VAR_INPUT"
+					}, {
+						"name": "PT",
+						"value": "y",
+						"type": "TIME",
+						"scope": "VAR_INPUT"
+					}],
+					"portOutputs": [{
+						"name": "ENO",
+						"value": "",
+						"scope": "",
+						"type": ""
+					}, {
+						"name": "Q",
+						"value": "z",
+						"type": "BOOL",
+						"scope": "VAR_OUTPUT"
+					}, {
+						"name": "ET",
+						"value": "a1",
+						"type": "TIME",
+						"scope": "VAR_OUTPUT"
+					}],
+					"varName": {
+						"name": "",
+						"value": "w",
+						"type": "TP",
+						"scope": "VAR"
+					}
+				}
+			}
+		}
+	}, {
+		"id": "segment-W7bwBe-1783925316503",
+		"label": "",
+		"note": "",
+		"height": 82,
+		"width": 315,
+		"isExpand": true,
+		"nodesObj": {
+			"start-node-line": {
+				"id": "start-node-line",
+				"type": "startLine",
+				"Xlayer": 0,
+				"Ylayer": 0,
+				"sourceIds": [],
+				"targetIds": ["edit-node-rect"]
+			},
+			"edit-node-rect": {
+				"id": "edit-node-rect",
+				"type": "editRect",
+				"sourceIds": ["start-node-line"],
+				"targetIds": ["end-node-line-54488191-1781571342766"],
+				"children": [{
+					"id": "edit-node-rect-left-port",
+					"type": "node:edgePort",
+					"side": "left",
+					"parentId": "edit-node-rect",
+					"cssClasses": ["contact-left-port"],
+					"position": {
+						"x": -45,
+						"y": 0
+					},
+					"size": {
+						"width": 45,
+						"height": 22
+					}
+				}, {
+					"id": "edit-node-rect-bottom-port",
+					"type": "node:edgeBottomPort",
+					"side": "bottom",
+					"parentId": "edit-node-rect",
+					"cssClasses": ["contact-bottom-port"],
+					"position": {
+						"x": 0,
+						"y": 0
+					},
+					"size": {
+						"width": 70,
+						"height": 22
+					}
+				}]
+			},
+			"end-node-line-54488191-1781571342766": {
+				"id": "end-node-line-54488191-1781571342766",
+				"type": "endLine",
+				"size": {
+					"width": 50,
+					"height": 22
+				},
+				"sourceIds": ["edit-node-rect"],
+				"targetIds": []
+			}
+		}
+	}],
+	"variableList": [{
+		"scope": "VAR",
+		"name": "a",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "A",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "b",
+		"type": "CTU",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["Standard function blocks", "CTU"],
+		"id": "B",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "c",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "C",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "d",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "D",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "e",
+		"type": "INT",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "INT"],
+		"id": "E",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "f",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "F",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "g",
+		"type": "INT",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "INT"],
+		"id": "G",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "h",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "H",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "i",
+		"type": "SR",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["Standard function blocks", "SR"],
+		"id": "I",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "j",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "J",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "k",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "K",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "l",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "L",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "m",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "M",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "n",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "N",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "o",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "O",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "p",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "P",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "q",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "Q",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "r",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "R",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "s",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "S",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "t",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "T",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "u",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "U",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "v",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "V",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "w",
+		"type": "TP",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["Standard function blocks", "TP"],
+		"id": "W",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "x",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "X",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "y",
+		"type": "TIME",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "TIME"],
+		"id": "Y",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "z",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "Z",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "a1",
+		"type": "TIME",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "TIME"],
+		"id": "A1",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "a2",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "A2",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "a3",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "A3",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "out1",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "OUT1",
+		"isShow": true
+	}],
+	"pouType": "PROGRAM",
+	"pouName": "TEST202606160841",
+	"extensionPath": "c:\\Users\\Administrator\\.vscode\\extensions"
+}, {
+	"segmentList": [{
+		"id": "segment-85542094-1781572051180",
+		"label": "",
+		"note": "",
+		"height": 746,
+		"width": 1700,
+		"isExpand": true,
+		"nodesObj": {
+			"start-node-line": {
+				"id": "start-node-line",
+				"type": "startLine",
+				"Xlayer": 0,
+				"Ylayer": 0,
+				"sourceIds": [],
+				"targetIds": ["contact-78822130-1781572020158"]
+			},
+			"edit-node-rect": {
+				"id": "edit-node-rect",
+				"type": "editRect",
+				"sourceIds": ["FBD-compartment-SMC_TV-55383038-1781572040168"],
+				"targetIds": ["coil-40875514-1781572046607"],
+				"children": [{
+					"id": "edit-node-rect-left-port",
+					"type": "node:edgePort",
+					"side": "left",
+					"parentId": "edit-node-rect",
+					"cssClasses": ["contact-left-port"],
+					"position": {
+						"x": -45,
+						"y": 0
+					},
+					"size": {
+						"width": 45,
+						"height": 22
+					}
+				}, {
+					"id": "edit-node-rect-bottom-port",
+					"type": "node:edgeBottomPort",
+					"side": "bottom",
+					"parentId": "edit-node-rect",
+					"cssClasses": ["contact-bottom-port"],
+					"position": {
+						"x": 0,
+						"y": 0
+					},
+					"size": {
+						"width": 70,
+						"height": 22
+					}
+				}]
+			},
+			"contact-78822130-1781572020158": {
+				"id": "contact-78822130-1781572020158",
+				"type": "contact",
+				"sourceIds": ["start-node-line"],
+				"targetIds": ["FBD-compartment-MC_Reset-40551913-1781572029521", "FUN-compartment-AND-69734531-1781572074720", "contact-62142719-1781572099182", "contact-34471905-1781572119790"],
+				"varName": {
+					"name": "",
+					"value": "a",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"FBD-compartment-MC_Reset-40551913-1781572029521": {
+				"id": "FBD-compartment-MC_Reset-40551913-1781572029521",
+				"type": "FBDCompartment",
+				"sourceIds": ["contact-78822130-1781572020158"],
+				"targetIds": ["FBD-compartment-SMC_TV-55383038-1781572040168"],
+				"childrenNode": {
+					"type": "MC_Reset",
+					"isFunction": false,
+					"portInputs": [{
+						"name": "EN",
+						"value": "",
+						"scope": ""
+					}, {
+						"name": "Axis",
+						"value": "c",
+						"type": "AXIS_REF",
+						"scope": "VAR_IN_OUT"
+					}, {
+						"name": "Execute",
+						"value": "d",
+						"type": "BOOL",
+						"scope": "VAR_INPUT"
+					}],
+					"portOutputs": [{
+						"name": "ENO",
+						"value": "",
+						"scope": "",
+						"type": ""
+					}, {
+						"name": "Done",
+						"value": "e",
+						"type": "BOOL",
+						"scope": "VAR_OUTPUT"
+					}, {
+						"name": "Busy",
+						"value": "f",
+						"type": "BOOL",
+						"scope": "VAR_OUTPUT"
+					}, {
+						"name": "Error",
+						"value": "g",
+						"type": "BOOL",
+						"scope": "VAR_OUTPUT"
+					}, {
+						"name": "ErrorID",
+						"value": "h",
+						"type": "SMC_ERROR",
+						"scope": "VAR_OUTPUT"
+					}],
+					"varName": {
+						"name": "",
+						"value": "b",
+						"type": "MC_Reset",
+						"scope": "VAR"
+					}
+				}
+			},
+			"FBD-compartment-SMC_TV-55383038-1781572040168": {
+				"id": "FBD-compartment-SMC_TV-55383038-1781572040168",
+				"type": "FBDCompartment",
+				"sourceIds": ["FBD-compartment-MC_Reset-40551913-1781572029521", "contact-42216147-1781572048846"],
+				"targetIds": ["edit-node-rect"],
+				"childrenNode": {
+					"type": "SMC_TV",
+					"isFunction": false,
+					"portInputs": [{
+						"name": "EN",
+						"value": "",
+						"scope": ""
+					}],
+					"portOutputs": [{
+						"name": "ENO",
+						"value": "",
+						"scope": "",
+						"type": ""
+					}],
+					"varName": {
+						"name": "",
+						"value": "gg",
+						"type": "SMC_TV",
+						"scope": "VAR"
+					}
+				}
+			},
+			"coil-40875514-1781572046607": {
+				"id": "coil-40875514-1781572046607",
+				"type": "coil",
+				"sourceIds": ["edit-node-rect"],
+				"targetIds": [],
+				"varName": {
+					"name": "",
+					"value": "hh",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-42216147-1781572048846": {
+				"id": "contact-42216147-1781572048846",
+				"type": "contact",
+				"sourceIds": ["FBD-compartment-RTC-13466056-1781572090567"],
+				"targetIds": ["FBD-compartment-SMC_TV-55383038-1781572040168"],
+				"varName": {
+					"name": "",
+					"value": "ff",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-85677538-1781572050942": {
+				"id": "contact-85677538-1781572050942",
+				"type": "negatedContact",
+				"sourceIds": ["FUN-compartment-AND-69734531-1781572074720", "FUN-compartment-XOR-83819973-1781572082160", "contact-34471905-1781572119790"],
+				"targetIds": ["FBD-compartment-RTC-13466056-1781572090567"],
+				"varName": {
+					"name": "",
+					"value": "q",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"FUN-compartment-AND-69734531-1781572074720": {
+				"id": "FUN-compartment-AND-69734531-1781572074720",
+				"type": "FBDCompartment",
+				"sourceIds": ["contact-78822130-1781572020158"],
+				"targetIds": ["contact-85677538-1781572050942"],
+				"childrenNode": {
+					"type": "AND",
+					"isFunction": true,
+					"portInputs": [{
+						"name": "EN",
+						"value": "",
+						"scope": ""
+					}, {
+						"name": "IN1",
+						"value": "i",
+						"type": "ANY_BIT",
+						"scope": "VAR_INPUT"
+					}, {
+						"name": "IN2",
+						"value": "j",
+						"type": "ANY_BIT",
+						"scope": "VAR_INPUT"
+					}],
+					"portOutputs": [{
+						"name": "ENO",
+						"value": "",
+						"scope": "",
+						"type": ""
+					}, {
+						"name": "OUT",
+						"value": "k",
+						"type": "ANY_BIT",
+						"scope": "VAR_OUTPUT"
+					}]
+				}
+			},
+			"FUN-compartment-XOR-83819973-1781572082160": {
+				"id": "FUN-compartment-XOR-83819973-1781572082160",
+				"type": "FBDCompartment",
+				"sourceIds": ["contact-62142719-1781572099182"],
+				"targetIds": ["contact-85677538-1781572050942"],
+				"childrenNode": {
+					"type": "XOR",
+					"isFunction": true,
+					"portInputs": [{
+						"name": "EN",
+						"value": "",
+						"scope": ""
+					}, {
+						"name": "IN1",
+						"value": "m",
+						"type": "ANY_BIT",
+						"scope": "VAR_INPUT"
+					}, {
+						"name": "IN2",
+						"value": "n",
+						"type": "ANY_BIT",
+						"scope": "VAR_INPUT"
+					}],
+					"portOutputs": [{
+						"name": "ENO",
+						"value": "",
+						"scope": "",
+						"type": ""
+					}, {
+						"name": "OUT",
+						"value": "o",
+						"type": "ANY_BIT",
+						"scope": "VAR_OUTPUT"
+					}]
+				}
+			},
+			"FBD-compartment-RTC-13466056-1781572090567": {
+				"id": "FBD-compartment-RTC-13466056-1781572090567",
+				"type": "FBDCompartment",
+				"sourceIds": ["contact-85677538-1781572050942"],
+				"targetIds": ["contact-42216147-1781572048846"],
+				"childrenNode": {
+					"type": "RTC",
+					"isFunction": false,
+					"portInputs": [{
+						"name": "EN",
+						"value": "",
+						"scope": ""
+					}, {
+						"name": "IN",
+						"value": "bb",
+						"type": "BOOL",
+						"scope": "VAR_INPUT"
+					}, {
+						"name": "PDT",
+						"value": "cc",
+						"type": "DT",
+						"scope": "VAR_INPUT"
+					}],
+					"portOutputs": [{
+						"name": "ENO",
+						"value": "",
+						"scope": "",
+						"type": ""
+					}, {
+						"name": "Q",
+						"value": "dd",
+						"type": "BOOL",
+						"scope": "VAR_OUTPUT"
+					}, {
+						"name": "CDT",
+						"value": "ee",
+						"type": "DT",
+						"scope": "VAR_OUTPUT"
+					}],
+					"varName": {
+						"name": "",
+						"value": "aa",
+						"type": "RTC",
+						"scope": "VAR"
+					}
+				}
+			},
+			"contact-62142719-1781572099182": {
+				"id": "contact-62142719-1781572099182",
+				"type": "risingContact",
+				"sourceIds": ["contact-78822130-1781572020158"],
+				"targetIds": ["FUN-compartment-XOR-83819973-1781572082160"],
+				"varName": {
+					"name": "",
+					"value": "l",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-34471905-1781572119790": {
+				"id": "contact-34471905-1781572119790",
+				"type": "contact",
+				"sourceIds": ["contact-78822130-1781572020158"],
+				"targetIds": ["contact-85677538-1781572050942"],
+				"varName": {
+					"name": "",
+					"value": "p",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			}
+		}
+	}],
+	"variableList": [{
+		"scope": "VAR",
+		"name": "a",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "A",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "b",
+		"type": "MC_Reset",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["SMC_Basic function blocks", "MC_Reset"],
+		"id": "B",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "c",
+		"type": "AXIS_REF",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["extra_library", "AXIS_REF"],
+		"id": "C",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "d",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "D",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "e",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "E",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "f",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "F",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "g",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "G",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "h",
+		"type": "SMC_ERROR",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["extra_library", "SMC_ERROR"],
+		"id": "H",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "i",
+		"type": "ANY_BIT",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"id": "I",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "j",
+		"type": "ANY_BIT",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"id": "J",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "k",
+		"type": "ANY_BIT",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"id": "K",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "l",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "L",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "m",
+		"type": "ANY_BIT",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"id": "M",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "n",
+		"type": "ANY_BIT",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"id": "N",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "o",
+		"type": "ANY_BIT",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"id": "O",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "p",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "P",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "q",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "Q",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "aa",
+		"type": "RTC",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["Additional function blocks", "RTC"],
+		"id": "AA",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "bb",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "BB",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "cc",
+		"type": "DT",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "DT"],
+		"id": "CC",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "dd",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "DD",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "ee",
+		"type": "DT",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "DT"],
+		"id": "EE",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "ff",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "FF",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "gg",
+		"type": "SMC_TV",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["extra_library", "SMC_TV"],
+		"id": "GG",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "hh",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "HH",
+		"isShow": true
+	}],
+	"pouType": "PROGRAM",
+	"pouName": "TEST202606160906",
+	"extensionPath": "c:\\Users\\Administrator\\.vscode\\extensions"
+}, {
+	"segmentList": [{
+		"id": "segment-75555562-1781580370214",
+		"label": "",
+		"note": "",
+		"height": 714,
+		"width": 1565,
+		"isExpand": true,
+		"nodesObj": {
+			"start-node-line": {
+				"id": "start-node-line",
+				"type": "startLine",
+				"Xlayer": 0,
+				"Ylayer": 0,
+				"sourceIds": [],
+				"targetIds": ["contact-55168776-1781578624639"]
+			},
+			"edit-node-rect": {
+				"id": "edit-node-rect",
+				"type": "editRect",
+				"sourceIds": ["contact-76889693-1781580369959", "contact-14701029-1781580416703", "contact-62551876-1781580418551", "contact-68191691-1781578886199", "FUN-compartment-MOD-55889287-1781580410481"],
+				"targetIds": ["coil-78593690-1781578738991"],
+				"children": [{
+					"id": "edit-node-rect-left-port",
+					"type": "node:edgePort",
+					"side": "left",
+					"parentId": "edit-node-rect",
+					"cssClasses": ["contact-left-port"],
+					"position": {
+						"x": -45,
+						"y": 0
+					},
+					"size": {
+						"width": 45,
+						"height": 22
+					}
+				}, {
+					"id": "edit-node-rect-bottom-port",
+					"type": "node:edgeBottomPort",
+					"side": "bottom",
+					"parentId": "edit-node-rect",
+					"cssClasses": ["contact-bottom-port"],
+					"position": {
+						"x": 0,
+						"y": 0
+					},
+					"size": {
+						"width": 70,
+						"height": 22
+					}
+				}]
+			},
+			"contact-55168776-1781578624639": {
+				"id": "contact-55168776-1781578624639",
+				"type": "contact",
+				"sourceIds": ["start-node-line"],
+				"targetIds": ["contact-06345791-1781578625727", "FUN-compartment-LEFT-91222277-1781578733033"],
+				"varName": {
+					"name": "",
+					"value": "a",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-06345791-1781578625727": {
+				"id": "contact-06345791-1781578625727",
+				"type": "contact",
+				"sourceIds": ["contact-55168776-1781578624639"],
+				"targetIds": ["contact-11710496-1781578627038"],
+				"varName": {
+					"name": "",
+					"value": "b",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-11710496-1781578627038": {
+				"id": "contact-11710496-1781578627038",
+				"type": "risingContact",
+				"sourceIds": ["contact-06345791-1781578625727", "FUN-compartment-LEFT-91222277-1781578733033"],
+				"targetIds": ["FBD-compartment-RS-73988711-1781578881232", "contact-83269985-1781578884567", "contact-68191691-1781578886199", "contact-60403159-1781580402087"],
+				"varName": {
+					"name": "",
+					"value": "f",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"FUN-compartment-LEFT-91222277-1781578733033": {
+				"id": "FUN-compartment-LEFT-91222277-1781578733033",
+				"type": "FBDCompartment",
+				"sourceIds": ["contact-55168776-1781578624639"],
+				"targetIds": ["contact-11710496-1781578627038"],
+				"childrenNode": {
+					"type": "LEFT",
+					"isFunction": true,
+					"portInputs": [{
+						"name": "EN",
+						"value": "",
+						"scope": ""
+					}, {
+						"name": "IN",
+						"value": "c",
+						"type": "STRING",
+						"scope": "VAR_INPUT"
+					}, {
+						"name": "L",
+						"value": "d",
+						"type": "ANY_INT",
+						"scope": "VAR_INPUT"
+					}],
+					"portOutputs": [{
+						"name": "ENO",
+						"value": "",
+						"scope": "",
+						"type": ""
+					}, {
+						"name": "OUT",
+						"value": "e",
+						"type": "STRING",
+						"scope": "VAR_OUTPUT"
+					}]
+				}
+			},
+			"coil-78593690-1781578738991": {
+				"id": "coil-78593690-1781578738991",
+				"type": "coil",
+				"sourceIds": ["edit-node-rect"],
+				"targetIds": [],
+				"varName": {
+					"name": "",
+					"value": "m",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"FBD-compartment-RS-73988711-1781578881232": {
+				"id": "FBD-compartment-RS-73988711-1781578881232",
+				"type": "FBDCompartment",
+				"sourceIds": ["contact-11710496-1781578627038"],
+				"targetIds": ["contact-76889693-1781580369959"],
+				"childrenNode": {
+					"type": "RS",
+					"isFunction": false,
+					"portInputs": [{
+						"name": "EN",
+						"value": "",
+						"scope": ""
+					}, {
+						"name": "S",
+						"value": "h",
+						"type": "BOOL",
+						"scope": "VAR_INPUT"
+					}, {
+						"name": "R1",
+						"value": "i",
+						"type": "BOOL",
+						"scope": "VAR_INPUT"
+					}],
+					"portOutputs": [{
+						"name": "ENO",
+						"value": "",
+						"scope": "",
+						"type": ""
+					}, {
+						"name": "Q1",
+						"value": "j",
+						"type": "BOOL",
+						"scope": "VAR_OUTPUT"
+					}],
+					"varName": {
+						"name": "",
+						"value": "g",
+						"type": "RS",
+						"scope": "VAR"
+					}
+				}
+			},
+			"contact-83269985-1781578884567": {
+				"id": "contact-83269985-1781578884567",
+				"type": "contact",
+				"sourceIds": ["contact-11710496-1781578627038"],
+				"targetIds": ["contact-44856837-1781580420216", "contact-62551876-1781580418551"],
+				"varName": {
+					"name": "",
+					"value": "k",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-68191691-1781578886199": {
+				"id": "contact-68191691-1781578886199",
+				"type": "contact",
+				"sourceIds": ["contact-11710496-1781578627038"],
+				"targetIds": ["edit-node-rect"],
+				"varName": {
+					"name": "",
+					"value": "l",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-76889693-1781580369959": {
+				"id": "contact-76889693-1781580369959",
+				"type": "contact",
+				"sourceIds": ["FBD-compartment-RS-73988711-1781578881232"],
+				"targetIds": ["edit-node-rect"],
+				"varName": {
+					"name": "",
+					"value": "aa",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-60403159-1781580402087": {
+				"id": "contact-60403159-1781580402087",
+				"type": "contact",
+				"sourceIds": ["contact-11710496-1781578627038"],
+				"targetIds": ["FUN-compartment-MOD-55889287-1781580410481"],
+				"varName": {
+					"name": "",
+					"value": "hh",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"FUN-compartment-MOD-55889287-1781580410481": {
+				"id": "FUN-compartment-MOD-55889287-1781580410481",
+				"type": "FBDCompartment",
+				"sourceIds": ["contact-60403159-1781580402087"],
+				"targetIds": ["edit-node-rect"],
+				"childrenNode": {
+					"type": "MOD",
+					"isFunction": true,
+					"portInputs": [{
+						"name": "EN",
+						"value": "",
+						"scope": ""
+					}, {
+						"name": "IN1",
+						"value": "ii",
+						"type": "ANY_INT",
+						"scope": "VAR_INPUT"
+					}, {
+						"name": "IN2",
+						"value": "jj",
+						"type": "ANY_INT",
+						"scope": "VAR_INPUT"
+					}],
+					"portOutputs": [{
+						"name": "ENO",
+						"value": "",
+						"scope": "",
+						"type": ""
+					}, {
+						"name": "OUT",
+						"value": "kk",
+						"type": "ANY_INT",
+						"scope": "VAR_OUTPUT"
+					}]
+				}
+			},
+			"contact-14701029-1781580416703": {
+				"id": "contact-14701029-1781580416703",
+				"type": "contact",
+				"sourceIds": ["FUN-compartment-MIN-61926377-1781580447177"],
+				"targetIds": ["edit-node-rect"],
+				"varName": {
+					"name": "",
+					"value": "ff",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-62551876-1781580418551": {
+				"id": "contact-62551876-1781580418551",
+				"type": "contact",
+				"sourceIds": ["contact-83269985-1781578884567"],
+				"targetIds": ["edit-node-rect"],
+				"varName": {
+					"name": "",
+					"value": "gg",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-44856837-1781580420216": {
+				"id": "contact-44856837-1781580420216",
+				"type": "contact",
+				"sourceIds": ["contact-83269985-1781578884567"],
+				"targetIds": ["FUN-compartment-MIN-61926377-1781580447177"],
+				"varName": {
+					"name": "",
+					"value": "bb",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"FUN-compartment-MIN-61926377-1781580447177": {
+				"id": "FUN-compartment-MIN-61926377-1781580447177",
+				"type": "FBDCompartment",
+				"sourceIds": ["contact-44856837-1781580420216"],
+				"targetIds": ["contact-14701029-1781580416703"],
+				"childrenNode": {
+					"type": "MIN",
+					"isFunction": true,
+					"portInputs": [{
+						"name": "EN",
+						"value": "",
+						"scope": ""
+					}, {
+						"name": "IN1",
+						"value": "cc",
+						"type": "ANY",
+						"scope": "VAR_INPUT"
+					}, {
+						"name": "IN2",
+						"value": "dd",
+						"type": "ANY",
+						"scope": "VAR_INPUT"
+					}],
+					"portOutputs": [{
+						"name": "ENO",
+						"value": "",
+						"scope": "",
+						"type": ""
+					}, {
+						"name": "OUT",
+						"value": "ee",
+						"type": "ANY",
+						"scope": "VAR_OUTPUT"
+					}]
+				}
+			}
+		}
+	}, {
+		"id": "segment-91658958-1781580370215",
+		"label": "",
+		"note": "",
+		"height": 82,
+		"width": 315,
+		"isExpand": true,
+		"nodesObj": {
+			"start-node-line": {
+				"id": "start-node-line",
+				"type": "startLine",
+				"Xlayer": 0,
+				"Ylayer": 0,
+				"sourceIds": [],
+				"targetIds": ["edit-node-rect"]
+			},
+			"edit-node-rect": {
+				"id": "edit-node-rect",
+				"type": "editRect",
+				"sourceIds": ["start-node-line"],
+				"targetIds": ["end-node-line-38107186-1781578909965"],
+				"children": [{
+					"id": "edit-node-rect-left-port",
+					"type": "node:edgePort",
+					"side": "left",
+					"parentId": "edit-node-rect",
+					"cssClasses": ["contact-left-port"],
+					"position": {
+						"x": -45,
+						"y": 0
+					},
+					"size": {
+						"width": 45,
+						"height": 22
+					}
+				}, {
+					"id": "edit-node-rect-bottom-port",
+					"type": "node:edgeBottomPort",
+					"side": "bottom",
+					"parentId": "edit-node-rect",
+					"cssClasses": ["contact-bottom-port"],
+					"position": {
+						"x": 0,
+						"y": 0
+					},
+					"size": {
+						"width": 70,
+						"height": 22
+					}
+				}]
+			},
+			"end-node-line-38107186-1781578909965": {
+				"id": "end-node-line-38107186-1781578909965",
+				"type": "endLine",
+				"size": {
+					"width": 50,
+					"height": 22
+				},
+				"sourceIds": ["edit-node-rect"],
+				"targetIds": []
+			}
+		}
+	}],
+	"variableList": [{
+		"scope": "VAR",
+		"name": "a",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "A",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "b",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "B",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "c",
+		"type": "STRING",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "STRING"],
+		"id": "C",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "d",
+		"type": "ANY_INT",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"id": "D",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "e",
+		"type": "STRING",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "STRING"],
+		"id": "E",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "f",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "F",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "g",
+		"type": "RS",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["Standard function blocks", "RS"],
+		"id": "G",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "h",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "H",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "i",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "I",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "j",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "J",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "k",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "K",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "l",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "L",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "m",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "M",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "aa",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "AA",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "bb",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "BB",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "cc",
+		"type": "ANY",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"id": "CC",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "dd",
+		"type": "ANY",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"id": "DD",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "ee",
+		"type": "ANY",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"id": "EE",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "ff",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "FF",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "gg",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "GG",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "hh",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "HH",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "ii",
+		"type": "ANY_INT",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"id": "II",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "jj",
+		"type": "ANY_INT",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"id": "JJ",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "kk",
+		"type": "ANY_INT",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"id": "KK",
+		"isShow": true
+	}],
+	"pouType": "PROGRAM",
+	"pouName": "TEST202606161101",
+	"extensionPath": "c:\\Users\\Administrator\\.vscode\\extensions"
+}, {
+	"segmentList": [{
+		"id": "segment-2",
+		"label": "",
+		"note": "",
+		"height": 684,
+		"width": 1834.9998779296875,
+		"isExpand": true,
+		"nodesObj": {
+			"start-node-line": {
+				"id": "start-node-line",
+				"type": "startLine",
+				"Xlayer": 0,
+				"Ylayer": 0,
+				"sourceIds": [],
+				"targetIds": ["contact-98313221-1781588450169", "contact-57215212-1781588452144", "contact-46663230-1781588501792"]
+			},
+			"edit-node-rect": {
+				"id": "edit-node-rect",
+				"type": "editRect",
+				"sourceIds": ["contact-54187010-1781588455944"],
+				"targetIds": ["coil-54566107-1781588528961"],
+				"children": [{
+					"id": "edit-node-rect-left-port",
+					"type": "node:edgePort",
+					"side": "left",
+					"parentId": "edit-node-rect",
+					"cssClasses": ["contact-left-port"],
+					"position": {
+						"x": -45,
+						"y": 0
+					},
+					"size": {
+						"width": 45,
+						"height": 22
+					}
+				}, {
+					"id": "edit-node-rect-bottom-port",
+					"type": "node:edgeBottomPort",
+					"side": "bottom",
+					"parentId": "edit-node-rect",
+					"cssClasses": ["contact-bottom-port"],
+					"position": {
+						"x": 0,
+						"y": 0
+					},
+					"size": {
+						"width": 70,
+						"height": 22
+					}
+				}]
+			},
+			"contact-98313221-1781588450169": {
+				"id": "contact-98313221-1781588450169",
+				"type": "contact",
+				"sourceIds": ["start-node-line"],
+				"targetIds": ["FBD-compartment-RS-06081302-1781588493706"],
+				"varName": {
+					"name": "",
+					"value": "a",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-57215212-1781588452144": {
+				"id": "contact-57215212-1781588452144",
+				"type": "contact",
+				"sourceIds": ["start-node-line"],
+				"targetIds": ["contact-82337389-1781588503544", "contact-63090020-1781588505496"],
+				"varName": {
+					"name": "",
+					"value": "f",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-03270111-1781588453344": {
+				"id": "contact-03270111-1781588453344",
+				"type": "contact",
+				"sourceIds": ["FBD-compartment-RS-06081302-1781588493706", "contact-44110023-1781588506104", "contact-63090020-1781588505496", "contact-46663230-1781588501792"],
+				"targetIds": ["contact-54187010-1781588455944"],
+				"varName": {
+					"name": "",
+					"value": "z",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-54187010-1781588455944": {
+				"id": "contact-54187010-1781588455944",
+				"type": "contact",
+				"sourceIds": ["contact-03270111-1781588453344"],
+				"targetIds": ["edit-node-rect"],
+				"varName": {
+					"name": "",
+					"value": "y",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"FBD-compartment-RS-06081302-1781588493706": {
+				"id": "FBD-compartment-RS-06081302-1781588493706",
+				"type": "FBDCompartment",
+				"sourceIds": ["contact-98313221-1781588450169"],
+				"targetIds": ["contact-03270111-1781588453344"],
+				"childrenNode": {
+					"type": "RS",
+					"isFunction": false,
+					"portInputs": [{
+						"name": "EN",
+						"value": "",
+						"scope": ""
+					}, {
+						"name": "S",
+						"value": "c",
+						"type": "BOOL",
+						"scope": "VAR_INPUT"
+					}, {
+						"name": "R1",
+						"value": "d",
+						"type": "BOOL",
+						"scope": "VAR_INPUT"
+					}],
+					"portOutputs": [{
+						"name": "ENO",
+						"value": "",
+						"scope": "",
+						"type": ""
+					}, {
+						"name": "Q1",
+						"value": "e",
+						"type": "BOOL",
+						"scope": "VAR_OUTPUT"
+					}],
+					"varName": {
+						"name": "",
+						"value": "b",
+						"type": "RS",
+						"scope": "VAR"
+					}
+				}
+			},
+			"contact-46663230-1781588501792": {
+				"id": "contact-46663230-1781588501792",
+				"type": "contact",
+				"sourceIds": ["start-node-line"],
+				"targetIds": ["contact-03270111-1781588453344"],
+				"varName": {
+					"name": "",
+					"value": "w",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-82337389-1781588503544": {
+				"id": "contact-82337389-1781588503544",
+				"type": "contact",
+				"sourceIds": ["contact-57215212-1781588452144"],
+				"targetIds": ["contact-66162645-1781588512063", "contact-63855025-1781588518888", "contact-56252921-1781588517216", "contact-40048508-1781588513976"],
+				"varName": {
+					"name": "",
+					"value": "g",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-63090020-1781588505496": {
+				"id": "contact-63090020-1781588505496",
+				"type": "contact",
+				"sourceIds": ["contact-57215212-1781588452144"],
+				"targetIds": ["contact-03270111-1781588453344"],
+				"varName": {
+					"name": "",
+					"value": "v",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-44110023-1781588506104": {
+				"id": "contact-44110023-1781588506104",
+				"type": "contact",
+				"sourceIds": ["contact-32670626-1781588515816", "contact-40048508-1781588513976"],
+				"targetIds": ["contact-03270111-1781588453344"],
+				"varName": {
+					"name": "",
+					"value": "s",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-66162645-1781588512063": {
+				"id": "contact-66162645-1781588512063",
+				"type": "risingContact",
+				"sourceIds": ["contact-82337389-1781588503544"],
+				"targetIds": ["contact-92020540-1781588519263"],
+				"varName": {
+					"name": "",
+					"value": "h",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-40048508-1781588513976": {
+				"id": "contact-40048508-1781588513976",
+				"type": "contact",
+				"sourceIds": ["contact-82337389-1781588503544"],
+				"targetIds": ["contact-44110023-1781588506104"],
+				"varName": {
+					"name": "",
+					"value": "u",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-32670626-1781588515816": {
+				"id": "contact-32670626-1781588515816",
+				"type": "contact",
+				"sourceIds": ["contact-09371631-1781588517864", "contact-56252921-1781588517216"],
+				"targetIds": ["contact-44110023-1781588506104"],
+				"varName": {
+					"name": "",
+					"value": "r",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-56252921-1781588517216": {
+				"id": "contact-56252921-1781588517216",
+				"type": "contact",
+				"sourceIds": ["contact-82337389-1781588503544"],
+				"targetIds": ["contact-32670626-1781588515816"],
+				"varName": {
+					"name": "",
+					"value": "t",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-09371631-1781588517864": {
+				"id": "contact-09371631-1781588517864",
+				"type": "fallingContact",
+				"sourceIds": ["FBD-compartment-CTU-97605200-1781588524529"],
+				"targetIds": ["contact-32670626-1781588515816"],
+				"varName": {
+					"name": "",
+					"value": "q",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-63855025-1781588518888": {
+				"id": "contact-63855025-1781588518888",
+				"type": "contact",
+				"sourceIds": ["contact-82337389-1781588503544"],
+				"targetIds": ["FBD-compartment-CTU-97605200-1781588524529"],
+				"varName": {
+					"name": "",
+					"value": "j",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"contact-92020540-1781588519263": {
+				"id": "contact-92020540-1781588519263",
+				"type": "contact",
+				"sourceIds": ["contact-66162645-1781588512063"],
+				"targetIds": ["FBD-compartment-CTU-97605200-1781588524529"],
+				"varName": {
+					"name": "",
+					"value": "i",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			},
+			"FBD-compartment-CTU-97605200-1781588524529": {
+				"id": "FBD-compartment-CTU-97605200-1781588524529",
+				"type": "FBDCompartment",
+				"sourceIds": ["contact-92020540-1781588519263", "contact-63855025-1781588518888"],
+				"targetIds": ["contact-09371631-1781588517864"],
+				"childrenNode": {
+					"type": "CTU",
+					"isFunction": false,
+					"portInputs": [{
+						"name": "EN",
+						"value": "",
+						"scope": ""
+					}, {
+						"name": "CU",
+						"value": "l",
+						"type": "BOOL",
+						"scope": "VAR_INPUT"
+					}, {
+						"name": "R",
+						"value": "m",
+						"type": "BOOL",
+						"scope": "VAR_INPUT"
+					}, {
+						"name": "PV",
+						"value": "n",
+						"type": "INT",
+						"scope": "VAR_INPUT"
+					}],
+					"portOutputs": [{
+						"name": "ENO",
+						"value": "",
+						"scope": "",
+						"type": ""
+					}, {
+						"name": "Q",
+						"value": "o",
+						"type": "BOOL",
+						"scope": "VAR_OUTPUT"
+					}, {
+						"name": "CV",
+						"value": "p",
+						"type": "INT",
+						"scope": "VAR_OUTPUT"
+					}],
+					"varName": {
+						"name": "",
+						"value": "k",
+						"type": "CTU",
+						"scope": "VAR"
+					}
+				}
+			},
+			"coil-54566107-1781588528961": {
+				"id": "coil-54566107-1781588528961",
+				"type": "coil",
+				"sourceIds": ["edit-node-rect"],
+				"targetIds": [],
+				"varName": {
+					"name": "",
+					"value": "z",
+					"type": "BOOL",
+					"scope": "VAR"
+				}
+			}
+		}
+	}],
+	"variableList": [{
+		"scope": "VAR",
+		"name": "a",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "A",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "b",
+		"type": "RS",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["Standard function blocks", "RS"],
+		"id": "B",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "c",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "C",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "d",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "D",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "e",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "E",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "f",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "F",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "g",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "G",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "h",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "H",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "i",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "I",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "j",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "J",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "k",
+		"type": "CTU",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["Standard function blocks", "CTU"],
+		"id": "K",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "l",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "L",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "m",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "M",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "n",
+		"type": "INT",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "INT"],
+		"id": "N",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "o",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "O",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "p",
+		"type": "INT",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "INT"],
+		"id": "P",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "q",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "Q",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "r",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "R",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "s",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "S",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "t",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "T",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "u",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "U",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "v",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "V",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "w",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "W",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "z",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "Z",
+		"isShow": true
+	}, {
+		"scope": "VAR",
+		"name": "y",
+		"type": "BOOL",
+		"initValue": "",
+		"address": "",
+		"comment": "",
+		"pathLabels": ["base", "BOOL"],
+		"id": "Y",
+		"isShow": true
+	}],
+	"pouType": "PROGRAM",
+	"pouName": "TEST202606161340",
+	"extensionPath": "c:\\Users\\Administrator\\.vscode\\extensions"
+}, {
+	"segmentList": [{
+		"id": "segment-2",
+		"label": "",
+		"note": "",
+		"height": 50,
+		"width": 0,
+		"isExpand": true,
+		"nodesObj": {
+			"start-node-line": {
+				"id": "start-node-line",
+				"type": "startLine",
+				"Xlayer": 0,
+				"Ylayer": 0,
+				"sourceIds": [],
+				"targetIds": ["edit-node-rect"]
+			},
+			"edit-node-rect": {
+				"id": "edit-node-rect",
+				"type": "editRect",
+				"sourceIds": ["start-node-line"],
+				"targetIds": ["end-node-line-79391553-1782437821705"],
+				"children": [{
+					"id": "edit-node-rect-left-port",
+					"type": "node:edgePort",
+					"side": "left",
+					"parentId": "edit-node-rect",
+					"cssClasses": ["contact-left-port"],
+					"position": {
+						"x": -45,
+						"y": 0
+					},
+					"size": {
+						"width": 45,
+						"height": 22
+					}
+				}, {
+					"id": "edit-node-rect-bottom-port",
+					"type": "node:edgeBottomPort",
+					"side": "bottom",
+					"parentId": "edit-node-rect",
+					"cssClasses": ["contact-bottom-port"],
+					"position": {
+						"x": 0,
+						"y": 0
+					},
+					"size": {
+						"width": 70,
+						"height": 22
+					}
+				}]
+			},
+			"end-node-line-79391553-1782437821705": {
+				"id": "end-node-line-79391553-1782437821705",
+				"type": "endLine",
+				"size": {
+					"width": 50,
+					"height": 22
+				},
+				"sourceIds": ["edit-node-rect"],
+				"targetIds": []
+			}
+		}
+	}],
+	"variableList": [],
+	"pouType": "PROGRAM",
+	"pouName": "JHRASB",
+	"extensionPath": "c:\\Users\\Administrator\\.vscode\\extensions"
+}]
