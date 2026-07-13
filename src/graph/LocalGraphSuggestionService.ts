@@ -116,6 +116,7 @@ interface LocalSuggestion {
   endNodes: string[];
   position: LocalSuggestionPosition;
   serialOrParallel: LocalSuggestionSerialOrParallel;
+  text: string;
   [nodeId: string]: unknown;
 }
 
@@ -324,7 +325,7 @@ function summarizeSuggestion(
     startNodes: suggestion.startNodes,
     endNodes: suggestion.endNodes,
     add,
-    text: `#${itemIndex} position=${suggestion.position} serialOrParallel=${suggestion.serialOrParallel} ${placement} add=${add}`,
+    text: `#${itemIndex} ${suggestion.text} position=${suggestion.position} serialOrParallel=${suggestion.serialOrParallel} ${placement} add=${add}`,
   };
 }
 
@@ -912,6 +913,7 @@ function toLocalSuggestion(
     position: draft.position ?? inferPosition(draft),
     serialOrParallel:
       draft.serialOrParallel ?? inferSerialOrParallel(draft),
+    text: draft.placement.text,
     [newNodeId]: newNode,
   };
 }

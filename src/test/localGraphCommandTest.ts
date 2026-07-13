@@ -85,6 +85,11 @@ export async function run(): Promise<void> {
     "string",
     "expected serialOrParallel in suggestion",
   );
+  assert.strictEqual(
+    typeof firstSuggestion.text,
+    "string",
+    "expected text in suggestion",
+  );
   assert.ok(
     !("placement" in firstSuggestion),
     "suggestion should not expose old placement field",
