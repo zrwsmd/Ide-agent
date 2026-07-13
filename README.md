@@ -482,30 +482,21 @@ LD/FBD 图建议统一返回 `ide-agent.graph-completion.v1` 结构：
   "suggestions": [
     {
       "id": "option-1",
-      "mode": "seriesAfter",
-      "confidence": 0.9,
-      "placement": {
-        "relationToFocus": "afterSelected",
-        "anchorNodeId": "FBD-compartment-SR-xxx",
-        "anchorNodeVar": "f",
-        "insertAfterNodeId": "FBD-compartment-SR-xxx",
-        "insertBeforeNodeId": "coil-xxx",
-        "parallelToNodeId": "",
-        "branchFromNodeId": "",
-        "branchToNodeId": "",
-        "portName": "",
-        "text": "在 SR f 功能块和 j 线圈之间串联一个常开触点"
-      },
-      "addElement": {
-        "nodeType": "contact",
-        "displayLabel": "常开触点",
-        "variableSource": "userInput",
-        "variableName": "",
-        "dataType": "BOOL",
-        "userInputRequired": true,
-        "blockType": "",
-        "instanceSource": "",
-        "instanceName": ""
+      "anchorNodeId": "FBD-compartment-SR-xxx",
+      "anchorNodeVar": "f",
+      "startNodes": ["FBD-compartment-SR-xxx"],
+      "endNodes": ["coil-xxx"],
+      "position": "behind",
+      "serialOrParallel": "serial",
+      "contact-local-1": {
+        "id": "contact-local-1",
+        "type": "contact",
+        "varName": {
+          "name": "",
+          "value": "???",
+          "type": "BOOL",
+          "scope": "VAR"
+        }
       }
     }
   ]
@@ -515,8 +506,12 @@ LD/FBD 图建议统一返回 `ide-agent.graph-completion.v1` 结构：
 前端主要看：
 
 - `recognizedFocus`：当前识别到的选中节点。
-- `suggestions[].placement`：建议插入位置。
-- `suggestions[].addElement`：建议新增的图元类型。
+- `suggestions[].anchorNodeId` / `anchorNodeVar`：本条建议围绕的选中节点。
+- `suggestions[].startNodes`：新增节点左侧连接的节点 id 数组。
+- `suggestions[].endNodes`：新增节点右侧连接的节点 id 数组。
+- `suggestions[].position`：相对选中节点或当前结构的位置，如 `front`、`behind`、`outsideFront`、`outsideBehind`、`parallel`、`replace`。
+- `suggestions[].serialOrParallel`：新增方式，当前主要是 `serial`、`parallel`、`replace`。
+- `suggestions[]` 中除上述元数据字段外的动态 key：建议新增的节点对象，格式尽量贴近 `transLd.txt` 中的节点格式，但不包含 `sourceIds` / `targetIds`。
 
 ## 当前限制和 TODO
 

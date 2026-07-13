@@ -63,6 +63,36 @@ export async function run(): Promise<void> {
     (byNode.payload?.suggestions?.length ?? 0) > 0,
     "expected suggestions for selectedNodeId",
   );
+  const firstSuggestion = byNode.payload?.suggestions?.[0] as
+    | Record<string, unknown>
+    | undefined;
+  assert.ok(firstSuggestion, "expected first suggestion");
+  assert.ok(
+    Array.isArray(firstSuggestion.startNodes),
+    "expected startNodes array in suggestion",
+  );
+  assert.ok(
+    Array.isArray(firstSuggestion.endNodes),
+    "expected endNodes array in suggestion",
+  );
+  assert.strictEqual(
+    typeof firstSuggestion.position,
+    "string",
+    "expected position in suggestion",
+  );
+  assert.strictEqual(
+    typeof firstSuggestion.serialOrParallel,
+    "string",
+    "expected serialOrParallel in suggestion",
+  );
+  assert.ok(
+    !("placement" in firstSuggestion),
+    "suggestion should not expose old placement field",
+  );
+  assert.ok(
+    !("addElement" in firstSuggestion),
+    "suggestion should not expose old addElement field",
+  );
 
   const selectedInsertionPoint = summary.segments
     .flatMap((segment) =>

@@ -37,8 +37,10 @@ export interface LocalGraphSuggestionPayload {
 export interface LocalSuggestionOverview {
   index: number;
   id: string;
-  mode: string;
-  placement: string;
+  position: LocalSuggestionPosition;
+  serialOrParallel: LocalSuggestionSerialOrParallel;
+  startNodes: string[];
+  endNodes: string[];
   add: string;
   text: string;
 }
@@ -70,7 +72,54 @@ interface SegmentGraphState {
   isPartialGraph: boolean;
 }
 
+type LocalSuggestionPosition =
+  | "front"
+  | "behind"
+  | "outsideFront"
+  | "outsideBehind"
+  | "parallel"
+  | "replace";
+
+type LocalSuggestionSerialOrParallel = "serial" | "parallel" | "replace";
+
+interface SuggestedVarName {
+  name: string;
+  value: string;
+  type: string;
+  scope: string;
+}
+
+interface SuggestedPort {
+  name: string;
+  value: string;
+  type: string;
+  scope: string;
+}
+
+interface SuggestedGraphNode {
+  id: string;
+  type: string;
+  varName?: SuggestedVarName;
+  childrenNode?: {
+    type: string;
+    isFunction: boolean;
+    portInputs: SuggestedPort[];
+    portOutputs: SuggestedPort[];
+  };
+}
+
 interface LocalSuggestion {
+  id: string;
+  anchorNodeId: string;
+  anchorNodeVar: string;
+  startNodes: string[];
+  endNodes: string[];
+  position: LocalSuggestionPosition;
+  serialOrParallel: LocalSuggestionSerialOrParallel;
+  [nodeId: string]: unknown;
+}
+
+interface LocalSuggestionDraft {
   id: string;
   mode: string;
   confidence: number;
@@ -86,17 +135,23 @@ interface LocalSuggestion {
     portName: string;
     text: string;
   };
-  addElement: {
-    nodeType: string;
-    displayLabel: string;
-    variableSource: string;
-    variableName: string;
-    dataType: string;
-    userInputRequired: boolean;
-    blockType: string;
-    instanceSource: string;
-    instanceName: string;
-  };
+  startNodes?: string[];
+  endNodes?: string[];
+  position?: LocalSuggestionPosition;
+  serialOrParallel?: LocalSuggestionSerialOrParallel;
+  addElement: LocalSuggestionAddElement;
+}
+
+interface LocalSuggestionAddElement {
+  nodeType: string;
+  displayLabel: string;
+  variableSource: string;
+  variableName: string;
+  dataType: string;
+  userInputRequired: boolean;
+  blockType: string;
+  instanceSource: string;
+  instanceName: string;
 }
 
 const COMMON_FUNCTION_BLOCK_TYPES = [
@@ -198,8 +253,9 @@ export class LocalGraphSuggestionService {
     );
     this.log(`local graph suggestions count=${result.payload.suggestions.length}`);
     for (const [index, suggestion] of result.payload.suggestions.entries()) {
+      const overview = summarizeSuggestion(suggestion, index);
       this.log(
-        `local graph suggestion #${index + 1} mode=${suggestion.mode} placement=${suggestion.placement.text} add=${suggestion.addElement.displayLabel}`,
+        `local graph suggestion #${index + 1} position=${overview.position} serialOrParallel=${overview.serialOrParallel} start=${overview.startNodes.join(",")} end=${overview.endNodes.join(",")} add=${overview.add}`,
       );
     }
     const payloadText = JSON.stringify(result.payload, null, 2);
@@ -249,20 +305,92 @@ export class LocalGraphSuggestionService {
 function buildSuggestionOverview(
   suggestions: LocalSuggestion[],
 ): LocalSuggestionOverview[] {
-  return suggestions.map((suggestion, index) => {
-    const itemIndex = index + 1;
-    const placement = suggestion.placement.text;
-    const add = suggestion.addElement.displayLabel;
+  return suggestions.map(summarizeSuggestion);
+}
 
-    return {
-      index: itemIndex,
-      id: suggestion.id,
-      mode: suggestion.mode,
-      placement,
-      add,
-      text: `#${itemIndex} mode=${suggestion.mode} placement=${placement} add=${add}`,
-    };
-  });
+function summarizeSuggestion(
+  suggestion: LocalSuggestion,
+  index: number,
+): LocalSuggestionOverview {
+  const itemIndex = index + 1;
+  const add = suggestedNodeLabel(suggestion);
+  const placement = `start=${suggestion.startNodes.join(",")} end=${suggestion.endNodes.join(",")}`;
+
+  return {
+    index: itemIndex,
+    id: suggestion.id,
+    position: suggestion.position,
+    serialOrParallel: suggestion.serialOrParallel,
+    startNodes: suggestion.startNodes,
+    endNodes: suggestion.endNodes,
+    add,
+    text: `#${itemIndex} position=${suggestion.position} serialOrParallel=${suggestion.serialOrParallel} ${placement} add=${add}`,
+  };
+}
+
+function suggestedNodeLabel(suggestion: LocalSuggestion): string {
+  const node = getSuggestedNode(suggestion);
+  if (!node) {
+    return "";
+  }
+
+  if (node.type === "FBDCompartment") {
+    return `${node.childrenNode?.type || "FB"} 功能块`;
+  }
+
+  switch (node.type) {
+    case "contact":
+      return "常开触点";
+    case "negatedContact":
+      return "常闭触点";
+    case "risingContact":
+      return "上升沿";
+    case "fallingContact":
+      return "下降沿";
+    case "coil":
+      return "线圈";
+    case "setCoil":
+      return "置位线圈";
+    case "resetCoil":
+      return "复位线圈";
+    default:
+      return node.type;
+  }
+}
+
+function getSuggestedNode(
+  suggestion: LocalSuggestion,
+): SuggestedGraphNode | undefined {
+  const metadataKeys = new Set([
+    "id",
+    "anchorNodeId",
+    "anchorNodeVar",
+    "startNodes",
+    "endNodes",
+    "position",
+    "serialOrParallel",
+  ]);
+
+  for (const [key, value] of Object.entries(suggestion)) {
+    if (metadataKeys.has(key)) {
+      continue;
+    }
+
+    if (isSuggestedGraphNode(value)) {
+      return value;
+    }
+  }
+
+  return undefined;
+}
+
+function isSuggestedGraphNode(value: unknown): value is SuggestedGraphNode {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "id" in value &&
+    "type" in value
+  );
 }
 
 function buildLocalPayload(
@@ -291,7 +419,7 @@ function buildLocalPayload(
 }
 
 function buildSuggestions(focus: FocusContext): LocalSuggestion[] {
-  const suggestions: LocalSuggestion[] = [];
+  const suggestions: LocalSuggestionDraft[] = [];
   const graphState = analyzeSegment(focus.segment);
 
   if (focus.insertionPoint) {
@@ -306,14 +434,11 @@ function buildSuggestions(focus: FocusContext): LocalSuggestion[] {
 
   return dedupeSuggestions(suggestions)
     .slice(0, 6)
-    .map((suggestion, index) => ({
-    ...suggestion,
-    id: `local-${index + 1}`,
-  }));
+    .map((suggestion, index) => toLocalSuggestion(suggestion, index));
 }
 
 function addContactSuggestions(
-  suggestions: LocalSuggestion[],
+  suggestions: LocalSuggestionDraft[],
   focus: FocusContext,
   graphState: SegmentGraphState,
 ): void {
@@ -356,6 +481,11 @@ function addContactSuggestions(
   if (rightNodes.length) {
     for (const rightNode of rightNodes) {
       const rightText = nodePlacementLabelWithSegment(focus.segment, rightNode);
+      const outsideBehindStartNodes = findOutsideBehindStartNodes(
+        focus.segment,
+        node,
+        rightNode,
+      );
       suggestions.push(
         makeSuggestion(focus, {
           mode: "seriesAfter",
@@ -374,6 +504,23 @@ function addContactSuggestions(
           addElement: functionBlockElement(),
         }),
       );
+
+      if (outsideBehindStartNodes.length > 1) {
+        suggestions.push(
+          makeSuggestion(focus, {
+            mode: "seriesAfter",
+            relationToFocus: "afterSelected",
+            insertAfterNodeId: node.id,
+            insertBeforeNodeId: rightNode.id,
+            startNodes: outsideBehindStartNodes,
+            endNodes: [rightNode.id],
+            position: "outsideBehind",
+            serialOrParallel: "serial",
+            text: `在${nodeText}所在并联结构外侧和${rightText}之间串联一个常开触点`,
+            addElement: contactElement(),
+          }),
+        );
+      }
     }
   } else {
     suggestions.push(
@@ -434,7 +581,7 @@ function addContactSuggestions(
 }
 
 function addFunctionBlockSuggestions(
-  suggestions: LocalSuggestion[],
+  suggestions: LocalSuggestionDraft[],
   focus: FocusContext,
   graphState: SegmentGraphState,
 ): void {
@@ -522,7 +669,7 @@ function addFunctionBlockSuggestions(
 }
 
 function addCoilSuggestions(
-  suggestions: LocalSuggestion[],
+  suggestions: LocalSuggestionDraft[],
   focus: FocusContext,
 ): void {
   const node = focus.node;
@@ -568,7 +715,7 @@ function addCoilSuggestions(
 }
 
 function addInsertionPointSuggestions(
-  suggestions: LocalSuggestion[],
+  suggestions: LocalSuggestionDraft[],
   focus: FocusContext,
   graphState: SegmentGraphState,
 ): void {
@@ -592,6 +739,8 @@ function addInsertionPointSuggestions(
         relationToFocus: "atInsertionPoint",
         insertAfterNodeId: first(insertionPoint.from),
         insertBeforeNodeId: target.id,
+        startNodes: insertionPoint.from,
+        endNodes: [target.id],
         text: `在${sourceText}和${targetText}之间串联一个常开触点`,
         addElement: contactElement(),
       }),
@@ -600,6 +749,8 @@ function addInsertionPointSuggestions(
         relationToFocus: "atInsertionPoint",
         insertAfterNodeId: first(insertionPoint.from),
         insertBeforeNodeId: target.id,
+        startNodes: insertionPoint.from,
+        endNodes: [target.id],
         text: `在${sourceText}和${targetText}之间插入一个功能块`,
         addElement: functionBlockElement(),
       }),
@@ -614,6 +765,8 @@ function addInsertionPointSuggestions(
         relationToFocus: "atInsertionPoint",
         insertAfterNodeId: first(insertionPoint.from),
         insertBeforeNodeId: target.id,
+        startNodes: insertionPoint.from,
+        endNodes: [target.id],
         text: `在${targetText}的 EN 前串联一个常开触点`,
         addElement: contactElement(),
       }),
@@ -628,6 +781,8 @@ function addInsertionPointSuggestions(
           mode: "outputCoil",
           relationToFocus: "atInsertionPoint",
           insertAfterNodeId: first(insertionPoint.from),
+          startNodes: insertionPoint.from,
+          endNodes: insertionPoint.to,
           text: `当前回路还没有输出节点，在${sourceText}后添加一个输出线圈`,
           addElement: coilElement(),
         }),
@@ -635,6 +790,8 @@ function addInsertionPointSuggestions(
           mode: "outputFunctionBlock",
           relationToFocus: "atInsertionPoint",
           insertAfterNodeId: first(insertionPoint.from),
+          startNodes: insertionPoint.from,
+          endNodes: insertionPoint.to,
           text: `当前回路还没有输出节点，在${sourceText}后添加一个功能块作为输出节点`,
           addElement: functionBlockElement(),
         }),
@@ -642,6 +799,8 @@ function addInsertionPointSuggestions(
           mode: "seriesAfter",
           relationToFocus: "atInsertionPoint",
           insertAfterNodeId: first(insertionPoint.from),
+          startNodes: insertionPoint.from,
+          endNodes: insertionPoint.to,
           text: `在${sourceText}后继续串联一个常开触点`,
           addElement: contactElement(),
         }),
@@ -654,6 +813,8 @@ function addInsertionPointSuggestions(
         mode: "outputCoil",
         relationToFocus: "atInsertionPoint",
         insertAfterNodeId: first(insertionPoint.from),
+        startNodes: insertionPoint.from,
+        endNodes: insertionPoint.to,
         text: `在${sourceText}后添加一个输出线圈`,
         addElement: coilElement(),
       }),
@@ -667,6 +828,8 @@ function addInsertionPointSuggestions(
       relationToFocus: "atInsertionPoint",
       insertAfterNodeId: first(insertionPoint.from),
       insertBeforeNodeId: first(insertionPoint.to),
+      startNodes: insertionPoint.from,
+      endNodes: insertionPoint.to,
       text: `在${sourceText}和${targetText}之间串联一个常开触点`,
       addElement: contactElement(),
     }),
@@ -675,6 +838,8 @@ function addInsertionPointSuggestions(
       relationToFocus: "atInsertionPoint",
       insertAfterNodeId: first(insertionPoint.from),
       insertBeforeNodeId: first(insertionPoint.to),
+      startNodes: insertionPoint.from,
+      endNodes: insertionPoint.to,
       text: `在${sourceText}和${targetText}之间插入一个功能块`,
       addElement: functionBlockElement(),
     }),
@@ -692,10 +857,14 @@ function makeSuggestion(
     branchFromNodeId?: string;
     branchToNodeId?: string;
     portName?: string;
+    startNodes?: string[];
+    endNodes?: string[];
+    position?: LocalSuggestionPosition;
+    serialOrParallel?: LocalSuggestionSerialOrParallel;
     text: string;
-    addElement: LocalSuggestion["addElement"];
+    addElement: LocalSuggestionAddElement;
   },
-): LocalSuggestion {
+): LocalSuggestionDraft {
   const addElement = input.addElement;
   const text =
     addElement.nodeType === "functionBlock"
@@ -718,8 +887,246 @@ function makeSuggestion(
       portName: input.portName ?? "",
       text,
     },
+    startNodes: input.startNodes,
+    endNodes: input.endNodes,
+    position: input.position,
+    serialOrParallel: input.serialOrParallel,
     addElement,
   };
+}
+
+function toLocalSuggestion(
+  draft: LocalSuggestionDraft,
+  index: number,
+): LocalSuggestion {
+  const id = `local-${index + 1}`;
+  const newNodeId = createSuggestedNodeId(draft.addElement, id);
+  const newNode = createSuggestedNode(newNodeId, draft.addElement);
+
+  return {
+    id,
+    anchorNodeId: draft.placement.anchorNodeId,
+    anchorNodeVar: draft.placement.anchorNodeVar,
+    startNodes: normalizeNodeIds(draft.startNodes ?? inferStartNodes(draft)),
+    endNodes: normalizeNodeIds(draft.endNodes ?? inferEndNodes(draft)),
+    position: draft.position ?? inferPosition(draft),
+    serialOrParallel:
+      draft.serialOrParallel ?? inferSerialOrParallel(draft),
+    [newNodeId]: newNode,
+  };
+}
+
+function inferStartNodes(draft: LocalSuggestionDraft): string[] {
+  if (draft.placement.relationToFocus === "parallelWithSelected") {
+    return [draft.placement.branchFromNodeId];
+  }
+
+  if (draft.placement.relationToFocus === "replaceSelected") {
+    return [draft.placement.anchorNodeId];
+  }
+
+  return [draft.placement.insertAfterNodeId];
+}
+
+function inferEndNodes(draft: LocalSuggestionDraft): string[] {
+  if (draft.placement.relationToFocus === "parallelWithSelected") {
+    return [draft.placement.branchToNodeId];
+  }
+
+  if (draft.placement.relationToFocus === "replaceSelected") {
+    return [];
+  }
+
+  return [draft.placement.insertBeforeNodeId];
+}
+
+function inferPosition(draft: LocalSuggestionDraft): LocalSuggestionPosition {
+  if (draft.placement.relationToFocus === "parallelWithSelected") {
+    return "parallel";
+  }
+
+  if (draft.placement.relationToFocus === "replaceSelected") {
+    return "replace";
+  }
+
+  if (
+    draft.placement.relationToFocus === "beforeSelected" ||
+    draft.mode === "functionBlockBefore"
+  ) {
+    return "front";
+  }
+
+  return "behind";
+}
+
+function inferSerialOrParallel(
+  draft: LocalSuggestionDraft,
+): LocalSuggestionSerialOrParallel {
+  if (draft.placement.relationToFocus === "parallelWithSelected") {
+    return "parallel";
+  }
+
+  if (draft.placement.relationToFocus === "replaceSelected") {
+    return "replace";
+  }
+
+  return "serial";
+}
+
+function createSuggestedNodeId(
+  addElement: LocalSuggestionAddElement,
+  suggestionId: string,
+): string {
+  if (addElement.nodeType === "functionBlock") {
+    return `FBD-compartment-${addElement.blockType || "FB"}-${suggestionId}`;
+  }
+
+  return `${addElement.nodeType}-${suggestionId}`;
+}
+
+function createSuggestedNode(
+  nodeId: string,
+  addElement: LocalSuggestionAddElement,
+): SuggestedGraphNode {
+  if (addElement.nodeType === "functionBlock") {
+    const blockType = addElement.blockType || "TON";
+    return {
+      id: nodeId,
+      type: "FBDCompartment",
+      childrenNode: {
+        type: blockType,
+        isFunction: false,
+        portInputs: functionBlockInputPorts(blockType),
+        portOutputs: functionBlockOutputPorts(blockType),
+      },
+    };
+  }
+
+  return {
+    id: nodeId,
+    type: addElement.nodeType,
+    varName: {
+      name: "",
+      value: addElement.variableName || "???",
+      type: addElement.dataType || "BOOL",
+      scope: "VAR",
+    },
+  };
+}
+
+function functionBlockInputPorts(blockType: string): SuggestedPort[] {
+  const portsByType: Record<string, Array<[string, string, string]>> = {
+    SR: [
+      ["EN", "", ""],
+      ["S1", "BOOL", "VAR_INPUT"],
+      ["R", "BOOL", "VAR_INPUT"],
+    ],
+    RS: [
+      ["EN", "", ""],
+      ["S", "BOOL", "VAR_INPUT"],
+      ["R1", "BOOL", "VAR_INPUT"],
+    ],
+    CTU: [
+      ["EN", "", ""],
+      ["CU", "BOOL", "VAR_INPUT"],
+      ["R", "BOOL", "VAR_INPUT"],
+      ["PV", "INT", "VAR_INPUT"],
+    ],
+    CTD: [
+      ["EN", "", ""],
+      ["CD", "BOOL", "VAR_INPUT"],
+      ["LD", "BOOL", "VAR_INPUT"],
+      ["PV", "INT", "VAR_INPUT"],
+    ],
+    CTUD: [
+      ["EN", "", ""],
+      ["CU", "BOOL", "VAR_INPUT"],
+      ["CD", "BOOL", "VAR_INPUT"],
+      ["R", "BOOL", "VAR_INPUT"],
+      ["LD", "BOOL", "VAR_INPUT"],
+      ["PV", "INT", "VAR_INPUT"],
+    ],
+    TON: [
+      ["EN", "", ""],
+      ["IN", "BOOL", "VAR_INPUT"],
+      ["PT", "TIME", "VAR_INPUT"],
+    ],
+    TOF: [
+      ["EN", "", ""],
+      ["IN", "BOOL", "VAR_INPUT"],
+      ["PT", "TIME", "VAR_INPUT"],
+    ],
+    TP: [
+      ["EN", "", ""],
+      ["IN", "BOOL", "VAR_INPUT"],
+      ["PT", "TIME", "VAR_INPUT"],
+    ],
+  };
+
+  return (portsByType[blockType] ?? portsByType.TON).map(toSuggestedPort);
+}
+
+function functionBlockOutputPorts(blockType: string): SuggestedPort[] {
+  const portsByType: Record<string, Array<[string, string, string]>> = {
+    SR: [
+      ["ENO", "", ""],
+      ["Q1", "BOOL", "VAR_OUTPUT"],
+    ],
+    RS: [
+      ["ENO", "", ""],
+      ["Q1", "BOOL", "VAR_OUTPUT"],
+    ],
+    CTU: [
+      ["ENO", "", ""],
+      ["Q", "BOOL", "VAR_OUTPUT"],
+      ["CV", "INT", "VAR_OUTPUT"],
+    ],
+    CTD: [
+      ["ENO", "", ""],
+      ["Q", "BOOL", "VAR_OUTPUT"],
+      ["CV", "INT", "VAR_OUTPUT"],
+    ],
+    CTUD: [
+      ["ENO", "", ""],
+      ["QU", "BOOL", "VAR_OUTPUT"],
+      ["QD", "BOOL", "VAR_OUTPUT"],
+      ["CV", "INT", "VAR_OUTPUT"],
+    ],
+    TON: [
+      ["ENO", "", ""],
+      ["Q", "BOOL", "VAR_OUTPUT"],
+      ["ET", "TIME", "VAR_OUTPUT"],
+    ],
+    TOF: [
+      ["ENO", "", ""],
+      ["Q", "BOOL", "VAR_OUTPUT"],
+      ["ET", "TIME", "VAR_OUTPUT"],
+    ],
+    TP: [
+      ["ENO", "", ""],
+      ["Q", "BOOL", "VAR_OUTPUT"],
+      ["ET", "TIME", "VAR_OUTPUT"],
+    ],
+  };
+
+  return (portsByType[blockType] ?? portsByType.TON).map(toSuggestedPort);
+}
+
+function toSuggestedPort([name, type, scope]: [
+  string,
+  string,
+  string,
+]): SuggestedPort {
+  return {
+    name,
+    value: "",
+    type,
+    scope,
+  };
+}
+
+function normalizeNodeIds(nodeIds: string[]): string[] {
+  return [...new Set(nodeIds.map((item) => item.trim()).filter(Boolean))];
 }
 
 async function resolveFocus(
@@ -950,7 +1357,7 @@ async function pickFocus(
   return picked?.focus;
 }
 
-function contactElement(): LocalSuggestion["addElement"] {
+function contactElement(): LocalSuggestionAddElement {
   return {
     nodeType: "contact",
     displayLabel: "常开触点",
@@ -964,7 +1371,7 @@ function contactElement(): LocalSuggestion["addElement"] {
   };
 }
 
-function coilElement(): LocalSuggestion["addElement"] {
+function coilElement(): LocalSuggestionAddElement {
   return {
     nodeType: "coil",
     displayLabel: "输出线圈",
@@ -978,7 +1385,7 @@ function coilElement(): LocalSuggestion["addElement"] {
   };
 }
 
-function setCoilElement(variableName = ""): LocalSuggestion["addElement"] {
+function setCoilElement(variableName = ""): LocalSuggestionAddElement {
   return {
     nodeType: "setCoil",
     displayLabel: "置位线圈",
@@ -992,7 +1399,7 @@ function setCoilElement(variableName = ""): LocalSuggestion["addElement"] {
   };
 }
 
-function functionBlockElement(): LocalSuggestion["addElement"] {
+function functionBlockElement(): LocalSuggestionAddElement {
   const blockType = pickFunctionBlockType();
   return {
     nodeType: "functionBlock",
@@ -1087,16 +1494,26 @@ function hasDownstreamOutputNode(
   return false;
 }
 
-function dedupeSuggestions(suggestions: LocalSuggestion[]): LocalSuggestion[] {
+function dedupeSuggestions(
+  suggestions: LocalSuggestionDraft[],
+): LocalSuggestionDraft[] {
   const seen = new Set<string>();
-  const result: LocalSuggestion[] = [];
+  const result: LocalSuggestionDraft[] = [];
 
   for (const suggestion of suggestions) {
+    const startNodes = normalizeNodeIds(
+      suggestion.startNodes ?? inferStartNodes(suggestion),
+    ).join(",");
+    const endNodes = normalizeNodeIds(
+      suggestion.endNodes ?? inferEndNodes(suggestion),
+    ).join(",");
     const key = [
       suggestion.mode,
       suggestion.placement.relationToFocus,
-      suggestion.placement.insertAfterNodeId,
-      suggestion.placement.insertBeforeNodeId,
+      startNodes,
+      endNodes,
+      suggestion.position ?? inferPosition(suggestion),
+      suggestion.serialOrParallel ?? inferSerialOrParallel(suggestion),
       suggestion.placement.parallelToNodeId,
       suggestion.placement.branchFromNodeId,
       suggestion.placement.branchToNodeId,
@@ -1246,6 +1663,59 @@ function neighborNodes(
   }
 
   return nodes;
+}
+
+function findOutsideBehindStartNodes(
+  segment: DiagramSegmentSummary,
+  anchorNode: DiagramNodeSummary,
+  rightNode: DiagramNodeSummary,
+): string[] {
+  const branchTailNodes = collectNearestDisplayNodes(
+    segment,
+    rightNode.from,
+    "backward",
+  ).sort(compareDisplayOrder);
+
+  if (
+    branchTailNodes.length <= 1 ||
+    !branchTailNodes.some((node) => node.id === anchorNode.id)
+  ) {
+    return [];
+  }
+
+  return branchTailNodes.map((node) => node.id);
+}
+
+function collectNearestDisplayNodes(
+  segment: DiagramSegmentSummary,
+  nodeIds: string[] | undefined,
+  direction: "forward" | "backward",
+): DiagramNodeSummary[] {
+  const visited = new Set<string>();
+  const resultById = new Map<string, DiagramNodeSummary>();
+  const queue = [...(nodeIds ?? [])];
+
+  while (queue.length > 0) {
+    const currentId = queue.shift();
+    if (!currentId || visited.has(currentId)) {
+      continue;
+    }
+
+    visited.add(currentId);
+    const node = findNode(segment, currentId);
+    if (!node) {
+      continue;
+    }
+
+    if (isRealGraphElementKind(node.kind)) {
+      resultById.set(node.id, node);
+      continue;
+    }
+
+    queue.push(...(direction === "forward" ? node.to : node.from));
+  }
+
+  return [...resultById.values()];
 }
 
 function findNearestDisplayNode(
