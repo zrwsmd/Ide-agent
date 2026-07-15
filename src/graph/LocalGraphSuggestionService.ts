@@ -36,11 +36,6 @@ export interface LocalGraphSuggestionPayload {
 
 export interface LocalSuggestionOverview {
   index: number;
-  id: string;
-  position: LocalSuggestionPosition;
-  serialOrParallel: LocalSuggestionSerialOrParallel;
-  startNodes: string[];
-  endNodes: string[];
   add: string;
   text: string;
 }
@@ -256,7 +251,7 @@ export class LocalGraphSuggestionService {
     for (const [index, suggestion] of result.payload.suggestions.entries()) {
       const overview = summarizeSuggestion(suggestion, index);
       this.log(
-        `local graph suggestion #${index + 1} position=${overview.position} serialOrParallel=${overview.serialOrParallel} start=${overview.startNodes.join(",")} end=${overview.endNodes.join(",")} add=${overview.add}`,
+        `local graph suggestion #${overview.index} position=${suggestion.position} serialOrParallel=${suggestion.serialOrParallel} start=${suggestion.startNodes.join(",")} end=${suggestion.endNodes.join(",")} add=${overview.add}`,
       );
     }
     const payloadText = JSON.stringify(result.payload, null, 2);
@@ -315,17 +310,11 @@ function summarizeSuggestion(
 ): LocalSuggestionOverview {
   const itemIndex = index + 1;
   const add = suggestedNodeLabel(suggestion);
-  const placement = `start=${suggestion.startNodes.join(",")} end=${suggestion.endNodes.join(",")}`;
 
   return {
     index: itemIndex,
-    id: suggestion.id,
-    position: suggestion.position,
-    serialOrParallel: suggestion.serialOrParallel,
-    startNodes: suggestion.startNodes,
-    endNodes: suggestion.endNodes,
     add,
-    text: `#${itemIndex} ${suggestion.text} position=${suggestion.position} serialOrParallel=${suggestion.serialOrParallel} ${placement} add=${add}`,
+    text: suggestion.text,
   };
 }
 

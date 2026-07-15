@@ -392,7 +392,7 @@ npm run test:local-graph-command
 - `payload.segmentId`：本次实际命中的区段 id。
 - `payload.suggestions`：前端真正需要渲染的建议数组。
 - `summary`：轻量调试摘要，不包含完整图拓扑。
-- `summary.suggestionOverview`：从 `payload.suggestions` 提取出来的人类可读概览，便于快速扫一眼本次返回了哪些建议。
+- `summary.suggestionOverview`：从 `payload.suggestions` 提取出来的人类可读概览，只包含 `index`、`add`、`text`，便于快速扫一眼本次返回了哪些建议。
 
 如果要修改测试用的 `.txt` / 图 JSON 路径，改这里：
 
