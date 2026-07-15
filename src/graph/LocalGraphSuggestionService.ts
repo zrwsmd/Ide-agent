@@ -112,7 +112,7 @@ interface LocalSuggestion {
   position: LocalSuggestionPosition;
   serialOrParallel: LocalSuggestionSerialOrParallel;
   text: string;
-  [nodeId: string]: unknown;
+  addNode: Record<string, SuggestedGraphNode>;
 }
 
 interface LocalSuggestionDraft {
@@ -351,19 +351,7 @@ function suggestedNodeLabel(suggestion: LocalSuggestion): string {
 function getSuggestedNode(
   suggestion: LocalSuggestion,
 ): SuggestedGraphNode | undefined {
-  const metadataKeys = new Set([
-    "id",
-    "startNodes",
-    "endNodes",
-    "position",
-    "serialOrParallel",
-  ]);
-
-  for (const [key, value] of Object.entries(suggestion)) {
-    if (metadataKeys.has(key)) {
-      continue;
-    }
-
+  for (const value of Object.values(suggestion.addNode)) {
     if (isSuggestedGraphNode(value)) {
       return value;
     }
@@ -920,7 +908,9 @@ function toLocalSuggestion(
     serialOrParallel:
       draft.serialOrParallel ?? inferSerialOrParallel(draft),
     text: draft.placement.text,
-    [newNodeId]: newNode,
+    addNode: {
+      [newNodeId]: newNode,
+    },
   };
 }
 

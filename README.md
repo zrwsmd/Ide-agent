@@ -489,14 +489,16 @@ LD/FBD 图建议统一返回 `ide-agent.graph-completion.v1` 结构：
       "position": "behind",
       "serialOrParallel": "serial",
       "text": "在 SR f 功能块和 j 线圈之间串联一个常开触点",
-      "contact-local-1": {
-        "id": "contact-local-1",
-        "type": "contact",
-        "varName": {
-          "name": "",
-          "value": "???",
-          "type": "BOOL",
-          "scope": "VAR"
+      "addNode": {
+        "contact-local-1": {
+          "id": "contact-local-1",
+          "type": "contact",
+          "varName": {
+            "name": "",
+            "value": "???",
+            "type": "BOOL",
+            "scope": "VAR"
+          }
         }
       }
     }
@@ -513,7 +515,7 @@ LD/FBD 图建议统一返回 `ide-agent.graph-completion.v1` 结构：
 - `suggestions[].position`：相对选中节点或当前结构的位置，如 `front`、`behind`、`outsideFront`、`outsideBehind`、`parallel`、`replace`。
 - `suggestions[].serialOrParallel`：新增方式，当前主要是 `serial`、`parallel`、`replace`。
 - `suggestions[].text`：人类可读的建议说明，方便前端列表直接展示。
-- `suggestions[]` 中除上述元数据字段外的动态 key：建议新增的节点对象，格式尽量贴近 `transLd.txt` 中的节点格式，但不包含 `sourceIds` / `targetIds`。
+- `suggestions[].addNode`：建议新增的节点 map，key 是新增节点 id，value 是节点对象，格式尽量贴近 `transLd.txt` 中的节点格式，但不包含 `sourceIds` / `targetIds`。
 
 ## 当前限制和 TODO
 

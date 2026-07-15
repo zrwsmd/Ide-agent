@@ -131,6 +131,12 @@ export async function run(): Promise<void> {
     "expected text in suggestion",
   );
   assert.ok(
+    firstSuggestion.addNode &&
+      typeof firstSuggestion.addNode === "object" &&
+      Object.keys(firstSuggestion.addNode as Record<string, unknown>).length > 0,
+    "expected addNode map in suggestion",
+  );
+  assert.ok(
     !("placement" in firstSuggestion),
     "suggestion should not expose old placement field",
   );
