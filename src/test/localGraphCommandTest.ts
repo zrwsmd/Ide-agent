@@ -25,6 +25,39 @@ export async function run(): Promise<void> {
   await extension.activate();
 
   const summary = await loadDiagramSummary(DIAGRAM_PATH);
+  const auxiliaryBoundaryIds = new Set(
+    summary.segments.flatMap((segment) =>
+      segment.nodes
+        .filter(
+          (node) =>
+            !SUGGESTABLE_NODE_KINDS.has(node.kind) &&
+            node.kind !== "startLine" &&
+            node.kind !== "endLine",
+        )
+        .map((node) => node.id),
+    ),
+  );
+  const assertNoAuxiliaryBoundaryIds = (
+    suggestions: unknown[] | undefined,
+    label: string,
+  ): void => {
+    for (const suggestion of suggestions ?? []) {
+      const record = suggestion as Record<string, unknown>;
+      const startNodes = Array.isArray(record.startNodes)
+        ? record.startNodes
+        : [];
+      const endNodes = Array.isArray(record.endNodes) ? record.endNodes : [];
+      const leakedIds = [...startNodes, ...endNodes].filter(
+        (id): id is string =>
+          typeof id === "string" && auxiliaryBoundaryIds.has(id),
+      );
+      assert.deepStrictEqual(
+        leakedIds,
+        [],
+        `${label} should not expose auxiliary boundary ids`,
+      );
+    }
+  };
   const selectedNodeEntry = summary.segments
     .flatMap((segment) =>
       segment.nodes.map((node) => ({
@@ -98,6 +131,39 @@ export async function run(): Promise<void> {
     !("addElement" in firstSuggestion),
     "suggestion should not expose old addElement field",
   );
+  assertNoAuxiliaryBoundaryIds(
+    byNode.payload?.suggestions,
+    "selectedNodeId suggestions",
+  );
+
+  const coilWithAuxiliaryInput = summary.segments
+    .flatMap((segment) =>
+      segment.nodes.map((node) => ({
+        segment,
+        node,
+      })),
+    )
+    .find(
+      (entry) =>
+        ["coil", "setCoil", "resetCoil"].includes(entry.node.kind) &&
+        entry.node.from.some((id) => auxiliaryBoundaryIds.has(id)),
+    );
+  if (coilWithAuxiliaryInput) {
+    const byCoil = await vscode.commands.executeCommand<{
+      payload?: {
+        suggestions?: unknown[];
+      };
+    }>("ide-agent.getLocalGraphSuggestions", {
+      diagramPath: DIAGRAM_PATH,
+      segmentId: coilWithAuxiliaryInput.segment.segmentId,
+      selectedNodeId: coilWithAuxiliaryInput.node.id,
+    });
+    assert.ok(byCoil, "expected command result for coil with auxiliary input");
+    assertNoAuxiliaryBoundaryIds(
+      byCoil.payload?.suggestions,
+      "coil suggestions",
+    );
+  }
 
   const selectedInsertionPoint = summary.segments
     .flatMap((segment) =>

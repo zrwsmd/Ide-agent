@@ -435,7 +435,9 @@ function buildSuggestions(focus: FocusContext): LocalSuggestion[] {
 
   return dedupeSuggestions(suggestions)
     .slice(0, 6)
-    .map((suggestion, index) => toLocalSuggestion(suggestion, index));
+    .map((suggestion, index) =>
+      toLocalSuggestion(suggestion, index, focus.segment),
+    );
 }
 
 function addContactSuggestions(
@@ -899,17 +901,28 @@ function makeSuggestion(
 function toLocalSuggestion(
   draft: LocalSuggestionDraft,
   index: number,
+  segment: DiagramSegmentSummary,
 ): LocalSuggestion {
   const id = `local-${index + 1}`;
   const newNodeId = createSuggestedNodeId(draft.addElement, id);
   const newNode = createSuggestedNode(newNodeId, draft.addElement);
+  const startNodes = resolveBoundaryNodeIds(
+    segment,
+    draft.startNodes ?? inferStartNodes(draft),
+    "backward",
+  );
+  const endNodes = resolveBoundaryNodeIds(
+    segment,
+    draft.endNodes ?? inferEndNodes(draft),
+    "forward",
+  );
 
   return {
     id,
     anchorNodeId: draft.placement.anchorNodeId,
     anchorNodeVar: draft.placement.anchorNodeVar,
-    startNodes: normalizeNodeIds(draft.startNodes ?? inferStartNodes(draft)),
-    endNodes: normalizeNodeIds(draft.endNodes ?? inferEndNodes(draft)),
+    startNodes,
+    endNodes,
     position: draft.position ?? inferPosition(draft),
     serialOrParallel:
       draft.serialOrParallel ?? inferSerialOrParallel(draft),
@@ -940,6 +953,37 @@ function inferEndNodes(draft: LocalSuggestionDraft): string[] {
   }
 
   return [draft.placement.insertBeforeNodeId];
+}
+
+function resolveBoundaryNodeIds(
+  segment: DiagramSegmentSummary,
+  nodeIds: string[] | undefined,
+  direction: "forward" | "backward",
+): string[] {
+  const resolved: string[] = [];
+
+  for (const nodeId of nodeIds ?? []) {
+    const trimmed = nodeId.trim();
+    if (!trimmed) {
+      continue;
+    }
+
+    const node = findNode(segment, trimmed);
+    if (!node) {
+      resolved.push(trimmed);
+      continue;
+    }
+
+    if (isRealGraphElementKind(node.kind) || isBoundaryLineKind(node.kind)) {
+      resolved.push(node.id);
+      continue;
+    }
+
+    const realNodes = collectNearestDisplayNodes(segment, [node.id], direction);
+    resolved.push(...realNodes.map((item) => item.id));
+  }
+
+  return normalizeNodeIds(resolved);
 }
 
 function inferPosition(draft: LocalSuggestionDraft): LocalSuggestionPosition {
@@ -1856,6 +1900,10 @@ function isRealGraphElementKind(kind: string): boolean {
     "resetCoil",
     "FBDCompartment",
   ].includes(kind);
+}
+
+function isBoundaryLineKind(kind: string): boolean {
+  return kind === "startLine" || kind === "endLine";
 }
 
 function first(values: string[] | undefined): string {
