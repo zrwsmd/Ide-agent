@@ -471,6 +471,8 @@ LD/FBD 图建议统一返回 `ide-agent.graph-completion.v1` 结构：
   "schemaVersion": "ide-agent.graph-completion.v1",
   "action": "suggestGraphCompletions",
   "segmentId": "segment-2",
+  "anchorNodeId": "FBD-compartment-SR-xxx",
+  "anchorNodeVar": "f",
   "confidence": 1,
   "recognizedFocus": {
     "visualElement": "SR f 功能块",
@@ -482,8 +484,6 @@ LD/FBD 图建议统一返回 `ide-agent.graph-completion.v1` 结构：
   "suggestions": [
     {
       "id": "option-1",
-      "anchorNodeId": "FBD-compartment-SR-xxx",
-      "anchorNodeVar": "f",
       "startNodes": ["FBD-compartment-SR-xxx"],
       "endNodes": ["coil-xxx"],
       "position": "behind",
@@ -507,7 +507,7 @@ LD/FBD 图建议统一返回 `ide-agent.graph-completion.v1` 结构：
 前端主要看：
 
 - `recognizedFocus`：当前识别到的选中节点。
-- `suggestions[].anchorNodeId` / `anchorNodeVar`：本条建议围绕的选中节点。
+- `anchorNodeId` / `anchorNodeVar`：本次建议围绕的选中节点，同一批 suggestions 共用。
 - `suggestions[].startNodes`：新增节点左侧连接的节点 id 数组。
 - `suggestions[].endNodes`：新增节点右侧连接的节点 id 数组。
 - `suggestions[].position`：相对选中节点或当前结构的位置，如 `front`、`behind`、`outsideFront`、`outsideBehind`、`parallel`、`replace`。

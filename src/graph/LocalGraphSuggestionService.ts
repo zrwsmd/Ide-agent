@@ -29,6 +29,8 @@ export interface LocalGraphSuggestionPayload {
   action: string;
   source: string;
   segmentId: string;
+  anchorNodeId: string;
+  anchorNodeVar: string;
   confidence: number;
   recognizedFocus: Record<string, unknown>;
   suggestions: LocalSuggestion[];
@@ -105,8 +107,6 @@ interface SuggestedGraphNode {
 
 interface LocalSuggestion {
   id: string;
-  anchorNodeId: string;
-  anchorNodeVar: string;
   startNodes: string[];
   endNodes: string[];
   position: LocalSuggestionPosition;
@@ -353,8 +353,6 @@ function getSuggestedNode(
 ): SuggestedGraphNode | undefined {
   const metadataKeys = new Set([
     "id",
-    "anchorNodeId",
-    "anchorNodeVar",
     "startNodes",
     "endNodes",
     "position",
@@ -394,6 +392,8 @@ function buildLocalPayload(
     action: suggestions.length ? "suggestGraphCompletions" : "noSuggestion",
     source: "local-rules",
     segmentId: focus.segment.segmentId,
+    anchorNodeId: getFocusId(focus),
+    anchorNodeVar: getFocusVar(focus),
     confidence: suggestions.length ? 1 : 0,
     recognizedFocus: {
       visualElement: getFocusVisualElement(focus),
@@ -914,8 +914,6 @@ function toLocalSuggestion(
 
   return {
     id,
-    anchorNodeId: draft.placement.anchorNodeId,
-    anchorNodeVar: draft.placement.anchorNodeVar,
     startNodes,
     endNodes,
     position: draft.position ?? inferPosition(draft),

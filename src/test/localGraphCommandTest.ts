@@ -76,6 +76,8 @@ export async function run(): Promise<void> {
   const byNode = await vscode.commands.executeCommand<{
     payload?: {
       recognizedFocus?: Record<string, unknown>;
+      anchorNodeId?: string;
+      anchorNodeVar?: string;
       suggestions?: unknown[];
     };
     diagramPath?: string;
@@ -91,6 +93,11 @@ export async function run(): Promise<void> {
   assert.strictEqual(
     byNode.payload?.recognizedFocus?.matchedNodeId,
     selectedNode.id,
+  );
+  assert.strictEqual(byNode.payload?.anchorNodeId, selectedNode.id);
+  assert.strictEqual(
+    byNode.payload?.anchorNodeVar,
+    selectedNode.var || selectedNode.instance || "",
   );
   assert.ok(
     (byNode.payload?.suggestions?.length ?? 0) > 0,
@@ -130,6 +137,14 @@ export async function run(): Promise<void> {
   assert.ok(
     !("addElement" in firstSuggestion),
     "suggestion should not expose old addElement field",
+  );
+  assert.ok(
+    !("anchorNodeId" in firstSuggestion),
+    "suggestion should not repeat payload anchorNodeId",
+  );
+  assert.ok(
+    !("anchorNodeVar" in firstSuggestion),
+    "suggestion should not repeat payload anchorNodeVar",
   );
   assertNoAuxiliaryBoundaryIds(
     byNode.payload?.suggestions,
