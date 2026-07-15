@@ -165,6 +165,62 @@ export async function run(): Promise<void> {
     );
   }
 
+  const multiTargetNodeEntries = summary.segments
+    .flatMap((segment) =>
+      segment.nodes.map((node) => ({
+        segment,
+        node,
+      })),
+    )
+    .filter(
+      (entry) =>
+        SUGGESTABLE_NODE_KINDS.has(entry.node.kind) &&
+        entry.node.to.filter((id) => {
+          const target = entry.segment.nodes.find((node) => node.id === id);
+          return target && SUGGESTABLE_NODE_KINDS.has(target.kind);
+        }).length > 1,
+    );
+
+  let checkedMultiTargetParallel = false;
+  for (const entry of multiTargetNodeEntries) {
+    const byMultiTarget = await vscode.commands.executeCommand<{
+      payload?: {
+        suggestions?: unknown[];
+      };
+    }>("ide-agent.getLocalGraphSuggestions", {
+      diagramPath: DIAGRAM_PATH,
+      segmentId: entry.segment.segmentId,
+      selectedNodeId: entry.node.id,
+    });
+    const parallelSuggestion = byMultiTarget?.payload?.suggestions?.find(
+      (suggestion) => {
+        const record = suggestion as Record<string, unknown>;
+        return (
+          record.position === "parallel" &&
+          record.serialOrParallel === "parallel"
+        );
+      },
+    ) as Record<string, unknown> | undefined;
+    if (!parallelSuggestion) {
+      continue;
+    }
+
+    assert.ok(
+      Array.isArray(parallelSuggestion.endNodes) &&
+        parallelSuggestion.endNodes.length > 1,
+      "parallel suggestion should keep all real target branch entries",
+    );
+    checkedMultiTargetParallel = true;
+    break;
+  }
+
+  if (multiTargetNodeEntries.length > 0) {
+    assert.ok(
+      checkedMultiTargetParallel,
+      "expected at least one multi-target node with parallel suggestion",
+    );
+  }
+
   const selectedInsertionPoint = summary.segments
     .flatMap((segment) =>
       segment.insertionPoints.map((insertionPoint) => ({
