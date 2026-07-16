@@ -79,6 +79,15 @@ type LocalSuggestionPosition =
 
 type LocalSuggestionSerialOrParallel = "serial" | "parallel" | "replace";
 
+interface OutputCoilPlan {
+  startNodes?: string[];
+  endNodes?: string[];
+  position?: LocalSuggestionPosition;
+  serialOrParallel?: LocalSuggestionSerialOrParallel;
+  text: (nodeText: string) => string;
+  partialText: (nodeText: string) => string;
+}
+
 interface SuggestedVarName {
   name: string;
   value: string;
@@ -549,15 +558,20 @@ function addContactSuggestions(
   );
 
   if (canAddOutputAfterNode(focus.segment, node)) {
+    const outputPlan = createOutputCoilPlan(focus.segment, node);
     suggestions.push(
       makeSuggestion(focus, {
         mode: "outputCoil",
         relationToFocus: "afterSelected",
         insertAfterNodeId: node.id,
         insertBeforeNodeId: first(node.to),
+        startNodes: outputPlan.startNodes,
+        endNodes: outputPlan.endNodes,
+        position: outputPlan.position,
+        serialOrParallel: outputPlan.serialOrParallel,
         text: graphState.isPartialGraph
-          ? `当前回路还没有输出节点，在${nodeText}后添加一个线圈`
-          : `在${nodeText}后添加一个线圈`,
+          ? outputPlan.partialText(nodeText)
+          : outputPlan.text(nodeText),
         addElement: coilElement(),
       }),
     );
@@ -607,6 +621,7 @@ function addFunctionBlockSuggestions(
   }
 
   if (canAddOutputAfterNode(focus.segment, node)) {
+    const outputPlan = createOutputCoilPlan(focus.segment, node);
     suggestions.push(
       makeSuggestion(focus, {
         mode: "outputCoil",
@@ -614,9 +629,13 @@ function addFunctionBlockSuggestions(
         insertAfterNodeId: node.id,
         insertBeforeNodeId: first(node.to),
         portName: firstOutputPort,
+        startNodes: outputPlan.startNodes,
+        endNodes: outputPlan.endNodes,
+        position: outputPlan.position,
+        serialOrParallel: outputPlan.serialOrParallel,
         text: graphState.isPartialGraph
-          ? `当前回路还没有输出节点，在${nodeText}输出端后添加一个线圈`
-          : `在${nodeText}输出端后添加一个线圈`,
+          ? outputPlan.partialText(nodeText)
+          : outputPlan.text(nodeText),
         addElement: coilElement(),
       }),
     );
@@ -1492,6 +1511,75 @@ function canAddOutputAfterNode(
   node: DiagramNodeSummary,
 ): boolean {
   return !hasDownstreamOutputNode(segment, node.id);
+}
+
+function createOutputCoilPlan(
+  segment: DiagramSegmentSummary,
+  node: DiagramNodeSummary,
+): OutputCoilPlan {
+  const outsideStartNodes = findParallelOutputStartNodeIds(segment, node);
+  if (outsideStartNodes.length > 1) {
+    return {
+      startNodes: outsideStartNodes,
+      endNodes: [],
+      position: "outsideBehind",
+      serialOrParallel: "serial",
+      text: (nodeText) =>
+        `在${nodeText}所在并联结构汇合后添加一个线圈`,
+      partialText: (nodeText) =>
+        `当前回路还没有输出节点，在${nodeText}所在并联结构汇合后添加一个线圈`,
+    };
+  }
+
+  const suffix = node.kind === "FBDCompartment" ? "输出端后" : "后";
+  return {
+    text: (nodeText) => `在${nodeText}${suffix}添加一个线圈`,
+    partialText: (nodeText) =>
+      `当前回路还没有输出节点，在${nodeText}${suffix}添加一个线圈`,
+  };
+}
+
+function findParallelOutputStartNodeIds(
+  segment: DiagramSegmentSummary,
+  node: DiagramNodeSummary,
+): string[] {
+  const visited = new Set<string>();
+  const queue = [...node.to];
+  let bestTailNodes: DiagramNodeSummary[] = [];
+
+  while (queue.length > 0) {
+    const currentId = queue.shift();
+    if (!currentId || visited.has(currentId)) {
+      continue;
+    }
+
+    visited.add(currentId);
+    const current = findNode(segment, currentId);
+    if (!current) {
+      continue;
+    }
+
+    const tailNodes = collectNearestDisplayNodes(
+      segment,
+      current.from,
+      "backward",
+    ).sort(compareDisplayOrder);
+    if (
+      tailNodes.length > 1 &&
+      tailNodes.some((tailNode) => tailNode.id === node.id) &&
+      tailNodes.length >= bestTailNodes.length
+    ) {
+      bestTailNodes = tailNodes;
+    }
+
+    if (isOutputNodeKind(current.kind)) {
+      continue;
+    }
+
+    queue.push(...current.to);
+  }
+
+  return bestTailNodes.map((tailNode) => tailNode.id);
 }
 
 function hasDownstreamOutputNode(

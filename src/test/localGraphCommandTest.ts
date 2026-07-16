@@ -242,6 +242,49 @@ export async function run(): Promise<void> {
     );
   }
 
+  const branchOutputCandidate = summary.segments
+    .flatMap((segment) =>
+      segment.nodes.map((node) => ({
+        segment,
+        node,
+      })),
+    )
+    .find((entry) =>
+      findBranchOutputStartNodes(entry.segment, entry.node).length > 1,
+    );
+  if (branchOutputCandidate) {
+    const byBranchOutput = await vscode.commands.executeCommand<{
+      payload?: {
+        suggestions?: unknown[];
+      };
+    }>("ide-agent.getLocalGraphSuggestions", {
+      diagramPath: DIAGRAM_PATH,
+      segmentId: branchOutputCandidate.segment.segmentId,
+      selectedNodeId: branchOutputCandidate.node.id,
+    });
+    const outputCoilSuggestion = byBranchOutput?.payload?.suggestions?.find(
+      (suggestion) => {
+        const record = suggestion as Record<string, unknown>;
+        return getSuggestedNodeType(record) === "coil";
+      },
+    ) as Record<string, unknown> | undefined;
+
+    assert.ok(
+      outputCoilSuggestion,
+      "expected output coil suggestion for branch output candidate",
+    );
+    assert.strictEqual(
+      outputCoilSuggestion.position,
+      "outsideBehind",
+      "branch output coil should be placed outside the selected branch",
+    );
+    assert.ok(
+      Array.isArray(outputCoilSuggestion.startNodes) &&
+        outputCoilSuggestion.startNodes.length > 1,
+      "branch output coil should use all branch tail nodes as startNodes",
+    );
+  }
+
   const selectedInsertionPoint = summary.segments
     .flatMap((segment) =>
       segment.insertionPoints.map((insertionPoint) => ({
@@ -281,4 +324,83 @@ export async function run(): Promise<void> {
   }
 
   console.log("[localGraphCommandTest] passed");
+}
+
+function findBranchOutputStartNodes(
+  segment: Awaited<ReturnType<typeof loadDiagramSummary>>["segments"][number],
+  node: Awaited<ReturnType<typeof loadDiagramSummary>>["segments"][number]["nodes"][number],
+): string[] {
+  const visited = new Set<string>();
+  const queue = [...node.to];
+  let bestStartNodes: string[] = [];
+
+  while (queue.length > 0) {
+    const currentId = queue.shift();
+    if (!currentId || visited.has(currentId)) {
+      continue;
+    }
+
+    visited.add(currentId);
+    const current = segment.nodes.find((item) => item.id === currentId);
+    if (!current) {
+      continue;
+    }
+
+    const tailNodeIds = collectNearestSuggestableNodes(
+      segment,
+      current.from,
+      "backward",
+    );
+    if (
+      tailNodeIds.length > 1 &&
+      tailNodeIds.includes(node.id) &&
+      tailNodeIds.length >= bestStartNodes.length
+    ) {
+      bestStartNodes = tailNodeIds;
+    }
+
+    queue.push(...current.to);
+  }
+
+  return bestStartNodes;
+}
+
+function collectNearestSuggestableNodes(
+  segment: Awaited<ReturnType<typeof loadDiagramSummary>>["segments"][number],
+  nodeIds: string[],
+  direction: "forward" | "backward",
+): string[] {
+  const visited = new Set<string>();
+  const result = new Set<string>();
+  const queue = [...nodeIds];
+
+  while (queue.length > 0) {
+    const currentId = queue.shift();
+    if (!currentId || visited.has(currentId)) {
+      continue;
+    }
+
+    visited.add(currentId);
+    const current = segment.nodes.find((node) => node.id === currentId);
+    if (!current) {
+      continue;
+    }
+
+    if (SUGGESTABLE_NODE_KINDS.has(current.kind)) {
+      result.add(current.id);
+      continue;
+    }
+
+    queue.push(...(direction === "forward" ? current.to : current.from));
+  }
+
+  return [...result];
+}
+
+function getSuggestedNodeType(suggestion: Record<string, unknown>): string {
+  const addNode = suggestion.addNode as Record<string, unknown> | undefined;
+  const firstNode = addNode ? Object.values(addNode)[0] : undefined;
+  return typeof firstNode === "object" && firstNode !== null
+    ? String((firstNode as Record<string, unknown>).type ?? "")
+    : "";
 }
