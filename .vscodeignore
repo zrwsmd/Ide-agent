@@ -2,10 +2,14 @@
 src/**
 scripts/**
 node_modules/**
+ladder-examples/**
 .gitignore
 tsconfig.json
 package-lock.json
 *.vsix
+ide-agent-flow.txt
+local-graph-suggestion-rules.txt
+plc-ladder-json-prompts.txt
 dist/**/*.map
 dist/test/**
 dist/**/*.ts
