@@ -103,6 +103,22 @@ export async function run(): Promise<void> {
     (byNode.payload?.suggestions?.length ?? 0) > 0,
     "expected suggestions for selectedNodeId",
   );
+  const firstOverview = (
+    byNode as {
+      summary?: {
+        suggestionOverview?: Array<Record<string, unknown>>;
+      };
+    }
+  ).summary?.suggestionOverview?.[0];
+  assert.strictEqual(
+    typeof firstOverview?.title,
+    "string",
+    "expected short title in suggestion overview",
+  );
+  assert.ok(
+    String(firstOverview?.title ?? "").length > 0,
+    "expected non-empty suggestion overview title",
+  );
   const firstSuggestion = byNode.payload?.suggestions?.[0] as
     | Record<string, unknown>
     | undefined;

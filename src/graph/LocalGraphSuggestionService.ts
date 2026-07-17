@@ -39,6 +39,7 @@ export interface LocalGraphSuggestionPayload {
 export interface LocalSuggestionOverview {
   index: number;
   add: string;
+  title: string;
   text: string;
 }
 
@@ -323,8 +324,44 @@ function summarizeSuggestion(
   return {
     index: itemIndex,
     add,
+    title: suggestionOverviewTitle(suggestion, add),
     text: suggestion.text,
   };
+}
+
+function suggestionOverviewTitle(
+  suggestion: LocalSuggestion,
+  add: string,
+): string {
+  if (suggestion.serialOrParallel === "parallel") {
+    return `并联 ${add}`;
+  }
+
+  if (suggestion.position === "replace") {
+    return `替换为 ${add}`;
+  }
+
+  if (suggestion.position === "front") {
+    return `前串联 ${add}`;
+  }
+
+  if (suggestion.position === "outsideFront") {
+    return `外侧前串联 ${add}`;
+  }
+
+  if (suggestion.position === "outsideBehind") {
+    return `外侧后串联 ${add}`;
+  }
+
+  if (add.includes("线圈")) {
+    return `添加 ${add}`;
+  }
+
+  if (add.includes("功能块")) {
+    return `后插入 ${add}`;
+  }
+
+  return `后串联 ${add}`;
 }
 
 function suggestedNodeLabel(suggestion: LocalSuggestion): string {
