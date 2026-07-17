@@ -419,8 +419,7 @@ function buildSuggestions(focus: FocusContext): LocalSuggestion[] {
     addCoilSuggestions(suggestions, focus);
   }
 
-  return dedupeSuggestions(suggestions)
-    .slice(0, 6)
+  return keepOutputCoilWithinLimit(dedupeSuggestions(suggestions), 6)
     .map((suggestion, index) =>
       toLocalSuggestion(suggestion, index, focus.segment),
     );
@@ -1494,9 +1493,7 @@ function firstRealNode(
 }
 
 function analyzeSegment(segment: DiagramSegmentSummary): SegmentGraphState {
-  const hasLogicNode = segment.nodes.some(
-    (node) => isContactKind(node.kind) || node.kind === "FBDCompartment",
-  );
+  const hasLogicNode = segment.nodes.some((node) => isLogicNodeKind(node.kind));
   const hasOutputNode = segment.nodes.some((node) => isOutputNodeKind(node.kind));
 
   return {
@@ -1510,7 +1507,10 @@ function canAddOutputAfterNode(
   segment: DiagramSegmentSummary,
   node: DiagramNodeSummary,
 ): boolean {
-  return !hasDownstreamOutputNode(segment, node.id);
+  return (
+    !hasDownstreamOutputNode(segment, node.id) &&
+    !hasDownstreamLogicNode(segment, node.id)
+  );
 }
 
 function createOutputCoilPlan(
@@ -1611,6 +1611,35 @@ function hasDownstreamOutputNode(
   return false;
 }
 
+function hasDownstreamLogicNode(
+  segment: DiagramSegmentSummary,
+  startNodeId: string,
+): boolean {
+  const visited = new Set<string>();
+  const queue = [...(findNode(segment, startNodeId)?.to ?? [])];
+
+  while (queue.length > 0) {
+    const nodeId = queue.shift();
+    if (!nodeId || visited.has(nodeId)) {
+      continue;
+    }
+
+    visited.add(nodeId);
+    const node = findNode(segment, nodeId);
+    if (!node) {
+      continue;
+    }
+
+    if (isLogicNodeKind(node.kind)) {
+      return true;
+    }
+
+    queue.push(...node.to);
+  }
+
+  return false;
+}
+
 function dedupeSuggestions(
   suggestions: LocalSuggestionDraft[],
 ): LocalSuggestionDraft[] {
@@ -1647,6 +1676,29 @@ function dedupeSuggestions(
   }
 
   return result;
+}
+
+function keepOutputCoilWithinLimit(
+  suggestions: LocalSuggestionDraft[],
+  limit: number,
+): LocalSuggestionDraft[] {
+  if (suggestions.length <= limit) {
+    return suggestions;
+  }
+
+  const limited = suggestions.slice(0, limit);
+  if (limited.some((suggestion) => suggestion.mode === "outputCoil")) {
+    return limited;
+  }
+
+  const outputCoilSuggestion = suggestions
+    .slice(limit)
+    .find((suggestion) => suggestion.mode === "outputCoil");
+  if (!outputCoilSuggestion || limit <= 0) {
+    return limited;
+  }
+
+  return [...limited.slice(0, limit - 1), outputCoilSuggestion];
 }
 
 function getFocusId(focus: FocusContext): string {
@@ -1958,6 +2010,10 @@ function isCoilKind(kind: string): boolean {
 
 function isOutputNodeKind(kind: string): boolean {
   return isCoilKind(kind) || kind === "FBDCompartment";
+}
+
+function isLogicNodeKind(kind: string): boolean {
+  return isContactKind(kind) || kind === "FBDCompartment";
 }
 
 function isRealGraphElementKind(kind: string): boolean {

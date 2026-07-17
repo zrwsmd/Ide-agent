@@ -285,6 +285,80 @@ export async function run(): Promise<void> {
     );
   }
 
+  const downstreamLogicCandidate = summary.segments
+    .flatMap((segment) =>
+      segment.nodes.map((node) => ({
+        segment,
+        node,
+      })),
+    )
+    .find(
+      (entry) =>
+        SUGGESTABLE_NODE_KINDS.has(entry.node.kind) &&
+        hasDownstreamLogicNode(entry.segment, entry.node.id),
+    );
+  if (downstreamLogicCandidate) {
+    const byDownstreamLogic = await vscode.commands.executeCommand<{
+      payload?: {
+        suggestions?: unknown[];
+      };
+    }>("ide-agent.getLocalGraphSuggestions", {
+      diagramPath: DIAGRAM_PATH,
+      segmentId: downstreamLogicCandidate.segment.segmentId,
+      selectedNodeId: downstreamLogicCandidate.node.id,
+    });
+
+    const outputCoilSuggestion = byDownstreamLogic?.payload?.suggestions?.find(
+      (suggestion) => {
+        const record = suggestion as Record<string, unknown>;
+        return getSuggestedNodeType(record) === "coil";
+      },
+    );
+
+    assert.strictEqual(
+      outputCoilSuggestion,
+      undefined,
+      "node with downstream logic should not suggest inserting an output coil",
+    );
+  }
+
+  const terminalOutputCandidate = summary.segments
+    .flatMap((segment) =>
+      segment.nodes.map((node) => ({
+        segment,
+        node,
+      })),
+    )
+    .find(
+      (entry) =>
+        isOutputCoilSourceKind(entry.node.kind) &&
+        !hasDownstreamLogicNode(entry.segment, entry.node.id) &&
+        !hasDownstreamOutputNode(entry.segment, entry.node.id),
+    );
+  if (terminalOutputCandidate) {
+    const byTerminalOutput = await vscode.commands.executeCommand<{
+      payload?: {
+        suggestions?: unknown[];
+      };
+    }>("ide-agent.getLocalGraphSuggestions", {
+      diagramPath: DIAGRAM_PATH,
+      segmentId: terminalOutputCandidate.segment.segmentId,
+      selectedNodeId: terminalOutputCandidate.node.id,
+    });
+
+    const outputCoilSuggestion = byTerminalOutput?.payload?.suggestions?.find(
+      (suggestion) => {
+        const record = suggestion as Record<string, unknown>;
+        return getSuggestedNodeType(record) === "coil";
+      },
+    );
+
+    assert.ok(
+      outputCoilSuggestion,
+      "terminal contact/function block should keep output coil suggestion within the returned limit",
+    );
+  }
+
   const selectedInsertionPoint = summary.segments
     .flatMap((segment) =>
       segment.insertionPoints.map((insertionPoint) => ({
@@ -363,6 +437,83 @@ function findBranchOutputStartNodes(
   }
 
   return bestStartNodes;
+}
+
+function hasDownstreamLogicNode(
+  segment: Awaited<ReturnType<typeof loadDiagramSummary>>["segments"][number],
+  startNodeId: string,
+): boolean {
+  const visited = new Set<string>();
+  const startNode = segment.nodes.find((node) => node.id === startNodeId);
+  const queue = [...(startNode?.to ?? [])];
+
+  while (queue.length > 0) {
+    const currentId = queue.shift();
+    if (!currentId || visited.has(currentId)) {
+      continue;
+    }
+
+    visited.add(currentId);
+    const current = segment.nodes.find((node) => node.id === currentId);
+    if (!current) {
+      continue;
+    }
+
+    if (
+      ["contact", "negatedContact", "risingContact", "fallingContact"].includes(
+        current.kind,
+      ) ||
+      current.kind === "FBDCompartment"
+    ) {
+      return true;
+    }
+
+    queue.push(...current.to);
+  }
+
+  return false;
+}
+
+function hasDownstreamOutputNode(
+  segment: Awaited<ReturnType<typeof loadDiagramSummary>>["segments"][number],
+  startNodeId: string,
+): boolean {
+  const visited = new Set<string>();
+  const startNode = segment.nodes.find((node) => node.id === startNodeId);
+  const queue = [...(startNode?.to ?? [])];
+
+  while (queue.length > 0) {
+    const currentId = queue.shift();
+    if (!currentId || visited.has(currentId)) {
+      continue;
+    }
+
+    visited.add(currentId);
+    const current = segment.nodes.find((node) => node.id === currentId);
+    if (!current) {
+      continue;
+    }
+
+    if (
+      ["coil", "setCoil", "resetCoil", "FBDCompartment"].includes(current.kind)
+    ) {
+      return true;
+    }
+
+    queue.push(...current.to);
+  }
+
+  return false;
+}
+
+function isOutputCoilSourceKind(kind: string): boolean {
+  return [
+    "contact",
+    "negatedContact",
+    "risingContact",
+    "fallingContact",
+    "FBDCompartment",
+  ].includes(kind);
 }
 
 function collectNearestSuggestableNodes(
