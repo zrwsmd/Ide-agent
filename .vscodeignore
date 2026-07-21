@@ -2,6 +2,12 @@
 src/**
 scripts/**
 node_modules/**
+!dist/node_modules/
+!dist/node_modules/@ide-agent/
+!dist/node_modules/@ide-agent/core/
+!dist/node_modules/@ide-agent/core/package.json
+!dist/node_modules/@ide-agent/core/dist/**
+packages/**
 ladder-examples/**
 .gitignore
 tsconfig.json

@@ -1,5 +1,3 @@
-import * as vscode from "vscode";
-import { getLocalGraphSuggestions as getCoreLocalGraphSuggestions } from "@ide-agent/core";
 import {
   DEFAULT_DIAGRAM_JSON_PATH,
   DiagramInsertionPointSummary,
@@ -23,6 +21,8 @@ export interface LocalGraphSuggestionRequest {
   segmentId?: string;
   selectedNodeId?: string;
   selectedInsertionPointId?: string;
+  selectedVar?: string;
+  focusQuery?: string;
 }
 
 export interface LocalGraphSuggestionPayload {
@@ -71,7 +71,7 @@ interface SegmentGraphState {
   isPartialGraph: boolean;
 }
 
-type LocalSuggestionPosition =
+export type LocalSuggestionPosition =
   | "front"
   | "behind"
   | "outsideFront"
@@ -79,7 +79,10 @@ type LocalSuggestionPosition =
   | "parallel"
   | "replace";
 
-type LocalSuggestionSerialOrParallel = "serial" | "parallel" | "replace";
+export type LocalSuggestionSerialOrParallel =
+  | "serial"
+  | "parallel"
+  | "replace";
 
 interface OutputCoilPlan {
   startNodes?: string[];
@@ -90,21 +93,21 @@ interface OutputCoilPlan {
   partialText: (nodeText: string) => string;
 }
 
-interface SuggestedVarName {
+export interface SuggestedVarName {
   name: string;
   value: string;
   type: string;
   scope: string;
 }
 
-interface SuggestedPort {
+export interface SuggestedPort {
   name: string;
   value: string;
   type: string;
   scope: string;
 }
 
-interface SuggestedGraphNode {
+export interface SuggestedGraphNode {
   id: string;
   type: string;
   varName?: SuggestedVarName;
@@ -116,7 +119,7 @@ interface SuggestedGraphNode {
   };
 }
 
-interface LocalSuggestion {
+export interface LocalSuggestion {
   id: string;
   startNodes: string[];
   endNodes: string[];
@@ -172,139 +175,52 @@ const COMMON_FUNCTION_BLOCK_TYPES = [
   "RS",
 ];
 
-export class LocalGraphSuggestionService {
-  constructor(private readonly outputChannel: vscode.OutputChannel) {}
-
-  async suggestFromDiagram(
-    request: LocalGraphSuggestionRequest | undefined,
-  ): Promise<LocalGraphSuggestionResult | undefined> {
-    const diagramPath = request?.diagramPath?.trim();
-    if (!diagramPath) {
-      this.log("local graph command cancelled: missing diagramPath");
-      return undefined;
-    }
-    const focusOptions: LocalGraphSuggestionOptions = {
-      segmentId: request?.segmentId,
-      selectedNodeId: request?.selectedNodeId,
-      selectedInsertionPointId: request?.selectedInsertionPointId,
-    };
-
-    this.log(
-      `local graph command requested path=${diagramPath} focus=${formatFocusOptions(focusOptions)}`,
-    );
-
-    try {
-      const result = await getCoreLocalGraphSuggestions(request);
-      if (!result) {
-        this.log(
-          `local graph command cancelled: focus not found ${formatFocusOptions(focusOptions)}`,
-        );
-        return undefined;
-      }
-
-      this.log(
-        `local graph result path=${result.diagramPath} source=${String(result.payload.recognizedFocus.source ?? "")} nodeId=${result.payload.anchorNodeId} insertionPoint=${request?.selectedInsertionPointId ?? ""} suggestions=${result.payload.suggestions.length}`,
-      );
-
-      return result;
-    } catch (error) {
-      this.log(
-        `local graph command failed: cannot load diagram json: ${formatUnknownError(error)}`,
-      );
-      return undefined;
-    }
+export async function getLocalGraphSuggestions(
+  request: LocalGraphSuggestionRequest | undefined,
+): Promise<LocalGraphSuggestionResult | undefined> {
+  const diagramPath = request?.diagramPath?.trim();
+  if (!diagramPath) {
+    return undefined;
   }
 
-  async suggestFromActiveEditor(
-    options: LocalGraphSuggestionOptions = {},
-  ): Promise<LocalGraphSuggestionResult | undefined> {
-    const editor = vscode.window.activeTextEditor;
-    const activeFile =
-      editor?.document.fileName || editor?.document.uri.toString() || "(none)";
-    const diagramPath = DEFAULT_DIAGRAM_JSON_PATH;
-
-    this.log(
-      `local graph suggestions requested activeFile=${activeFile} focus=${formatFocusOptions(options)}`,
-    );
-    this.log(`loading diagram json path=${diagramPath}`);
-
-    let summary: DiagramSummary;
-    try {
-      summary = await loadDiagramSummary(diagramPath);
-    } catch (error) {
-      this.log(
-        `local graph suggestions failed: cannot load diagram json: ${formatUnknownError(error)}`,
-      );
-      void vscode.window.showErrorMessage(
-        `Ide Agent: failed to read diagram JSON. ${formatErrorMessage(error)}`,
-      );
-      return undefined;
-    }
-
-    const focus = await resolveFocus(summary, options);
-    if (!focus) {
-      this.log("local graph suggestions cancelled: no focus selected");
-      return undefined;
-    }
-
-    const result = this.createResult(diagramPath, summary, focus);
-
-    this.log(
-      `local graph focus source=${focus.source} nodeId=${getFocusId(focus)} type=${getFocusType(focus)} var=${getFocusVar(focus) || "(none)"}`,
-    );
-    const graphState = analyzeSegment(focus.segment);
-    this.log(
-      `local graph state partial=${graphState.isPartialGraph} hasLogic=${graphState.hasLogicNode} hasOutput=${graphState.hasOutputNode}`,
-    );
-    this.log(`local graph suggestions count=${result.payload.suggestions.length}`);
-    for (const [index, suggestion] of result.payload.suggestions.entries()) {
-      const overview = summarizeSuggestion(suggestion, index);
-      this.log(
-        `local graph suggestion #${overview.index} position=${suggestion.position} serialOrParallel=${suggestion.serialOrParallel} start=${suggestion.startNodes.join(",")} end=${suggestion.endNodes.join(",")} add=${overview.add}`,
-      );
-    }
-    const payloadText = JSON.stringify(result.payload, null, 2);
-    this.log(`local graph suggestions JSON=${payloadText}`);
-    void vscode.env.clipboard.writeText(payloadText);
-    void vscode.window.showInformationMessage(
-      "Ide Agent: local graph suggestions copied to clipboard.",
-    );
-
-    return result;
+  const summary = await loadDiagramSummary(diagramPath);
+  const focus = findFocusByOptions(summary, {
+    segmentId: request?.segmentId,
+    selectedNodeId: request?.selectedNodeId,
+    selectedInsertionPointId: request?.selectedInsertionPointId,
+    selectedVar: request?.selectedVar,
+    focusQuery: request?.focusQuery,
+  });
+  if (!focus) {
+    return undefined;
   }
 
-  private log(message: string): void {
-    const line = `[${new Date().toISOString()}] ${message}`;
-    this.outputChannel.appendLine(line);
-    console.log(`[IdeAgent:LocalGraphSuggestion] ${message}`);
-  }
+  return createLocalGraphSuggestionResult(diagramPath, summary, {
+    ...focus,
+    source: "provided",
+  });
+}
 
-  private createResult(
-    diagramPath: string,
-    summary: DiagramSummary,
-    focus: FocusContext,
-  ): LocalGraphSuggestionResult {
-    const payload = buildLocalPayload(summary, focus);
-    const focusPouName = focus.segment.pouName || summary.pouName;
-    const focusPouType = focus.segment.pouType || summary.pouType;
-    const resultSummary = {
+function createLocalGraphSuggestionResult(
+  diagramPath: string,
+  summary: DiagramSummary,
+  focus: FocusContext,
+): LocalGraphSuggestionResult {
+  const payload = buildLocalPayload(summary, focus);
+  const focusPouName = focus.segment.pouName || summary.pouName;
+  const focusPouType = focus.segment.pouType || summary.pouType;
+
+  return {
+    diagramPath,
+    payload,
+    summary: {
       sourcePath: summary.sourcePath,
       pouName: focusPouName,
       pouType: focusPouType,
       variableCount: summary.variableCount,
       suggestionOverview: buildSuggestionOverview(payload.suggestions),
-    };
-
-    this.log(
-      `local graph result path=${diagramPath} source=${focus.source} nodeId=${getFocusId(focus)} insertionPoint=${focus.insertionPoint?.id ?? ""} suggestions=${payload.suggestions.length}`,
-    );
-
-    return {
-      diagramPath,
-      payload,
-      summary: resultSummary,
-    };
-  }
+    },
+  };
 }
 
 function buildSuggestionOverview(
@@ -1212,57 +1128,6 @@ function normalizeNodeIds(nodeIds: string[]): string[] {
   return [...new Set(nodeIds.map((item) => item.trim()).filter(Boolean))];
 }
 
-async function resolveFocus(
-  summary: DiagramSummary,
-  options: LocalGraphSuggestionOptions,
-): Promise<FocusContext | undefined> {
-  const fromProvided = findFocusByOptions(summary, options);
-  if (fromProvided) {
-    return { ...fromProvided, source: "provided" };
-  }
-
-  const manualQuery =
-    options.focusQuery ??
-    (await vscode.window.showInputBox({
-      title: "Local LD/FBD Suggestions",
-      prompt:
-        "输入前端选中的 nodeId 或变量名。后续前端直接传 selectedNodeId 即可。",
-      placeHolder: "例如 coil-57898079-1782202685942 / j",
-      ignoreFocusOut: true,
-    }));
-
-  if (manualQuery === undefined) {
-    return undefined;
-  }
-
-  const fromManualInput = findFocusByQuery(
-    summary,
-    manualQuery,
-    options.segmentId,
-  );
-  if (fromManualInput) {
-    return { ...fromManualInput, source: "manualInput" };
-  }
-
-  const fallback =
-    findFirstInsertionPoint(summary, options.segmentId) ||
-    findFirstRealNode(summary, options.segmentId);
-  const picked = await pickFocus(summary, fallback, options.segmentId);
-  if (picked) {
-    return { ...picked, source: "quickPick" };
-  }
-
-  if (fallback) {
-    const fallbackLabel = getFallbackFocusLabel(fallback);
-    void vscode.window.showInformationMessage(
-      `Ide Agent: no graph node was selected; using ${fallbackLabel} for local suggestions.`,
-    );
-    return { ...fallback, source: "fallback" };
-  }
-
-  return undefined;
-}
-
 function findFocusByOptions(
   summary: DiagramSummary,
   options: LocalGraphSuggestionOptions,
@@ -1383,61 +1248,6 @@ function focusSegments(
   }
 
   return summary.segments.filter((segment) => segment.segmentId === trimmed);
-}
-
-function findFirstInsertionPoint(
-  summary: DiagramSummary,
-  segmentId?: string,
-): Omit<FocusContext, "source"> | undefined {
-  const segment = focusSegments(summary, segmentId).find(
-    (item) => item.insertionPoints.length > 0,
-  );
-  const insertionPoint = segment?.insertionPoints[0];
-  return segment && insertionPoint ? { segment, insertionPoint } : undefined;
-}
-
-function findFirstRealNode(
-  summary: DiagramSummary,
-  segmentId?: string,
-): Omit<FocusContext, "source"> | undefined {
-  for (const segment of focusSegments(summary, segmentId)) {
-    const node = segment.nodes.find((item) =>
-      isRealGraphElementKind(item.kind),
-    );
-    if (node) {
-      return { segment, node };
-    }
-  }
-
-  return undefined;
-}
-
-async function pickFocus(
-  summary: DiagramSummary,
-  fallback: Omit<FocusContext, "source"> | undefined,
-  segmentId?: string,
-): Promise<Omit<FocusContext, "source"> | undefined> {
-  const items = focusSegments(summary, segmentId).flatMap((segment) =>
-    segment.nodes
-      .filter((node) => isRealGraphElementKind(node.kind))
-      .map((node) => ({
-        label: nodeLabel(node),
-        description: node.id,
-        focus: { segment, node },
-      })),
-  );
-
-  if (!items.length) {
-    return fallback;
-  }
-
-  const picked = await vscode.window.showQuickPick(items, {
-    title: "Select LD/FBD node for local suggestions",
-    placeHolder: "Pick a graph node from transLd.txt.",
-    matchOnDescription: true,
-  });
-
-  return picked?.focus;
 }
 
 function contactElement(): LocalSuggestionAddElement {

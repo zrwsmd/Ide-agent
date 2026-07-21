@@ -1,5 +1,7 @@
 # Ide Agent
 
+Core 包和外部集成说明见：[docs/core-integration.md](docs/core-integration.md)。
+
 Ide Agent 是一个面向 IEC 61131-3 PLC 开发场景的 VS Code 插件实验项目。当前目标不是做通用聊天助手，而是围绕 ST 文本代码和 LD/FBD 图形编辑器，提供“下一步可能补什么”的辅助能力。
 
 项目目前重点研究两类能力：
@@ -460,6 +462,55 @@ src/graph/ScreenshotContext.ts
 
 src/llm/*
   大模型供应商适配层。
+```
+
+## Core import 调用
+
+本地图建议逻辑已经抽成独立 core 包，普通 TypeScript/Node 项目可以直接调用：
+
+```ts
+import { getLocalGraphSuggestions } from "@ide-agent/core";
+
+const result = await getLocalGraphSuggestions({
+  diagramPath: "C:\\Users\\Administrator\\.vscode\\extensions\\ytak.devuni-ide-vscode-1.0.21\\tool\\iec-runtime-gen-run\\.depworkspace\\transLd.txt",
+  segmentId: "segment-2",
+  selectedNodeId: "contact-xxx"
+});
+```
+
+如果选中的是插入点：
+
+```ts
+const result = await getLocalGraphSuggestions({
+  diagramPath,
+  segmentId,
+  selectedInsertionPointId: "edit-node-rect"
+});
+```
+
+这个 core 调用不依赖 VS Code API，不会弹框、不会写剪贴板、不会请求大模型，只读取 `diagramPath` 指向的图 JSON/TXT 文件并返回本地规则 suggestions。
+
+VS Code 插件命令仍然保留：
+
+```ts
+const result = await vscode.commands.executeCommand(
+  "ide-agent.getLocalGraphSuggestions",
+  {
+    diagramPath,
+    segmentId,
+    selectedNodeId
+  }
+);
+```
+
+两种方式共用同一套 core 规则，返回结构保持一致。区别只是调用入口不同：`@ide-agent/core` 适合普通项目直接 import，`vscode.commands.executeCommand` 适合另一个 VS Code 插件调用。
+
+相关源码：
+
+```text
+packages/core/src/graph/LocalGraphSuggestionCore.ts
+packages/core/src/diagram/DiagramSummary.ts
+src/graph/LocalGraphSuggestionService.ts
 ```
 
 ## suggestions 输出形态

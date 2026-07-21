@@ -1,0 +1,18 @@
+{
+  "name": "@ide-agent/core",
+  "version": "0.0.1",
+  "description": "Core local LD/FBD suggestion engine for Ide Agent.",
+  "license": "UNLICENSED",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "compile": "tsc -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0"
+  }
+}
