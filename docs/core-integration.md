@@ -109,18 +109,6 @@ const result = await getLocalGraphSuggestions({
     recognizedFocus: Record<string, unknown>;
     suggestions: LocalSuggestion[];
   };
-  summary: {
-    sourcePath: string;
-    pouName: string;
-    pouType: string;
-    variableCount: number;
-    suggestionOverview: Array<{
-      index: number;
-      add: string;
-      title: string;
-      text: string;
-    }>;
-  };
 }
 ```
 
@@ -129,7 +117,8 @@ const result = await getLocalGraphSuggestions({
 - `payload.anchorNodeId`：本次建议围绕的选中节点。
 - `payload.anchorNodeVar`：选中节点变量或实例名。
 - `payload.suggestions`：真正用于渲染和落地的建议数组。
-- `summary.suggestionOverview`：适合列表展示的轻量概览。
+- `payload.suggestions[].title`：适合列表展示的短标题。
+- `payload.suggestions[].text`：完整说明文字，需要详细提示时再展示。
 
 ## Suggestion 结构
 
@@ -138,6 +127,7 @@ const result = await getLocalGraphSuggestions({
 ```ts
 {
   id: "local-1",
+  title: "后串联 常开触点",
   startNodes: ["contact-a"],
   endNodes: ["coil-b"],
   position: "behind",
@@ -160,6 +150,7 @@ const result = await getLocalGraphSuggestions({
 
 字段说明：
 
+- `title`：适合前端列表展示的短标题。
 - `startNodes`：新增节点左侧连接的节点 id 数组。
 - `endNodes`：新增节点右侧连接的节点 id 数组。
 - `position`：相对位置，例如 `front`、`behind`、`outsideFront`、`outsideBehind`、`parallel`、`replace`。

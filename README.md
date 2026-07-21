@@ -145,7 +145,6 @@ const result = await vscode.commands.executeCommand(
 
 - `result.payload`：结构化 suggestions 对象。
 - `result.diagramPath`：本次读取的图 JSON 路径。
-- `result.summary`：轻量调试摘要，包含 POU 信息和 suggestions 概览。
 
 这个命令不会弹输入框、不会复制剪贴板、不会请求大模型，只根据传入的 `diagramPath` 和当前选中 id 返回本地规则建议。
 
@@ -393,8 +392,8 @@ npm run test:local-graph-command
 - `payload`：结构化建议结果。
 - `payload.segmentId`：本次实际命中的区段 id。
 - `payload.suggestions`：前端真正需要渲染的建议数组。
-- `summary`：轻量调试摘要，不包含完整图拓扑。
-- `summary.suggestionOverview`：从 `payload.suggestions` 提取出来的人类可读概览，包含 `index`、`add`、`title`、`text`。前端列表建议优先展示较短的 `title`，需要详细说明时再展示 `text`。
+- `payload.suggestions[].title`：适合前端列表展示的短标题。
+- `payload.suggestions[].text`：完整说明文字，需要详细提示时再展示。
 
 如果要修改测试用的 `.txt` / 图 JSON 路径，改这里：
 
@@ -535,6 +534,7 @@ LD/FBD 图建议统一返回 `ide-agent.graph-completion.v1` 结构：
   "suggestions": [
     {
       "id": "option-1",
+      "title": "后串联 常开触点",
       "startNodes": ["FBD-compartment-SR-xxx"],
       "endNodes": ["coil-xxx"],
       "position": "behind",
@@ -561,6 +561,7 @@ LD/FBD 图建议统一返回 `ide-agent.graph-completion.v1` 结构：
 
 - `recognizedFocus`：当前识别到的选中节点。
 - `anchorNodeId` / `anchorNodeVar`：本次建议围绕的选中节点，同一批 suggestions 共用。
+- `suggestions[].title`：适合前端列表展示的短标题。
 - `suggestions[].startNodes`：新增节点左侧连接的节点 id 数组。
 - `suggestions[].endNodes`：新增节点右侧连接的节点 id 数组。
 - `suggestions[].position`：相对选中节点或当前结构的位置，如 `front`、`behind`、`outsideFront`、`outsideBehind`、`parallel`、`replace`。

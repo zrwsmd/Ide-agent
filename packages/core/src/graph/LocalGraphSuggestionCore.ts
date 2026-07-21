@@ -37,25 +37,9 @@ export interface LocalGraphSuggestionPayload {
   suggestions: LocalSuggestion[];
 }
 
-export interface LocalSuggestionOverview {
-  index: number;
-  add: string;
-  title: string;
-  text: string;
-}
-
-export interface LocalGraphSuggestionSummary {
-  sourcePath: string;
-  pouName: string;
-  pouType: string;
-  variableCount: number;
-  suggestionOverview: LocalSuggestionOverview[];
-}
-
 export interface LocalGraphSuggestionResult {
   diagramPath: string;
   payload: LocalGraphSuggestionPayload;
-  summary: LocalGraphSuggestionSummary;
 }
 
 interface FocusContext {
@@ -121,6 +105,7 @@ export interface SuggestedGraphNode {
 
 export interface LocalSuggestion {
   id: string;
+  title: string;
   startNodes: string[];
   endNodes: string[];
   position: LocalSuggestionPosition;
@@ -207,44 +192,14 @@ function createLocalGraphSuggestionResult(
   focus: FocusContext,
 ): LocalGraphSuggestionResult {
   const payload = buildLocalPayload(summary, focus);
-  const focusPouName = focus.segment.pouName || summary.pouName;
-  const focusPouType = focus.segment.pouType || summary.pouType;
 
   return {
     diagramPath,
     payload,
-    summary: {
-      sourcePath: summary.sourcePath,
-      pouName: focusPouName,
-      pouType: focusPouType,
-      variableCount: summary.variableCount,
-      suggestionOverview: buildSuggestionOverview(payload.suggestions),
-    },
   };
 }
 
-function buildSuggestionOverview(
-  suggestions: LocalSuggestion[],
-): LocalSuggestionOverview[] {
-  return suggestions.map(summarizeSuggestion);
-}
-
-function summarizeSuggestion(
-  suggestion: LocalSuggestion,
-  index: number,
-): LocalSuggestionOverview {
-  const itemIndex = index + 1;
-  const add = suggestedNodeLabel(suggestion);
-
-  return {
-    index: itemIndex,
-    add,
-    title: suggestionOverviewTitle(suggestion, add),
-    text: suggestion.text,
-  };
-}
-
-function suggestionOverviewTitle(
+function suggestionTitle(
   suggestion: LocalSuggestion,
   add: string,
 ): string {
@@ -869,18 +824,27 @@ function toLocalSuggestion(
     draft.endNodes ?? inferEndNodes(draft),
     "forward",
   );
+  const position = draft.position ?? inferPosition(draft);
+  const serialOrParallel =
+    draft.serialOrParallel ?? inferSerialOrParallel(draft);
+  const addNode = {
+    [newNodeId]: newNode,
+  };
 
-  return {
+  const suggestion: LocalSuggestion = {
     id,
+    title: "",
     startNodes,
     endNodes,
-    position: draft.position ?? inferPosition(draft),
-    serialOrParallel:
-      draft.serialOrParallel ?? inferSerialOrParallel(draft),
+    position,
+    serialOrParallel,
     text: draft.placement.text,
-    addNode: {
-      [newNodeId]: newNode,
-    },
+    addNode,
+  };
+
+  return {
+    ...suggestion,
+    title: suggestionTitle(suggestion, suggestedNodeLabel(suggestion)),
   };
 }
 

@@ -103,26 +103,24 @@ export async function run(): Promise<void> {
     (byNode.payload?.suggestions?.length ?? 0) > 0,
     "expected suggestions for selectedNodeId",
   );
-  const firstOverview = (
-    byNode as {
-      summary?: {
-        suggestionOverview?: Array<Record<string, unknown>>;
-      };
-    }
-  ).summary?.suggestionOverview?.[0];
   assert.strictEqual(
-    typeof firstOverview?.title,
-    "string",
-    "expected short title in suggestion overview",
-  );
-  assert.ok(
-    String(firstOverview?.title ?? "").length > 0,
-    "expected non-empty suggestion overview title",
+    (byNode as { summary?: unknown }).summary,
+    undefined,
+    "expected no summary field in local graph result",
   );
   const firstSuggestion = byNode.payload?.suggestions?.[0] as
     | Record<string, unknown>
     | undefined;
   assert.ok(firstSuggestion, "expected first suggestion");
+  assert.strictEqual(
+    typeof firstSuggestion.title,
+    "string",
+    "expected short title in suggestion",
+  );
+  assert.ok(
+    String(firstSuggestion.title ?? "").length > 0,
+    "expected non-empty suggestion title",
+  );
   assert.ok(
     Array.isArray(firstSuggestion.startNodes),
     "expected startNodes array in suggestion",

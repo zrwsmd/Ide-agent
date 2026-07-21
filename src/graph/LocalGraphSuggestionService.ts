@@ -37,25 +37,9 @@ export interface LocalGraphSuggestionPayload {
   suggestions: LocalSuggestion[];
 }
 
-export interface LocalSuggestionOverview {
-  index: number;
-  add: string;
-  title: string;
-  text: string;
-}
-
-export interface LocalGraphSuggestionSummary {
-  sourcePath: string;
-  pouName: string;
-  pouType: string;
-  variableCount: number;
-  suggestionOverview: LocalSuggestionOverview[];
-}
-
 export interface LocalGraphSuggestionResult {
   diagramPath: string;
   payload: LocalGraphSuggestionPayload;
-  summary: LocalGraphSuggestionSummary;
 }
 
 interface FocusContext {
@@ -118,6 +102,7 @@ interface SuggestedGraphNode {
 
 interface LocalSuggestion {
   id: string;
+  title: string;
   startNodes: string[];
   endNodes: string[];
   position: LocalSuggestionPosition;
@@ -258,9 +243,8 @@ export class LocalGraphSuggestionService {
     );
     this.log(`local graph suggestions count=${result.payload.suggestions.length}`);
     for (const [index, suggestion] of result.payload.suggestions.entries()) {
-      const overview = summarizeSuggestion(suggestion, index);
       this.log(
-        `local graph suggestion #${overview.index} position=${suggestion.position} serialOrParallel=${suggestion.serialOrParallel} start=${suggestion.startNodes.join(",")} end=${suggestion.endNodes.join(",")} add=${overview.add}`,
+        `local graph suggestion #${index + 1} title=${suggestion.title} position=${suggestion.position} serialOrParallel=${suggestion.serialOrParallel} start=${suggestion.startNodes.join(",")} end=${suggestion.endNodes.join(",")} add=${suggestedNodeLabel(suggestion)}`,
       );
     }
     const payloadText = JSON.stringify(result.payload, null, 2);
@@ -285,15 +269,6 @@ export class LocalGraphSuggestionService {
     focus: FocusContext,
   ): LocalGraphSuggestionResult {
     const payload = buildLocalPayload(summary, focus);
-    const focusPouName = focus.segment.pouName || summary.pouName;
-    const focusPouType = focus.segment.pouType || summary.pouType;
-    const resultSummary = {
-      sourcePath: summary.sourcePath,
-      pouName: focusPouName,
-      pouType: focusPouType,
-      variableCount: summary.variableCount,
-      suggestionOverview: buildSuggestionOverview(payload.suggestions),
-    };
 
     this.log(
       `local graph result path=${diagramPath} source=${focus.source} nodeId=${getFocusId(focus)} insertionPoint=${focus.insertionPoint?.id ?? ""} suggestions=${payload.suggestions.length}`,
@@ -302,33 +277,11 @@ export class LocalGraphSuggestionService {
     return {
       diagramPath,
       payload,
-      summary: resultSummary,
     };
   }
 }
 
-function buildSuggestionOverview(
-  suggestions: LocalSuggestion[],
-): LocalSuggestionOverview[] {
-  return suggestions.map(summarizeSuggestion);
-}
-
-function summarizeSuggestion(
-  suggestion: LocalSuggestion,
-  index: number,
-): LocalSuggestionOverview {
-  const itemIndex = index + 1;
-  const add = suggestedNodeLabel(suggestion);
-
-  return {
-    index: itemIndex,
-    add,
-    title: suggestionOverviewTitle(suggestion, add),
-    text: suggestion.text,
-  };
-}
-
-function suggestionOverviewTitle(
+function suggestionTitle(
   suggestion: LocalSuggestion,
   add: string,
 ): string {
@@ -953,18 +906,27 @@ function toLocalSuggestion(
     draft.endNodes ?? inferEndNodes(draft),
     "forward",
   );
+  const position = draft.position ?? inferPosition(draft);
+  const serialOrParallel =
+    draft.serialOrParallel ?? inferSerialOrParallel(draft);
+  const addNode = {
+    [newNodeId]: newNode,
+  };
 
-  return {
+  const suggestion: LocalSuggestion = {
     id,
+    title: "",
     startNodes,
     endNodes,
-    position: draft.position ?? inferPosition(draft),
-    serialOrParallel:
-      draft.serialOrParallel ?? inferSerialOrParallel(draft),
+    position,
+    serialOrParallel,
     text: draft.placement.text,
-    addNode: {
-      [newNodeId]: newNode,
-    },
+    addNode,
+  };
+
+  return {
+    ...suggestion,
+    title: suggestionTitle(suggestion, suggestedNodeLabel(suggestion)),
   };
 }
 
