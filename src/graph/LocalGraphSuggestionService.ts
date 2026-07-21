@@ -1203,7 +1203,7 @@ function toSuggestedPort([name, type, scope]: [
 ]): SuggestedPort {
   return {
     name,
-    value: "",
+    value: name === "EN" || name === "ENO" ? "" : "???",
     type,
     scope,
   };
