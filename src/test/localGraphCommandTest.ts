@@ -166,6 +166,7 @@ export async function run(): Promise<void> {
     !("anchorNodeVar" in firstSuggestion),
     "suggestion should not repeat payload anchorNodeVar",
   );
+  assertFunctionBlockSuggestionVarName(byNode.payload?.suggestions);
   assertNoAuxiliaryBoundaryIds(
     byNode.payload?.suggestions,
     "selectedNodeId suggestions",
@@ -568,4 +569,40 @@ function getSuggestedNodeType(suggestion: Record<string, unknown>): string {
   return typeof firstNode === "object" && firstNode !== null
     ? String((firstNode as Record<string, unknown>).type ?? "")
     : "";
+}
+
+function assertFunctionBlockSuggestionVarName(
+  suggestions: unknown[] | undefined,
+): void {
+  const functionBlockSuggestion = suggestions
+    ?.map((suggestion) => suggestion as Record<string, unknown>)
+    .find((suggestion) => getSuggestedNodeType(suggestion) === "FBDCompartment");
+
+  if (!functionBlockSuggestion) {
+    return;
+  }
+
+  const addNode = functionBlockSuggestion.addNode as
+    | Record<string, unknown>
+    | undefined;
+  const functionBlockNode = addNode
+    ? (Object.values(addNode)[0] as Record<string, unknown> | undefined)
+    : undefined;
+  const childrenNode = functionBlockNode?.childrenNode as
+    | Record<string, unknown>
+    | undefined;
+  const varName = childrenNode?.varName as
+    | Record<string, unknown>
+    | undefined;
+
+  assert.ok(varName, "expected function block suggestion childrenNode.varName");
+  assert.strictEqual(
+    typeof varName.value,
+    "string",
+    "expected function block instance value",
+  );
+  assert.ok(
+    String(varName.value ?? "").length > 0,
+    "expected non-empty function block instance placeholder",
+  );
 }

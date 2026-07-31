@@ -98,6 +98,7 @@ export interface SuggestedGraphNode {
   childrenNode?: {
     type: string;
     isFunction: boolean;
+    varName: SuggestedVarName;
     portInputs: SuggestedPort[];
     portOutputs: SuggestedPort[];
   };
@@ -959,6 +960,13 @@ function createSuggestedNode(
       childrenNode: {
         type: blockType,
         isFunction: false,
+        varName: {
+          name: "",
+          value:
+            addElement.instanceName || addElement.variableName || "???",
+          type: blockType,
+          scope: "VAR",
+        },
         portInputs: functionBlockInputPorts(blockType),
         portOutputs: functionBlockOutputPorts(blockType),
       },
