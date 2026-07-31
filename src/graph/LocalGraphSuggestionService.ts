@@ -897,16 +897,10 @@ function toLocalSuggestion(
   const id = `local-${index + 1}`;
   const newNodeId = createSuggestedNodeId(draft.addElement, id);
   const newNode = createSuggestedNode(newNodeId, draft.addElement);
-  const startNodes = resolveBoundaryNodeIds(
-    segment,
-    draft.startNodes ?? inferStartNodes(draft),
-    "backward",
-  );
-  const endNodes = resolveBoundaryNodeIds(
-    segment,
-    draft.endNodes ?? inferEndNodes(draft),
-    "forward",
-  );
+  const rawStartNodes = draft.startNodes ?? inferStartNodes(draft);
+  const rawEndNodes = draft.endNodes ?? inferEndNodes(draft);
+  const startNodes = resolveBoundaryNodeIds(segment, rawStartNodes, "backward");
+  const endNodes = resolveSuggestionEndNodeIds(segment, draft, rawEndNodes);
   const position = draft.position ?? inferPosition(draft);
   const serialOrParallel =
     draft.serialOrParallel ?? inferSerialOrParallel(draft);
@@ -981,6 +975,62 @@ function resolveBoundaryNodeIds(
 
     const realNodes = collectNearestDisplayNodes(segment, [node.id], direction);
     resolved.push(...realNodes.map((item) => item.id));
+  }
+
+  return normalizeNodeIds(resolved);
+}
+
+function resolveSuggestionEndNodeIds(
+  segment: DiagramSegmentSummary,
+  draft: LocalSuggestionDraft,
+  nodeIds: string[] | undefined,
+): string[] {
+  const anchorNode = findNode(segment, draft.placement.anchorNodeId);
+  const directInsertionTargets = new Set(
+    anchorNode ? directInsertionPointTargetIds(segment, anchorNode) : [],
+  );
+  const directInsertionSources = new Set(
+    anchorNode ? directInsertionPointSourceIds(segment, anchorNode) : [],
+  );
+  const resolved: string[] = [];
+
+  for (const nodeId of nodeIds ?? []) {
+    const trimmed = nodeId.trim();
+    if (!trimmed) {
+      continue;
+    }
+
+    if (directInsertionTargets.has(trimmed) || directInsertionSources.has(trimmed)) {
+      resolved.push(trimmed);
+      continue;
+    }
+
+    if (
+      anchorNode &&
+      draft.placement.relationToFocus === "beforeSelected" &&
+      trimmed === anchorNode.id &&
+      directInsertionSources.size > 0
+    ) {
+      resolved.push(...directInsertionSources);
+      continue;
+    }
+
+    if (anchorNode) {
+      const rightNode = findNode(segment, trimmed);
+      if (rightNode && isRealGraphElementKind(rightNode.kind)) {
+        const insertionTargets = directInsertionPointTargetsBeforeNode(
+          segment,
+          anchorNode,
+          rightNode,
+        );
+        if (insertionTargets.length) {
+          resolved.push(...insertionTargets);
+          continue;
+        }
+      }
+    }
+
+    resolved.push(...resolveBoundaryNodeIds(segment, [trimmed], "forward"));
   }
 
   return normalizeNodeIds(resolved);
@@ -1840,6 +1890,43 @@ function neighborNodes(
   return nodes;
 }
 
+function directInsertionPointSourceIds(
+  segment: DiagramSegmentSummary,
+  node: DiagramNodeSummary,
+): string[] {
+  return normalizeNodeIds(
+    node.from.filter((nodeId) => {
+      const sourceNode = findNode(segment, nodeId);
+      return Boolean(sourceNode && isInsertionPointKind(sourceNode.kind));
+    }),
+  );
+}
+
+function directInsertionPointTargetIds(
+  segment: DiagramSegmentSummary,
+  node: DiagramNodeSummary,
+): string[] {
+  return normalizeNodeIds(
+    node.to.filter((nodeId) => {
+      const targetNode = findNode(segment, nodeId);
+      return Boolean(targetNode && isInsertionPointKind(targetNode.kind));
+    }),
+  );
+}
+
+function directInsertionPointTargetsBeforeNode(
+  segment: DiagramSegmentSummary,
+  sourceNode: DiagramNodeSummary,
+  rightNode: DiagramNodeSummary,
+): string[] {
+  return directInsertionPointTargetIds(segment, sourceNode).filter(
+    (insertionPointId) =>
+      collectNearestDisplayNodes(segment, [insertionPointId], "forward").some(
+        (node) => node.id === rightNode.id,
+      ),
+  );
+}
+
 function findOutsideBehindStartNodes(
   segment: DiagramSegmentSummary,
   anchorNode: DiagramNodeSummary,
@@ -2037,6 +2124,10 @@ function isRealGraphElementKind(kind: string): boolean {
 
 function isBoundaryLineKind(kind: string): boolean {
   return kind === "startLine" || kind === "endLine";
+}
+
+function isInsertionPointKind(kind: string): boolean {
+  return kind === "editRect" || kind === "branchRect";
 }
 
 function first(values: string[] | undefined): string {
