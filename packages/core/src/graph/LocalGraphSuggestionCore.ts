@@ -94,6 +94,8 @@ export interface SuggestedPort {
 export interface SuggestedGraphNode {
   id: string;
   type: string;
+  sourceIds?: string[];
+  targetIds?: string[];
   varName?: SuggestedVarName;
   childrenNode?: {
     type: string;
@@ -822,6 +824,14 @@ function toLocalSuggestion(
   const position = draft.position ?? inferPosition(draft);
   const serialOrParallel =
     draft.serialOrParallel ?? inferSerialOrParallel(draft);
+  const nodeLinks = createSuggestedNodeLinks(
+    segment,
+    draft.addElement.nodeType,
+    startNodes,
+    endNodes,
+  );
+  newNode.sourceIds = nodeLinks.sourceIds;
+  newNode.targetIds = nodeLinks.targetIds;
   const addNode = {
     [newNodeId]: newNode,
   };
@@ -1032,6 +1042,25 @@ function createSuggestedNode(
       type: addElement.dataType || "BOOL",
       scope: "VAR",
     },
+  };
+}
+
+function createSuggestedNodeLinks(
+  segment: DiagramSegmentSummary,
+  nodeType: string,
+  startNodes: string[],
+  endNodes: string[],
+): { sourceIds: string[]; targetIds: string[] } {
+  if (isCoilKind(nodeType) && endNodes.some((nodeId) => isInsertionPointId(segment, nodeId))) {
+    return {
+      sourceIds: endNodes,
+      targetIds: [],
+    };
+  }
+
+  return {
+    sourceIds: startNodes,
+    targetIds: endNodes,
   };
 }
 
@@ -1940,6 +1969,14 @@ function isBoundaryLineKind(kind: string): boolean {
 
 function isInsertionPointKind(kind: string): boolean {
   return kind === "editRect" || kind === "branchRect";
+}
+
+function isInsertionPointId(
+  segment: DiagramSegmentSummary,
+  nodeId: string,
+): boolean {
+  const node = findNode(segment, nodeId);
+  return Boolean(node && isInsertionPointKind(node.kind));
 }
 
 function first(values: string[] | undefined): string {
