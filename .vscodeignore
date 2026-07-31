@@ -17,6 +17,7 @@ ide-agent-flow.txt
 local-graph-suggestion-rules.txt
 plc-ladder-json-prompts.txt
 complex_parallel_ladder_requirements_1_20.txt
+infer_parallel_ladder_requirements_1_20.txt
 dist/**/*.map
 dist/test/**
 dist/**/*.ts
