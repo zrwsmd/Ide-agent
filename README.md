@@ -467,6 +467,20 @@ src/llm/*
 
 本地图建议逻辑已经抽成独立 core 包，普通 TypeScript/Node 项目可以直接调用：
 
+GitHub 仓库地址：
+
+```text
+https://github.com/zrwsmd/ide-agent-core
+```
+
+安装：
+
+```bash
+npm install github:zrwsmd/ide-agent-core
+```
+
+安装后按包名 `@ide-agent/core` 引入：
+
 ```ts
 import { getLocalGraphSuggestions } from "@ide-agent/core";
 
