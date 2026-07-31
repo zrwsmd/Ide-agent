@@ -612,12 +612,6 @@ function addCoilSuggestions(
       addElement: coilElement(),
     }),
     makeSuggestion(focus, {
-      mode: "replaceSelected",
-      relationToFocus: "replaceSelected",
-      text: `将${nodeText}改成置位线圈`,
-      addElement: setCoilElement(node.var),
-    }),
-    makeSuggestion(focus, {
       mode: "seriesBefore",
       relationToFocus: "beforeSelected",
       insertAfterNodeId: first(node.from),
@@ -626,6 +620,8 @@ function addCoilSuggestions(
       addElement: functionBlockElement(),
     }),
   );
+
+  addCoilReplaceSuggestions(suggestions, focus, nodeText);
 }
 
 function addInsertionPointSuggestions(
@@ -1315,14 +1311,14 @@ function contactElement(): LocalSuggestionAddElement {
   };
 }
 
-function coilElement(): LocalSuggestionAddElement {
+function coilElement(variableName = ""): LocalSuggestionAddElement {
   return {
     nodeType: "coil",
     displayLabel: "输出线圈",
-    variableSource: "userInput",
-    variableName: "",
+    variableSource: variableName ? "existingVariable" : "userInput",
+    variableName,
     dataType: "BOOL",
-    userInputRequired: true,
+    userInputRequired: !variableName,
     blockType: "",
     instanceSource: "",
     instanceName: "",
@@ -1333,6 +1329,20 @@ function setCoilElement(variableName = ""): LocalSuggestionAddElement {
   return {
     nodeType: "setCoil",
     displayLabel: "置位线圈",
+    variableSource: variableName ? "existingVariable" : "userInput",
+    variableName,
+    dataType: "BOOL",
+    userInputRequired: !variableName,
+    blockType: "",
+    instanceSource: "",
+    instanceName: "",
+  };
+}
+
+function resetCoilElement(variableName = ""): LocalSuggestionAddElement {
+  return {
+    nodeType: "resetCoil",
+    displayLabel: "复位线圈",
     variableSource: variableName ? "existingVariable" : "userInput",
     variableName,
     dataType: "BOOL",
@@ -1741,6 +1751,54 @@ function directInsertionPointSourceIds(
       return Boolean(sourceNode && isInsertionPointKind(sourceNode.kind));
     }),
   );
+}
+
+function addCoilReplaceSuggestions(
+  suggestions: LocalSuggestionDraft[],
+  focus: FocusContext,
+  nodeText: string,
+): void {
+  const node = focus.node;
+  if (!node) {
+    return;
+  }
+
+  const replaceTargets: Array<{
+    kind: string;
+    label: string;
+    addElement: LocalSuggestionAddElement;
+  }> = [
+    {
+      kind: "coil",
+      label: "普通线圈",
+      addElement: coilElement(node.var),
+    },
+    {
+      kind: "setCoil",
+      label: "置位线圈",
+      addElement: setCoilElement(node.var),
+    },
+    {
+      kind: "resetCoil",
+      label: "复位线圈",
+      addElement: resetCoilElement(node.var),
+    },
+  ];
+
+  for (const target of replaceTargets) {
+    if (node.kind === target.kind) {
+      continue;
+    }
+
+    suggestions.push(
+      makeSuggestion(focus, {
+        mode: "replaceSelected",
+        relationToFocus: "replaceSelected",
+        text: `将${nodeText}改成${target.label}`,
+        addElement: target.addElement,
+      }),
+    );
+  }
 }
 
 function directInsertionPointTargetIds(
