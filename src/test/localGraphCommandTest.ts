@@ -5,7 +5,7 @@ import * as vscode from "vscode";
 import { loadDiagramSummary } from "../diagram/DiagramSummary";
 
 const DIAGRAM_PATH =
-  "C:\\Users\\Administrator\\.vscode\\extensions\\ytak.devuni-ide-vscode-1.0.21\\tool\\iec-runtime-gen-run\\.depworkspace\\transLd.txt";
+  "E:\\bbb\\1785489875402.txt";
 const SUGGESTABLE_NODE_KINDS = new Set([
   "contact",
   "negatedContact",
@@ -37,26 +37,48 @@ export async function run(): Promise<void> {
         .map((node) => node.id),
     ),
   );
-  const assertNoAuxiliaryBoundaryIds = (
+  const assertNoAuxiliaryBoundaryText = (
     suggestions: unknown[] | undefined,
     label: string,
   ): void => {
     for (const suggestion of suggestions ?? []) {
       const record = suggestion as Record<string, unknown>;
-      const startNodes = Array.isArray(record.startNodes)
-        ? record.startNodes
-        : [];
-      const endNodes = Array.isArray(record.endNodes) ? record.endNodes : [];
-      const leakedIds = [...startNodes, ...endNodes].filter(
-        (id): id is string =>
-          typeof id === "string" && auxiliaryBoundaryIds.has(id),
-      );
-      assert.deepStrictEqual(
-        leakedIds,
-        [],
-        `${label} should not expose auxiliary boundary ids`,
-      );
+      const text = String(record.text ?? "");
+      for (const id of auxiliaryBoundaryIds) {
+        assert.ok(
+          !text.includes(id),
+          `${label} should not describe auxiliary boundary ids as real nodes`,
+        );
+      }
     }
+  };
+  const assertLeftRailBranchFrontSuggestions = (
+    suggestions: unknown[] | undefined,
+    selectedNodeId: string,
+  ): void => {
+    const records = (suggestions ?? []) as Array<Record<string, unknown>>;
+    assert.ok(
+      records.some(
+        (record) =>
+          record.position === "front" &&
+          Array.isArray(record.startNodes) &&
+          record.startNodes.includes("edit-node-rect") &&
+          Array.isArray(record.endNodes) &&
+          record.endNodes.includes(selectedNodeId),
+      ),
+      "expected branch-internal front suggestion from edit-node-rect to selected node",
+    );
+    assert.ok(
+      records.some(
+        (record) =>
+          record.position === "outsideFront" &&
+          Array.isArray(record.startNodes) &&
+          record.startNodes.includes("start-node-line") &&
+          Array.isArray(record.endNodes) &&
+          record.endNodes.includes("edit-node-rect"),
+      ),
+      "expected outside-front suggestion from start-node-line to edit-node-rect",
+    );
   };
   const selectedNodeEntry = summary.segments
     .flatMap((segment) =>
@@ -167,7 +189,7 @@ export async function run(): Promise<void> {
     "suggestion should not repeat payload anchorNodeVar",
   );
   assertFunctionBlockSuggestionVarName(byNode.payload?.suggestions);
-  assertNoAuxiliaryBoundaryIds(
+  assertNoAuxiliaryBoundaryText(
     byNode.payload?.suggestions,
     "selectedNodeId suggestions",
   );
@@ -195,9 +217,37 @@ export async function run(): Promise<void> {
       selectedNodeId: coilWithAuxiliaryInput.node.id,
     });
     assert.ok(byCoil, "expected command result for coil with auxiliary input");
-    assertNoAuxiliaryBoundaryIds(
+    assertNoAuxiliaryBoundaryText(
       byCoil.payload?.suggestions,
       "coil suggestions",
+    );
+  }
+
+  const leftRailBranchCoil = summary.segments
+    .flatMap((segment) =>
+      segment.nodes.map((node) => ({
+        segment,
+        node,
+      })),
+    )
+    .find((entry) => entry.node.id === "coil-qMtHZ2-1785485500620");
+  if (leftRailBranchCoil) {
+    const byLeftRailBranchCoil = await vscode.commands.executeCommand<{
+      payload?: {
+        suggestions?: unknown[];
+      };
+    }>("ide-agent.getLocalGraphSuggestions", {
+      diagramPath: DIAGRAM_PATH,
+      segmentId: leftRailBranchCoil.segment.segmentId,
+      selectedNodeId: leftRailBranchCoil.node.id,
+    });
+    assert.ok(
+      byLeftRailBranchCoil,
+      "expected command result for left rail branch coil",
+    );
+    assertLeftRailBranchFrontSuggestions(
+      byLeftRailBranchCoil.payload?.suggestions,
+      leftRailBranchCoil.node.id,
     );
   }
 

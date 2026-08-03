@@ -135,6 +135,7 @@ interface LocalSuggestionDraft {
   };
   startNodes?: string[];
   endNodes?: string[];
+  preserveStartNodes?: boolean;
   position?: LocalSuggestionPosition;
   serialOrParallel?: LocalSuggestionSerialOrParallel;
   addElement: LocalSuggestionAddElement;
@@ -348,8 +349,18 @@ function addContactSuggestions(
   const leftNodes = neighborNodes(focus.segment, node.from, "backward");
   const rightNodes = neighborNodes(focus.segment, node.to, "forward");
   const nodeText = nodePlacementLabelWithSegment(focus.segment, node);
+  const leftRailInsertionPoint =
+    findLeftRailInsertionPointBeforeNode(focus.segment, node);
 
-  if (leftNodes.length) {
+  if (leftRailInsertionPoint) {
+    addFrontSerialSuggestions(suggestions, focus, nodeText, {
+      text: (targetText) => `在${targetText}前串联一个常开触点`,
+      outsideText: (targetText) =>
+        `在${targetText}所在分支组前串联一个常开触点`,
+      addElement: contactElement(),
+      leftRailInsertionPoint,
+    });
+  } else if (leftNodes.length) {
     for (const leftNode of leftNodes) {
       const leftText = nodePlacementLabelWithSegment(focus.segment, leftNode);
       suggestions.push(
@@ -448,8 +459,10 @@ function addContactSuggestions(
       parallelToNodeId: node.id,
       branchFromNodeId: first(node.from),
       branchToNodeId: first(node.to),
-      startNodes: resolveBoundaryNodeIds(focus.segment, node.from, "backward"),
+      startNodes: getParallelStartNodePlan(focus.segment, node).startNodes,
       endNodes: resolveBoundaryNodeIds(focus.segment, node.to, "forward"),
+      preserveStartNodes: getParallelStartNodePlan(focus.segment, node)
+        .preserveStartNodes,
       text: `与${nodeText}并联一个常开触点`,
       addElement: contactElement(),
     }),
@@ -459,8 +472,10 @@ function addContactSuggestions(
       parallelToNodeId: node.id,
       branchFromNodeId: first(node.from),
       branchToNodeId: first(node.to),
-      startNodes: resolveBoundaryNodeIds(focus.segment, node.from, "backward"),
+      startNodes: getParallelStartNodePlan(focus.segment, node).startNodes,
       endNodes: resolveBoundaryNodeIds(focus.segment, node.to, "forward"),
+      preserveStartNodes: getParallelStartNodePlan(focus.segment, node)
+        .preserveStartNodes,
       text: `与${nodeText}并联一个功能块`,
       addElement: functionBlockElement(),
     }),
@@ -501,8 +516,18 @@ function addFunctionBlockSuggestions(
   const leftNodes = neighborNodes(focus.segment, node.from, "backward");
   const rightNodes = neighborNodes(focus.segment, node.to, "forward");
   const nodeText = nodePlacementLabelWithSegment(focus.segment, node);
+  const leftRailInsertionPoint =
+    findLeftRailInsertionPointBeforeNode(focus.segment, node);
 
-  if (leftNodes.length) {
+  if (leftRailInsertionPoint) {
+    addFrontSerialSuggestions(suggestions, focus, nodeText, {
+      text: (targetText) => `在${targetText}前串联一个常开触点`,
+      outsideText: (targetText) =>
+        `在${targetText}所在分支组前串联一个常开触点`,
+      addElement: contactElement(),
+      leftRailInsertionPoint,
+    });
+  } else if (leftNodes.length) {
     for (const leftNode of leftNodes) {
       const leftText = nodePlacementLabelWithSegment(focus.segment, leftNode);
       suggestions.push(
@@ -590,6 +615,92 @@ function addCoilSuggestions(
   }
 
   const nodeText = nodePlacementLabelWithSegment(focus.segment, node);
+  const leftRailInsertionPoint =
+    findLeftRailInsertionPointBeforeNode(focus.segment, node);
+
+  addFrontSerialSuggestions(suggestions, focus, nodeText, {
+    text: (targetText) => `在${targetText}前串联一个常开触点`,
+    outsideText: (targetText) =>
+      `在${targetText}所在分支组前串联一个常开触点`,
+    addElement: contactElement(),
+    leftRailInsertionPoint,
+  });
+
+  suggestions.push(
+    makeSuggestion(focus, {
+      mode: "parallelBranch",
+      relationToFocus: "parallelWithSelected",
+      parallelToNodeId: node.id,
+      branchFromNodeId: first(node.from),
+      branchToNodeId: first(node.to),
+      startNodes: getParallelStartNodePlan(focus.segment, node).startNodes,
+      endNodes: resolveBoundaryNodeIds(focus.segment, node.to, "forward"),
+      preserveStartNodes: getParallelStartNodePlan(focus.segment, node)
+        .preserveStartNodes,
+      text: `与${nodeText}并联一个线圈`,
+      addElement: coilElement(),
+    }),
+  );
+
+  addFrontSerialSuggestions(suggestions, focus, nodeText, {
+    text: (targetText) => `在${targetText}前插入一个功能块`,
+    outsideText: (targetText) => `在${targetText}所在分支组前插入一个功能块`,
+    addElement: functionBlockElement(),
+    leftRailInsertionPoint,
+  });
+
+  addCoilReplaceSuggestions(suggestions, focus, nodeText);
+}
+
+function addFrontSerialSuggestions(
+  suggestions: LocalSuggestionDraft[],
+  focus: FocusContext,
+  nodeText: string,
+  input: {
+    text: (targetText: string) => string;
+    outsideText: (targetText: string) => string;
+    addElement: LocalSuggestionAddElement;
+    leftRailInsertionPoint:
+      | { insertionPointId: string; sourceIds: string[] }
+      | undefined;
+  },
+): void {
+  const node = focus.node;
+  if (!node) {
+    return;
+  }
+
+  if (input.leftRailInsertionPoint) {
+    suggestions.push(
+      makeSuggestion(focus, {
+        mode: "seriesBefore",
+        relationToFocus: "atInsertionPoint",
+        insertAfterNodeId: input.leftRailInsertionPoint.insertionPointId,
+        insertBeforeNodeId: node.id,
+        startNodes: [input.leftRailInsertionPoint.insertionPointId],
+        endNodes: [node.id],
+        preserveStartNodes: true,
+        position: "front",
+        serialOrParallel: "serial",
+        text: input.text(nodeText),
+        addElement: input.addElement,
+      }),
+      makeSuggestion(focus, {
+        mode: "seriesBefore",
+        relationToFocus: "atInsertionPoint",
+        insertAfterNodeId: first(input.leftRailInsertionPoint.sourceIds),
+        insertBeforeNodeId: input.leftRailInsertionPoint.insertionPointId,
+        startNodes: input.leftRailInsertionPoint.sourceIds,
+        endNodes: [input.leftRailInsertionPoint.insertionPointId],
+        preserveStartNodes: true,
+        position: "outsideFront",
+        serialOrParallel: "serial",
+        text: input.outsideText(nodeText),
+        addElement: input.addElement,
+      }),
+    );
+    return;
+  }
 
   suggestions.push(
     makeSuggestion(focus, {
@@ -597,31 +708,10 @@ function addCoilSuggestions(
       relationToFocus: "beforeSelected",
       insertAfterNodeId: first(node.from),
       insertBeforeNodeId: node.id,
-      text: `在${nodeText}前串联一个常开触点`,
-      addElement: contactElement(),
-    }),
-    makeSuggestion(focus, {
-      mode: "parallelBranch",
-      relationToFocus: "parallelWithSelected",
-      parallelToNodeId: node.id,
-      branchFromNodeId: first(node.from),
-      branchToNodeId: first(node.to),
-      startNodes: resolveBoundaryNodeIds(focus.segment, node.from, "backward"),
-      endNodes: resolveBoundaryNodeIds(focus.segment, node.to, "forward"),
-      text: `与${nodeText}并联一个线圈`,
-      addElement: coilElement(),
-    }),
-    makeSuggestion(focus, {
-      mode: "seriesBefore",
-      relationToFocus: "beforeSelected",
-      insertAfterNodeId: first(node.from),
-      insertBeforeNodeId: node.id,
-      text: `在${nodeText}前插入一个功能块`,
-      addElement: functionBlockElement(),
+      text: input.text(nodeText),
+      addElement: input.addElement,
     }),
   );
-
-  addCoilReplaceSuggestions(suggestions, focus, nodeText);
 }
 
 function addInsertionPointSuggestions(
@@ -769,6 +859,7 @@ function makeSuggestion(
     portName?: string;
     startNodes?: string[];
     endNodes?: string[];
+    preserveStartNodes?: boolean;
     position?: LocalSuggestionPosition;
     serialOrParallel?: LocalSuggestionSerialOrParallel;
     text: string;
@@ -799,6 +890,7 @@ function makeSuggestion(
     },
     startNodes: input.startNodes,
     endNodes: input.endNodes,
+    preserveStartNodes: input.preserveStartNodes,
     position: input.position,
     serialOrParallel: input.serialOrParallel,
     addElement,
@@ -815,7 +907,9 @@ function toLocalSuggestion(
   const newNode = createSuggestedNode(newNodeId, draft.addElement);
   const rawStartNodes = draft.startNodes ?? inferStartNodes(draft);
   const rawEndNodes = draft.endNodes ?? inferEndNodes(draft);
-  const startNodes = resolveBoundaryNodeIds(segment, rawStartNodes, "backward");
+  const startNodes = draft.preserveStartNodes
+    ? normalizeNodeIds(rawStartNodes)
+    : resolveBoundaryNodeIds(segment, rawStartNodes, "backward");
   const endNodes = resolveSuggestionEndNodeIds(segment, draft, rawEndNodes);
   const position = draft.position ?? inferPosition(draft);
   const serialOrParallel =
@@ -1751,6 +1845,54 @@ function directInsertionPointSourceIds(
       return Boolean(sourceNode && isInsertionPointKind(sourceNode.kind));
     }),
   );
+}
+
+function findLeftRailInsertionPointBeforeNode(
+  segment: DiagramSegmentSummary,
+  node: DiagramNodeSummary,
+): { insertionPointId: string; sourceIds: string[] } | undefined {
+  for (const insertionPointId of directInsertionPointSourceIds(segment, node)) {
+    const insertionPoint = findNode(segment, insertionPointId);
+    if (!insertionPoint) {
+      continue;
+    }
+
+    const sourceIds = normalizeNodeIds(
+      insertionPoint.from.filter((sourceId) => {
+        const sourceNode = findNode(segment, sourceId);
+        return sourceNode?.kind === "startLine";
+      }),
+    );
+    if (sourceIds.length > 0) {
+      return {
+        insertionPointId,
+        sourceIds,
+      };
+    }
+  }
+
+  return undefined;
+}
+
+function getParallelStartNodePlan(
+  segment: DiagramSegmentSummary,
+  node: DiagramNodeSummary,
+): { startNodes: string[]; preserveStartNodes: boolean } {
+  const leftRailInsertionPoint = findLeftRailInsertionPointBeforeNode(
+    segment,
+    node,
+  );
+  if (leftRailInsertionPoint) {
+    return {
+      startNodes: [leftRailInsertionPoint.insertionPointId],
+      preserveStartNodes: true,
+    };
+  }
+
+  return {
+    startNodes: resolveBoundaryNodeIds(segment, node.from, "backward"),
+    preserveStartNodes: false,
+  };
 }
 
 function addCoilReplaceSuggestions(
