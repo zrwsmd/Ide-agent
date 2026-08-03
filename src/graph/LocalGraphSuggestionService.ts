@@ -68,6 +68,7 @@ type LocalSuggestionSerialOrParallel = "serial" | "parallel" | "replace";
 interface OutputCoilPlan {
   startNodes?: string[];
   endNodes?: string[];
+  preserveStartNodes?: boolean;
   position?: LocalSuggestionPosition;
   serialOrParallel?: LocalSuggestionSerialOrParallel;
   text: (nodeText: string) => string;
@@ -577,6 +578,7 @@ function addContactSuggestions(
         insertBeforeNodeId: first(node.to),
         startNodes: outputPlan.startNodes,
         endNodes: outputPlan.endNodes,
+        preserveStartNodes: outputPlan.preserveStartNodes,
         position: outputPlan.position,
         serialOrParallel: outputPlan.serialOrParallel,
         text: graphState.isPartialGraph
@@ -651,6 +653,7 @@ function addFunctionBlockSuggestions(
         portName: firstOutputPort,
         startNodes: outputPlan.startNodes,
         endNodes: outputPlan.endNodes,
+        preserveStartNodes: outputPlan.preserveStartNodes,
         position: outputPlan.position,
         serialOrParallel: outputPlan.serialOrParallel,
         text: graphState.isPartialGraph
@@ -1717,6 +1720,21 @@ function createOutputCoilPlan(
   segment: DiagramSegmentSummary,
   node: DiagramNodeSummary,
 ): OutputCoilPlan {
+  const directInsertionTargets = directInsertionPointTargetIds(segment, node);
+  if (directInsertionTargets.length > 0) {
+    const suffix = node.kind === "FBDCompartment" ? "输出端后" : "后";
+    return {
+      startNodes: directInsertionTargets,
+      endNodes: [],
+      preserveStartNodes: true,
+      position: "behind",
+      serialOrParallel: "serial",
+      text: (nodeText) => `在${nodeText}${suffix}添加一个线圈`,
+      partialText: (nodeText) =>
+        `当前回路还没有输出节点，在${nodeText}${suffix}添加一个线圈`,
+    };
+  }
+
   const outsideStartNodes = findParallelOutputStartNodeIds(segment, node);
   if (outsideStartNodes.length > 1) {
     return {
