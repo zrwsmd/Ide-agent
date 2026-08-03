@@ -1878,13 +1878,10 @@ function getParallelStartNodePlan(
   segment: DiagramSegmentSummary,
   node: DiagramNodeSummary,
 ): { startNodes: string[]; preserveStartNodes: boolean } {
-  const leftRailInsertionPoint = findLeftRailInsertionPointBeforeNode(
-    segment,
-    node,
-  );
-  if (leftRailInsertionPoint) {
+  const insertionPointSourceIds = directInsertionPointSourceIds(segment, node);
+  if (insertionPointSourceIds.length > 0) {
     return {
-      startNodes: [leftRailInsertionPoint.insertionPointId],
+      startNodes: insertionPointSourceIds,
       preserveStartNodes: true,
     };
   }
