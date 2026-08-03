@@ -133,6 +133,7 @@ interface LocalSuggestionDraft {
   startNodes?: string[];
   endNodes?: string[];
   preserveStartNodes?: boolean;
+  preserveEndNodes?: boolean;
   position?: LocalSuggestionPosition;
   serialOrParallel?: LocalSuggestionSerialOrParallel;
   addElement: LocalSuggestionAddElement;
@@ -534,6 +535,9 @@ function addContactSuggestions(
     );
   }
 
+  const parallelStartPlan = getParallelStartNodePlan(focus.segment, node);
+  const parallelEndPlan = getParallelEndNodePlan(focus.segment, node);
+
   suggestions.push(
     makeSuggestion(focus, {
       mode: "parallelBranch",
@@ -541,10 +545,10 @@ function addContactSuggestions(
       parallelToNodeId: node.id,
       branchFromNodeId: first(node.from),
       branchToNodeId: first(node.to),
-      startNodes: getParallelStartNodePlan(focus.segment, node).startNodes,
-      endNodes: resolveBoundaryNodeIds(focus.segment, node.to, "forward"),
-      preserveStartNodes: getParallelStartNodePlan(focus.segment, node)
-        .preserveStartNodes,
+      startNodes: parallelStartPlan.startNodes,
+      endNodes: parallelEndPlan.endNodes,
+      preserveStartNodes: parallelStartPlan.preserveStartNodes,
+      preserveEndNodes: parallelEndPlan.preserveEndNodes,
       text: `与${nodeText}并联一个常开触点`,
       addElement: contactElement(),
     }),
@@ -554,10 +558,10 @@ function addContactSuggestions(
       parallelToNodeId: node.id,
       branchFromNodeId: first(node.from),
       branchToNodeId: first(node.to),
-      startNodes: getParallelStartNodePlan(focus.segment, node).startNodes,
-      endNodes: resolveBoundaryNodeIds(focus.segment, node.to, "forward"),
-      preserveStartNodes: getParallelStartNodePlan(focus.segment, node)
-        .preserveStartNodes,
+      startNodes: parallelStartPlan.startNodes,
+      endNodes: parallelEndPlan.endNodes,
+      preserveStartNodes: parallelStartPlan.preserveStartNodes,
+      preserveEndNodes: parallelEndPlan.preserveEndNodes,
       text: `与${nodeText}并联一个功能块`,
       addElement: functionBlockElement(),
     }),
@@ -708,6 +712,9 @@ function addCoilSuggestions(
     leftRailInsertionPoint,
   });
 
+  const parallelStartPlan = getParallelStartNodePlan(focus.segment, node);
+  const parallelEndPlan = getParallelEndNodePlan(focus.segment, node);
+
   suggestions.push(
     makeSuggestion(focus, {
       mode: "parallelBranch",
@@ -715,10 +722,10 @@ function addCoilSuggestions(
       parallelToNodeId: node.id,
       branchFromNodeId: first(node.from),
       branchToNodeId: first(node.to),
-      startNodes: getParallelStartNodePlan(focus.segment, node).startNodes,
-      endNodes: resolveBoundaryNodeIds(focus.segment, node.to, "forward"),
-      preserveStartNodes: getParallelStartNodePlan(focus.segment, node)
-        .preserveStartNodes,
+      startNodes: parallelStartPlan.startNodes,
+      endNodes: parallelEndPlan.endNodes,
+      preserveStartNodes: parallelStartPlan.preserveStartNodes,
+      preserveEndNodes: parallelEndPlan.preserveEndNodes,
       text: `与${nodeText}并联一个线圈`,
       addElement: coilElement(),
     }),
@@ -942,6 +949,7 @@ function makeSuggestion(
     startNodes?: string[];
     endNodes?: string[];
     preserveStartNodes?: boolean;
+    preserveEndNodes?: boolean;
     position?: LocalSuggestionPosition;
     serialOrParallel?: LocalSuggestionSerialOrParallel;
     text: string;
@@ -973,6 +981,7 @@ function makeSuggestion(
     startNodes: input.startNodes,
     endNodes: input.endNodes,
     preserveStartNodes: input.preserveStartNodes,
+    preserveEndNodes: input.preserveEndNodes,
     position: input.position,
     serialOrParallel: input.serialOrParallel,
     addElement,
@@ -992,7 +1001,9 @@ function toLocalSuggestion(
   const startNodes = draft.preserveStartNodes
     ? normalizeNodeIds(rawStartNodes)
     : resolveBoundaryNodeIds(segment, rawStartNodes, "backward");
-  const endNodes = resolveSuggestionEndNodeIds(segment, draft, rawEndNodes);
+  const endNodes = draft.preserveEndNodes
+    ? normalizeNodeIds(rawEndNodes)
+    : resolveSuggestionEndNodeIds(segment, draft, rawEndNodes);
   const position = draft.position ?? inferPosition(draft);
   const serialOrParallel =
     draft.serialOrParallel ?? inferSerialOrParallel(draft);
@@ -2077,6 +2088,24 @@ function getParallelStartNodePlan(
   return {
     startNodes: resolveBoundaryNodeIds(segment, node.from, "backward"),
     preserveStartNodes: false,
+  };
+}
+
+function getParallelEndNodePlan(
+  segment: DiagramSegmentSummary,
+  node: DiagramNodeSummary,
+): { endNodes: string[]; preserveEndNodes: boolean } {
+  const insertionPointTargetIds = directInsertionPointTargetIds(segment, node);
+  if (insertionPointTargetIds.length > 0) {
+    return {
+      endNodes: insertionPointTargetIds,
+      preserveEndNodes: true,
+    };
+  }
+
+  return {
+    endNodes: resolveBoundaryNodeIds(segment, node.to, "forward"),
+    preserveEndNodes: false,
   };
 }
 
