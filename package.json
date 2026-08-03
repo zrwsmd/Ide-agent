@@ -181,6 +181,7 @@
     "compile:core": "npm --prefix packages/core run compile",
     "obfuscate": "node scripts/obfuscate-dist.js",
     "test:local-graph-command": "npm run compile && node scripts/run-local-graph-command-test.js",
+    "test:edit-rect-suggestions": "npm run compile && node scripts/test-edit-rect-suggestions.js",
     "watch": "tsc -watch -p ./",
     "package": "vsce package"
   },

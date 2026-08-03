@@ -333,6 +333,12 @@ Output -> Ide Agent
 cd E:\bbb\Ide-agent
 ```
 
+测试 `edit-node-rect` 边界规则，覆盖“节点右侧是插入点”“选中节点左侧是插入点”“插入点直接来自左母线”等场景：
+
+```powershell
+npm run test:edit-rect-suggestions
+```
+
 测试功能块规则，第二个参数可以传功能块实例名或完整 nodeId。下面示例选中图里的 `CTU n` 功能块：
 
 ```powershell
@@ -589,4 +595,4 @@ LD/FBD 图建议统一返回 `ide-agent.graph-completion.v1` 结构：
 - `Graph Predict + Image` 依赖视觉模型，非视觉模型或较慢供应商可能超时。
 - 大模型图建议的稳定性依赖 ST、图 JSON、截图三者是否对应同一张图。
 - 本地图建议目前需要手动输入节点 id / 插入点 id，后续应由前端直接传入当前选中焦点。
-- 当前没有专门的单元测试，后续建议给 `DiagramSummary`、本地图规则、AI 返回后处理补测试。
+- 已补充本地图规则的命令测试和 `edit-node-rect` 边界回归测试，后续建议继续给 `DiagramSummary`、更多复杂分支拓扑、AI 返回后处理补测试。

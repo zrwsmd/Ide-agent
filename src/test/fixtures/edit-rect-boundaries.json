@@ -1,0 +1,199 @@
+[
+  {
+    "pouName": "EDIT_RECT_TEST",
+    "pouType": "PROGRAM",
+    "variableList": [
+      {
+        "name": "a1",
+        "type": "BOOL",
+        "scope": "VAR"
+      },
+      {
+        "name": "left",
+        "type": "BOOL",
+        "scope": "VAR"
+      },
+      {
+        "name": "out",
+        "type": "BOOL",
+        "scope": "VAR"
+      }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-edit-target",
+        "label": "",
+        "note": "",
+        "height": 180,
+        "width": 520,
+        "isExpand": true,
+        "nodesObj": {
+          "start-node-line": {
+            "id": "start-node-line",
+            "type": "startLine",
+            "Xlayer": 0,
+            "Ylayer": 0,
+            "sourceIds": [],
+            "targetIds": [
+              "contact-a1"
+            ]
+          },
+          "contact-a1": {
+            "id": "contact-a1",
+            "type": "contact",
+            "Xlayer": 1,
+            "Ylayer": 0,
+            "sourceIds": [
+              "start-node-line"
+            ],
+            "targetIds": [
+              "edit-node-rect"
+            ],
+            "varName": {
+              "name": "",
+              "value": "a1",
+              "type": "BOOL",
+              "scope": "VAR"
+            }
+          },
+          "edit-node-rect": {
+            "id": "edit-node-rect",
+            "type": "editRect",
+            "Xlayer": 2,
+            "Ylayer": 0,
+            "sourceIds": [
+              "contact-a1"
+            ],
+            "targetIds": [
+              "end-node-line-target"
+            ]
+          },
+          "end-node-line-target": {
+            "id": "end-node-line-target",
+            "type": "endLine",
+            "Xlayer": 3,
+            "Ylayer": 0,
+            "sourceIds": [
+              "edit-node-rect"
+            ],
+            "targetIds": []
+          }
+        }
+      },
+      {
+        "id": "segment-edit-source",
+        "label": "",
+        "note": "",
+        "height": 180,
+        "width": 520,
+        "isExpand": true,
+        "nodesObj": {
+          "start-node-line": {
+            "id": "start-node-line",
+            "type": "startLine",
+            "Xlayer": 0,
+            "Ylayer": 0,
+            "sourceIds": [],
+            "targetIds": [
+              "contact-left"
+            ]
+          },
+          "contact-left": {
+            "id": "contact-left",
+            "type": "contact",
+            "Xlayer": 1,
+            "Ylayer": 0,
+            "sourceIds": [
+              "start-node-line"
+            ],
+            "targetIds": [
+              "edit-node-rect"
+            ],
+            "varName": {
+              "name": "",
+              "value": "left",
+              "type": "BOOL",
+              "scope": "VAR"
+            }
+          },
+          "edit-node-rect": {
+            "id": "edit-node-rect",
+            "type": "editRect",
+            "Xlayer": 2,
+            "Ylayer": 0,
+            "sourceIds": [
+              "contact-left"
+            ],
+            "targetIds": [
+              "coil-out"
+            ]
+          },
+          "coil-out": {
+            "id": "coil-out",
+            "type": "coil",
+            "Xlayer": 3,
+            "Ylayer": 0,
+            "sourceIds": [
+              "edit-node-rect"
+            ],
+            "targetIds": [],
+            "varName": {
+              "name": "",
+              "value": "out",
+              "type": "BOOL",
+              "scope": "VAR"
+            }
+          }
+        }
+      },
+      {
+        "id": "segment-left-rail-edit-source",
+        "label": "",
+        "note": "",
+        "height": 180,
+        "width": 520,
+        "isExpand": true,
+        "nodesObj": {
+          "start-node-line": {
+            "id": "start-node-line",
+            "type": "startLine",
+            "Xlayer": 0,
+            "Ylayer": 0,
+            "sourceIds": [],
+            "targetIds": [
+              "edit-node-rect"
+            ]
+          },
+          "edit-node-rect": {
+            "id": "edit-node-rect",
+            "type": "editRect",
+            "Xlayer": 1,
+            "Ylayer": 0,
+            "sourceIds": [
+              "start-node-line"
+            ],
+            "targetIds": [
+              "coil-left-rail"
+            ]
+          },
+          "coil-left-rail": {
+            "id": "coil-left-rail",
+            "type": "coil",
+            "Xlayer": 2,
+            "Ylayer": 0,
+            "sourceIds": [
+              "edit-node-rect"
+            ],
+            "targetIds": [],
+            "varName": {
+              "name": "",
+              "value": "out",
+              "type": "BOOL",
+              "scope": "VAR"
+            }
+          }
+        }
+      }
+    ]
+  }
+]
