@@ -1588,11 +1588,9 @@ function findParallelOutputStartNodeIds(
       continue;
     }
 
-    const tailNodes = collectNearestDisplayNodes(
-      segment,
-      current.from,
-      "backward",
-    ).sort(compareDisplayOrder);
+    const tailNodes = orderBoundaryDisplayNodes(
+      collectNearestDisplayNodes(segment, current.from, "backward"),
+    );
     if (
       tailNodes.length > 1 &&
       tailNodes.some((tailNode) => tailNode.id === node.id) &&
@@ -2016,11 +2014,9 @@ function findOutsideBehindStartNodes(
   anchorNode: DiagramNodeSummary,
   rightNode: DiagramNodeSummary,
 ): string[] {
-  const branchTailNodes = collectNearestDisplayNodes(
-    segment,
-    rightNode.from,
-    "backward",
-  ).sort(compareDisplayOrder);
+  const branchTailNodes = orderBoundaryDisplayNodes(
+    collectNearestDisplayNodes(segment, rightNode.from, "backward"),
+  );
 
   if (
     branchTailNodes.length <= 1 ||
@@ -2062,6 +2058,20 @@ function collectNearestDisplayNodes(
   }
 
   return [...resultById.values()];
+}
+
+function orderBoundaryDisplayNodes(
+  nodes: DiagramNodeSummary[],
+): DiagramNodeSummary[] {
+  const yValues = nodes
+    .map((node) => node.y)
+    .filter((value): value is number => typeof value === "number");
+
+  if (new Set(yValues).size > 1) {
+    return [...nodes].sort(compareDisplayOrder);
+  }
+
+  return nodes;
 }
 
 function findNearestDisplayNode(
