@@ -11,7 +11,6 @@ const COMMON_FUNCTION_BLOCK_TYPES = [
   'TP',
   'CTU',
   'CTD',
-  'CTUD',
   'SR',
   'RS',
 ];
@@ -185,7 +184,7 @@ function buildGraphCompletionPrompt(
     'Do not return vague element descriptions like just "contact".',
     'Every suggestion must include addElement with an exact nodeType, displayLabel, variableSource, variableName, dataType, and userInputRequired flag.',
     'If the variable name cannot be inferred with confidence, set variableSource to "userInput", variableName to an empty string, and userInputRequired to true.',
-    'For function blocks, choose one concrete IEC function block type such as TON, TOF, TP, CTU, CTD, CTUD, SR, or RS. Include it in addElement.blockType, addElement.displayLabel, addElement.dataType, and placement.text. Do not say only "function block" or only "功能块".',
+    'For function blocks, choose one concrete IEC function block type such as TON, TOF, TP, CTU, CTD, SR, or RS. Include it in addElement.blockType, addElement.displayLabel, addElement.dataType, and placement.text. Do not say only "function block" or only "功能块".',
     'For function blocks, include instanceSource. If the instance is unknown, set instanceSource to "userInput".',
     'The matchedNodeId and every non-empty placement node id must be ids from the realSelectableNodes list.',
     'Allowed suggestion node types: contact, negatedContact, risingContact, fallingContact, coil, setCoil, resetCoil, functionBlock, branch.',

@@ -158,7 +158,6 @@ const COMMON_FUNCTION_BLOCK_TYPES = [
   "TP",
   "CTU",
   "CTD",
-  "CTUD",
   "SR",
   "RS",
 ];
