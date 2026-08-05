@@ -155,6 +155,31 @@ interface LocalSuggestionAddElement {
   instanceName: string;
 }
 
+type BusinessTerm =
+  | "alarm"
+  | "busy"
+  | "counter"
+  | "done"
+  | "enable"
+  | "fault"
+  | "interlock"
+  | "ready"
+  | "reset"
+  | "run"
+  | "start"
+  | "stop"
+  | "timer";
+
+interface BusinessSuggestionContext {
+  hasBusinessContext: boolean;
+  focusTerms: Set<BusinessTerm>;
+  nearbyTerms: Set<BusinessTerm>;
+  segmentTerms: Set<BusinessTerm>;
+  pouTerms: Set<BusinessTerm>;
+  focusBlockType: string;
+  segmentBlockTypes: Set<string>;
+}
+
 const COMMON_FUNCTION_BLOCK_TYPES = [
   "TON",
   "TOF",
@@ -163,6 +188,25 @@ const COMMON_FUNCTION_BLOCK_TYPES = [
   "CTD",
   "SR",
   "RS",
+];
+
+const BUSINESS_TERM_PATTERNS: Array<{
+  term: BusinessTerm;
+  patterns: string[];
+}> = [
+  { term: "alarm", patterns: ["alarm", "warning", "报警", "告警"] },
+  { term: "busy", patterns: ["busy", "忙"] },
+  { term: "counter", patterns: ["counter", "count", "ctu", "ctd", "计数"] },
+  { term: "done", patterns: ["done", "complete", "完成", "到位"] },
+  { term: "enable", patterns: ["enable", "enabled", "使能", "允许"] },
+  { term: "fault", patterns: ["fault", "error", "fail", "故障", "错误", "异常"] },
+  { term: "interlock", patterns: ["interlock", "lock", "互锁", "联锁"] },
+  { term: "ready", patterns: ["ready", "就绪", "准备"] },
+  { term: "reset", patterns: ["reset", "复位", "清除"] },
+  { term: "run", patterns: ["run", "running", "运行"] },
+  { term: "start", patterns: ["start", "启动", "开始"] },
+  { term: "stop", patterns: ["stop", "停止", "停机"] },
+  { term: "timer", patterns: ["timer", "time", "ton", "tof", "tp", "定时", "延时", "计时", "时间"] },
 ];
 
 export async function getLocalGraphSuggestions(
@@ -294,7 +338,7 @@ function buildLocalPayload(
   summary: DiagramSummary,
   focus: FocusContext,
 ): LocalGraphSuggestionPayload {
-  const suggestions = buildSuggestions(focus);
+  const suggestions = buildSuggestions(summary, focus);
 
   return {
     schemaVersion: "ide-agent.graph-completion.v1",
@@ -317,7 +361,10 @@ function buildLocalPayload(
   };
 }
 
-function buildSuggestions(focus: FocusContext): LocalSuggestion[] {
+function buildSuggestions(
+  summary: DiagramSummary,
+  focus: FocusContext,
+): LocalSuggestion[] {
   const suggestions: LocalSuggestionDraft[] = [];
   const graphState = analyzeSegment(focus.segment);
 
@@ -331,10 +378,357 @@ function buildSuggestions(focus: FocusContext): LocalSuggestion[] {
     addCoilSuggestions(suggestions, focus);
   }
 
-  return keepOutputCoilWithinLimit(dedupeSuggestions(suggestions), 6)
+  const candidates = keepOutputCoilWithinLimit(dedupeSuggestions(suggestions), 6);
+  return rankBusinessSuggestions(candidates, summary, focus, graphState)
     .map((suggestion, index) =>
       toLocalSuggestion(suggestion, index, focus.segment),
     );
+}
+
+function rankBusinessSuggestions(
+  suggestions: LocalSuggestionDraft[],
+  summary: DiagramSummary,
+  focus: FocusContext,
+  graphState: SegmentGraphState,
+): LocalSuggestionDraft[] {
+  if (suggestions.length <= 1) {
+    return suggestions;
+  }
+
+  const context = buildBusinessSuggestionContext(summary, focus);
+  if (!context.hasBusinessContext) {
+    return suggestions;
+  }
+
+  const ranked = suggestions.map((suggestion, index) => ({
+    suggestion,
+    index,
+    score: scoreBusinessSuggestion(suggestion, context, graphState),
+  }));
+
+  if (!ranked.some((item) => item.score > 0)) {
+    return suggestions;
+  }
+
+  return ranked
+    .sort((left, right) => right.score - left.score || left.index - right.index)
+    .map((item) => item.suggestion);
+}
+
+function buildBusinessSuggestionContext(
+  summary: DiagramSummary,
+  focus: FocusContext,
+): BusinessSuggestionContext {
+  const focusTexts = focus.node ? nodeBusinessTexts(focus.node) : [];
+  const surroundingNodes = focus.node
+    ? [
+        ...neighborNodes(focus.segment, focus.node.from, "backward"),
+        ...neighborNodes(focus.segment, focus.node.to, "forward"),
+      ]
+    : focus.insertionPoint
+      ? [
+          ...neighborNodes(focus.segment, focus.insertionPoint.from, "backward"),
+          ...neighborNodes(focus.segment, focus.insertionPoint.to, "forward"),
+        ]
+      : [];
+  const nearbyTexts = surroundingNodes.flatMap((node) => nodeBusinessTexts(node));
+  const segmentTexts = [
+    focus.segment.label,
+    focus.segment.note,
+    focus.segment.pouName,
+    focus.segment.pouType,
+    ...focus.segment.nodes.flatMap((node) => nodeBusinessTexts(node)),
+  ];
+  const pouTexts = [
+    summary.pouName,
+    summary.pouType,
+    ...summary.variables.flatMap((variable) => [
+      variable.name,
+      variable.type,
+      variable.scope,
+    ]),
+  ];
+  const focusBlockType = normalizeBlockType(focus.node?.blockType);
+  const segmentBlockTypes = new Set(
+    focus.segment.nodes
+      .map((node) => normalizeBlockType(node.blockType))
+      .filter((value) => value.length > 0),
+  );
+  const focusTerms = collectBusinessTerms(focusTexts);
+  const nearbyTerms = collectBusinessTerms(nearbyTexts);
+  const segmentTerms = collectBusinessTerms(segmentTexts);
+  const pouTerms = collectBusinessTerms(pouTexts);
+
+  return {
+    hasBusinessContext:
+      focusTerms.size > 0 ||
+      nearbyTerms.size > 0 ||
+      segmentTerms.size > 0 ||
+      pouTerms.size > 0 ||
+      isBusinessBlockType(focusBlockType) ||
+      [...segmentBlockTypes].some((value) => isBusinessBlockType(value)),
+    focusTerms,
+    nearbyTerms,
+    segmentTerms,
+    pouTerms,
+    focusBlockType,
+    segmentBlockTypes,
+  };
+}
+
+function scoreBusinessSuggestion(
+  suggestion: LocalSuggestionDraft,
+  context: BusinessSuggestionContext,
+  graphState: SegmentGraphState,
+): number {
+  const addType = suggestion.addElement.nodeType;
+  const addBlockType = normalizeBlockType(suggestion.addElement.blockType);
+  const position = suggestion.position ?? inferPosition(suggestion);
+  const isBefore = position === "front" || position === "outsideFront";
+  const isAfter = position === "behind" || position === "outsideBehind";
+  const isParallel = position === "parallel";
+  const isContact = isContactNodeType(addType);
+  const isFunctionBlock = addType === "functionBlock";
+  const isCoil = isCoilNodeType(addType);
+  let score = 0;
+
+  const startSignals = businessTermWeight(
+    context,
+    "start",
+    "run",
+    "enable",
+    "ready",
+  );
+  const stopSignals = businessTermWeight(
+    context,
+    "stop",
+    "fault",
+    "alarm",
+    "reset",
+    "interlock",
+  );
+  const timerSignals = businessTermWeight(context, "timer");
+  const counterSignals = businessTermWeight(context, "counter");
+  const doneSignals = businessTermWeight(context, "done");
+
+  if (isContact) {
+    score += startSignals * (isBefore ? 3 : isParallel ? 2 : 1);
+    score += stopSignals * (isBefore ? 2 : isParallel ? 1 : 0);
+    score += doneSignals * (isAfter ? 1 : 0);
+  }
+
+  if (addType === "negatedContact") {
+    score += stopSignals * 3;
+    score += businessTermWeight(context, "fault") * 2;
+    score += businessTermWeight(context, "reset") * 2;
+  }
+
+  if (addType === "risingContact" || addType === "fallingContact") {
+    score += startSignals * 2;
+    score += businessTermWeight(context, "enable") * 2;
+  }
+
+  if (addType === "setCoil") {
+    score += startSignals * 2;
+    score += businessTermWeight(context, "done") * 2;
+    score += businessTermWeight(context, "alarm") * 2;
+    score -= stopSignals;
+  }
+
+  if (addType === "resetCoil") {
+    score += stopSignals * 2;
+    score += businessTermWeight(context, "reset") * 3;
+    score += businessTermWeight(context, "fault") * 2;
+  }
+
+  if (isCoil) {
+    score += doneSignals;
+    score += graphState.isPartialGraph ? 3 : 1;
+    if (isAfter) {
+      score += 2;
+    }
+  }
+
+  if (isFunctionBlock) {
+    if (isTimerBlockType(addBlockType)) {
+      score += timerSignals * 3;
+      score += isTimerBlockType(context.focusBlockType) ? 4 : 0;
+      score += hasSegmentBlockType(context, isTimerBlockType) ? 1 : 0;
+    }
+
+    if (isCounterBlockType(addBlockType)) {
+      score += counterSignals * 3;
+      score += isCounterBlockType(context.focusBlockType) ? 4 : 0;
+      score += hasSegmentBlockType(context, isCounterBlockType) ? 1 : 0;
+    }
+
+    if (isLatchBlockType(addBlockType)) {
+      score += startSignals + stopSignals;
+    }
+
+    if (isMotionBlockType(context.focusBlockType)) {
+      score += startSignals * 2;
+      score += businessTermWeight(context, "fault", "stop", "reset");
+      if (isBefore) {
+        score += 4;
+      }
+      if (isAfter) {
+        score -= 2;
+      }
+    }
+
+    if (isTimerBlockType(context.focusBlockType) && isTimerBlockType(addBlockType)) {
+      score += 2;
+    }
+
+    if (isCounterBlockType(context.focusBlockType) && isCounterBlockType(addBlockType)) {
+      score += 2;
+    }
+  }
+
+  if (isBefore) {
+    score += isContact ? 2 : 0;
+    score += isFunctionBlock ? 1 : 0;
+  } else if (isAfter) {
+    score += isCoil ? 2 : 0;
+  } else if (isParallel) {
+    score += isContact ? 2 : 1;
+  }
+
+  if (context.focusBlockType === "MC_RESET" && isBefore && isContact) {
+    score += 4;
+  }
+
+  if (context.focusBlockType.startsWith("MC_") && isFunctionBlock && isAfter) {
+    score -= 3;
+  }
+
+  if (graphState.hasOutputNode && isCoil && isAfter) {
+    score -= 1;
+  }
+
+  if (graphState.isPartialGraph && isCoil) {
+    score += 1;
+  }
+
+  return score;
+}
+
+function businessTermWeight(
+  context: BusinessSuggestionContext,
+  ...terms: BusinessTerm[]
+): number {
+  let score = 0;
+  for (const term of terms) {
+    if (context.focusTerms.has(term)) {
+      score += 4;
+    }
+    if (context.nearbyTerms.has(term)) {
+      score += 3;
+    }
+    if (context.segmentTerms.has(term)) {
+      score += 2;
+    }
+    if (context.pouTerms.has(term)) {
+      score += 1;
+    }
+  }
+  return score;
+}
+
+function collectBusinessTerms(values: Array<string | undefined>): Set<BusinessTerm> {
+  const haystack = compactBusinessTexts(values)
+    .map((value) => value.toLowerCase())
+    .join(" ");
+  const terms = new Set<BusinessTerm>();
+
+  if (!haystack) {
+    return terms;
+  }
+
+  for (const entry of BUSINESS_TERM_PATTERNS) {
+    if (entry.patterns.some((pattern) => haystack.includes(pattern.toLowerCase()))) {
+      terms.add(entry.term);
+    }
+  }
+
+  return terms;
+}
+
+function nodeBusinessTexts(node: DiagramNodeSummary): string[] {
+  return compactBusinessTexts([
+    node.kind,
+    node.var,
+    node.dataType,
+    node.scope,
+    node.blockType,
+    node.instance,
+    ...recordBusinessTexts(node.inputs),
+    ...recordBusinessTexts(node.outputs),
+  ]);
+}
+
+function recordBusinessTexts(record: Record<string, string> | undefined): string[] {
+  if (!record) {
+    return [];
+  }
+
+  return Object.entries(record).flatMap(([key, value]) => [key, value]);
+}
+
+function compactBusinessTexts(values: Array<string | undefined>): string[] {
+  return values
+    .map((value) => String(value ?? "").trim())
+    .filter((value) => value.length > 0 && value !== "???");
+}
+
+function normalizeBlockType(value: string | undefined): string {
+  return String(value ?? "").trim().toUpperCase();
+}
+
+function hasSegmentBlockType(
+  context: BusinessSuggestionContext,
+  predicate: (blockType: string) => boolean,
+): boolean {
+  return [...context.segmentBlockTypes].some(predicate);
+}
+
+function isBusinessBlockType(blockType: string): boolean {
+  return (
+    isMotionBlockType(blockType) ||
+    isTimerBlockType(blockType) ||
+    isCounterBlockType(blockType) ||
+    isLatchBlockType(blockType)
+  );
+}
+
+function isContactNodeType(nodeType: string): boolean {
+  return [
+    "contact",
+    "negatedContact",
+    "risingContact",
+    "fallingContact",
+  ].includes(nodeType);
+}
+
+function isCoilNodeType(nodeType: string): boolean {
+  return ["coil", "setCoil", "resetCoil"].includes(nodeType);
+}
+
+function isTimerBlockType(blockType: string): boolean {
+  return ["TON", "TOF", "TP"].includes(blockType);
+}
+
+function isCounterBlockType(blockType: string): boolean {
+  return ["CTU", "CTD"].includes(blockType);
+}
+
+function isLatchBlockType(blockType: string): boolean {
+  return ["SR", "RS"].includes(blockType);
+}
+
+function isMotionBlockType(blockType: string): boolean {
+  return blockType.startsWith("MC_") || blockType.startsWith("SMC_");
 }
 
 function addContactSuggestions(

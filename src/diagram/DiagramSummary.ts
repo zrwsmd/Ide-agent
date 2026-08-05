@@ -45,6 +45,8 @@ export interface DiagramInsertionPointSummary {
 
 export interface DiagramSegmentSummary {
   segmentId: string;
+  label?: string;
+  note?: string;
   pouName?: string;
   pouType?: string;
   width?: number;
@@ -95,7 +97,7 @@ export function summarizeDiagramJson(
         .filter((item): item is Record<string, unknown> => Boolean(item))
         .map(
           (item): DiagramVariableSummary => ({
-            name: asString(item.name),
+            name: asString(item.name) || asString(item.value),
             type: asString(item.type),
             scope: asString(item.scope),
           }),
@@ -188,6 +190,8 @@ function summarizeSegment(
 
   return {
     segmentId: asString(segment.id),
+    label: asString(segment.label),
+    note: asString(segment.note),
     pouName,
     pouType,
     width: asOptionalNumber(segment.width),

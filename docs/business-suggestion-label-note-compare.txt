@@ -1,0 +1,50 @@
+同一段去掉 label/note 的排序对照测试
+
+目的
+验证本地图建议里的业务排序层，是否真的会读取 segment.label / segment.note。
+
+默认测试文件
+E:\bbb\Ide-agent\example\business-label-note-compare\1785898854769.txt
+
+默认测试区段
+segment-64905094-1785458990723
+label: 加热运行启动自保持
+selectedNodeId: contact-66327725-1785458990720
+
+怎么跑
+1. 在 E:\bbb\Ide-agent 下先执行：
+   npm run compile
+2. 再执行：
+   node scripts/test-business-label-note-compare.js
+
+这份脚本会做什么
+1. 读取仓库内这份 txt 图文件。
+2. 复制一份临时文件，只把目标 segment 的 label / note 清空。
+3. 分别调用一次 getLocalGraphSuggestions：
+   - 原始文件
+   - 去掉 label / note 的临时文件
+4. 直接打印两份 suggestions 的排序结果，并输出 title 顺序差异。
+
+当前这个例子的实际观察结果
+RAW:
+1. 前串联 常开触点
+2. 并联 常开触点
+3. 并联 TOF 功能块
+4. 后串联 常开触点
+5. 外侧后串联 常开触点
+6. 后插入 CTU 功能块
+
+STRIPPED label/note:
+1. 前串联 常开触点
+2. 并联 常开触点
+3. 并联 RS 功能块
+4. 后插入 RS 功能块
+5. 后串联 常开触点
+6. 外侧后串联 常开触点
+
+结论
+去掉 label/note 后，建议顺序和功能块候选会明显回退，说明业务排序层已经真正参与排序了。
+
+如果要换别的段测试
+可以直接改脚本里的：
+DIAGRAM_PATH / SEGMENT_ID / SELECTED_NODE_ID
