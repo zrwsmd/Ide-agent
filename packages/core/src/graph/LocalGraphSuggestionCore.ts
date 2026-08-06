@@ -235,6 +235,11 @@ interface LibraryElementInfo {
   category?: string;
 }
 
+interface LibraryPorts {
+  portInputs: SuggestedPort[];
+  portOutputs: SuggestedPort[];
+}
+
 interface BusinessElementCandidate {
   name: string;
   score: number;
@@ -626,14 +631,18 @@ function rankBusinessSuggestions(
     suggestions,
     context,
   );
-  const ranked = enhancedSuggestions.map((suggestion, index) => ({
+  const applicableSuggestions = enhancedSuggestions.filter(
+    (suggestion) =>
+      !hasExistingFunctionBlockAtInsertionBoundary(suggestion, focus.segment),
+  );
+  const ranked = applicableSuggestions.map((suggestion, index) => ({
     suggestion,
     index,
     score: scoreBusinessSuggestion(suggestion, context, graphState),
   }));
 
   if (!ranked.some((item) => item.score > 0)) {
-    return enhancedSuggestions;
+    return applicableSuggestions;
   }
 
   return ranked
@@ -2130,6 +2139,7 @@ function createSuggestedNode(
   if (addElement.nodeType === "functionBlock") {
     const blockType = addElement.blockType.trim();
     const libraryElement = getLibraryElement(blockType);
+    const libraryPorts = buildLibraryPorts(libraryElement);
     return {
       id: nodeId,
       type: "FBDCompartment",
@@ -2147,12 +2157,12 @@ function createSuggestedNode(
           Array.isArray(addElement.portInputs) &&
           addElement.portInputs.length > 0
             ? addElement.portInputs
-            : buildLibraryPortInputs(libraryElement),
+            : libraryPorts.portInputs,
         portOutputs:
           Array.isArray(addElement.portOutputs) &&
           addElement.portOutputs.length > 0
             ? addElement.portOutputs
-            : buildLibraryPortOutputs(libraryElement),
+            : libraryPorts.portOutputs,
       },
     };
   }
@@ -2376,8 +2386,7 @@ function functionBlockElement(blockType?: string): LocalSuggestionAddElement {
   const normalizedBlockType =
     libraryElement?.name || normalizeBlockType(requestedBlockType);
   const isFunction = Boolean(libraryElement && isFunctionLibraryElement(libraryElement));
-  const portInputs = buildLibraryPortInputs(libraryElement);
-  const portOutputs = buildLibraryPortOutputs(libraryElement);
+  const { portInputs, portOutputs } = buildLibraryPorts(libraryElement);
   return {
     nodeType: "functionBlock",
     displayLabel: `${normalizedBlockType} ${isFunction ? "函数" : "功能块"}`,
@@ -2443,8 +2452,7 @@ function replaceFunctionBlockDraft(
 ): LocalSuggestionDraft {
   const libraryElement = candidate.libraryElement;
   const isFunction = Boolean(libraryElement && isFunctionLibraryElement(libraryElement));
-  const portInputs = buildLibraryPortInputs(libraryElement);
-  const portOutputs = buildLibraryPortOutputs(libraryElement);
+  const { portInputs, portOutputs } = buildLibraryPorts(libraryElement);
   const nextAddElement: LocalSuggestionAddElement = {
     ...draft.addElement,
     displayLabel: `${candidate.name} ${isFunction ? "函数" : "功能块"}`,
@@ -2469,36 +2477,66 @@ function replaceFunctionBlockDraft(
   };
 }
 
-function buildLibraryPortInputs(
+function buildLibraryPorts(
   libraryElement: LibraryElementInfo | undefined,
-): SuggestedPort[] {
+): LibraryPorts {
   if (!libraryElement) {
-    return [];
+    return { portInputs: [], portOutputs: [] };
   }
 
-  return toLibraryPorts(libraryElement.inputs, "VAR_INPUT");
+  const inputs = libraryElement.inputs ?? [];
+  const outputs = libraryElement.outputs ?? [];
+
+  const portInputs = inputs
+    .filter((port) => !isSystemEnablePort(port, "EN"))
+    .map((port) => {
+      const suggestedPort = toLibraryPort(port, "VAR_INPUT");
+      return hasMatchingLibraryPort(outputs, port)
+        ? { ...suggestedPort, scope: "VAR_IN_OUT" }
+        : suggestedPort;
+    });
+  const portOutputs = outputs
+    .filter((port) => !isSystemEnablePort(port, "ENO"))
+    .filter((port) => !hasMatchingLibraryPort(inputs, port))
+    .map((port) => toLibraryPort(port, "VAR_OUTPUT"));
+
+  return {
+    portInputs: [createSystemEnablePort("EN"), ...portInputs],
+    portOutputs: [createSystemEnablePort("ENO"), ...portOutputs],
+  };
 }
 
-function buildLibraryPortOutputs(
-  libraryElement: LibraryElementInfo | undefined,
-): SuggestedPort[] {
-  if (!libraryElement) {
-    return [];
-  }
-
-  return toLibraryPorts(libraryElement.outputs, "VAR_OUTPUT");
+function isSystemEnablePort(
+  [name]: [string, string, string],
+  expectedName: "EN" | "ENO",
+): boolean {
+  return name.trim().toUpperCase() === expectedName;
 }
 
-function toLibraryPorts(
-  ports: Array<[string, string, string]> | undefined,
+function createSystemEnablePort(name: "EN" | "ENO"): SuggestedPort {
+  return { name, value: "", type: "", scope: "" };
+}
+
+function hasMatchingLibraryPort(
+  ports: Array<[string, string, string]>,
+  candidate: [string, string, string],
+): boolean {
+  const [candidateName, candidateType] = candidate;
+  return ports.some(
+    ([name, type]) => name === candidateName && type === candidateType,
+  );
+}
+
+function toLibraryPort(
+  [name, type, scope]: [string, string, string],
   defaultScope: string,
-): SuggestedPort[] {
-  return (ports ?? []).map(([name, type, scope]) => ({
+): SuggestedPort {
+  return {
     name,
     value: name === "EN" || name === "ENO" ? "" : "???",
     type,
     scope: scope && scope !== "none" ? scope : defaultScope,
-  }));
+  };
 }
 
 function isFunctionLibraryElement(
@@ -2789,6 +2827,34 @@ function dedupeSuggestions(
   }
 
   return result;
+}
+
+function hasExistingFunctionBlockAtInsertionBoundary(
+  suggestion: LocalSuggestionDraft,
+  segment: DiagramSegmentSummary,
+): boolean {
+  if (
+    suggestion.addElement.nodeType !== "functionBlock" ||
+    inferSerialOrParallel(suggestion) !== "serial"
+  ) {
+    return false;
+  }
+
+  const blockType = normalizeBlockType(suggestion.addElement.blockType);
+  if (!blockType) {
+    return false;
+  }
+
+  return [
+    suggestion.placement.insertAfterNodeId,
+    suggestion.placement.insertBeforeNodeId,
+  ].some((nodeId) => {
+    const boundaryNode = findNode(segment, nodeId);
+    return (
+      boundaryNode?.kind === "FBDCompartment" &&
+      normalizeBlockType(boundaryNode.blockType) === blockType
+    );
+  });
 }
 
 function keepOutputCoilWithinLimit(

@@ -7,7 +7,13 @@
       { "name": "ResetButton", "type": "BOOL", "scope": "VAR" },
       { "name": "AxisResetButton", "type": "BOOL", "scope": "VAR" },
       { "name": "Axis1", "type": "AXIS_REF", "scope": "VAR" },
-      { "name": "PowerFb", "type": "MC_Power", "scope": "VAR" }
+      { "name": "PowerFb", "type": "MC_Power", "scope": "VAR" },
+      { "name": "Measured_Value", "type": "LREAL", "scope": "VAR" },
+      { "name": "Stop_Request", "type": "BOOL", "scope": "VAR" },
+      { "name": "Feed_Axis", "type": "AXIS_REF", "scope": "VAR" },
+      { "name": "Existing_Stop", "type": "MC_Stop", "scope": "VAR" },
+      { "name": "Stop_Deceleration", "type": "LREAL", "scope": "VAR" },
+      { "name": "Stop_Jerk", "type": "LREAL", "scope": "VAR" }
     ],
     "segmentList": [
       {
@@ -63,6 +69,83 @@
         }
       },
       {
+        "id": "segment-limit",
+        "label": "数值上下限限制",
+        "note": "对输入数值进行范围限制后再参与后续计算。",
+        "nodesObj": {
+          "limit-start": {
+            "id": "limit-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["limit-contact"]
+          },
+          "limit-contact": {
+            "id": "limit-contact",
+            "type": "contact",
+            "sourceIds": ["limit-start"],
+            "targetIds": ["limit-end"],
+            "varName": { "value": "Measured_Value", "type": "LREAL", "scope": "VAR" }
+          },
+          "limit-end": {
+            "id": "limit-end",
+            "type": "endLine",
+            "sourceIds": ["limit-contact"],
+            "targetIds": []
+          }
+        }
+      },
+      {
+        "id": "segment-existing-stop",
+        "label": "送料轴停止减速控制",
+        "note": "停止请求上升沿执行 MC_Stop，按设定减速度平稳停轴。",
+        "nodesObj": {
+          "existing-stop-start": {
+            "id": "existing-stop-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["existing-stop-contact"]
+          },
+          "existing-stop-contact": {
+            "id": "existing-stop-contact",
+            "type": "risingContact",
+            "sourceIds": ["existing-stop-start"],
+            "targetIds": ["existing-stop-fb"],
+            "varName": { "value": "Stop_Request", "type": "BOOL", "scope": "VAR" }
+          },
+          "existing-stop-fb": {
+            "id": "existing-stop-fb",
+            "type": "FBDCompartment",
+            "sourceIds": ["existing-stop-contact"],
+            "targetIds": ["existing-stop-end"],
+            "childrenNode": {
+              "type": "MC_Stop",
+              "isFunction": false,
+              "varName": { "value": "Existing_Stop", "type": "MC_Stop", "scope": "VAR" },
+              "portInputs": [
+                { "name": "EN", "value": "", "type": "", "scope": "" },
+                { "name": "Axis", "value": "Feed_Axis", "type": "AXIS_REF", "scope": "VAR_IN_OUT" },
+                { "name": "Execute", "value": "Stop_Request", "type": "BOOL", "scope": "VAR_INPUT" },
+                { "name": "Deceleration", "value": "Stop_Deceleration", "type": "LREAL", "scope": "VAR_INPUT" },
+                { "name": "Jerk", "value": "Stop_Jerk", "type": "LREAL", "scope": "VAR_INPUT" }
+              ],
+              "portOutputs": [
+                { "name": "ENO", "value": "", "type": "", "scope": "" },
+                { "name": "Done", "value": "", "type": "BOOL", "scope": "VAR_OUTPUT" },
+                { "name": "Busy", "value": "", "type": "BOOL", "scope": "VAR_OUTPUT" },
+                { "name": "Error", "value": "", "type": "BOOL", "scope": "VAR_OUTPUT" },
+                { "name": "ErrorID", "value": "", "type": "SMC_ERROR", "scope": "VAR_OUTPUT" }
+              ]
+            }
+          },
+          "existing-stop-end": {
+            "id": "existing-stop-end",
+            "type": "endLine",
+            "sourceIds": ["existing-stop-fb"],
+            "targetIds": []
+          }
+        }
+      },
+      {
         "id": "segment-axis-reset",
         "label": "运动轴故障复位",
         "note": "轴故障排除后执行运动控制轴复位",
@@ -90,7 +173,7 @@
               "isFunction": false,
               "varName": { "value": "PowerFb", "type": "MC_Power", "scope": "VAR" },
               "portInputs": [
-                { "name": "Axis", "value": "Axis1", "type": "AXIS_REF", "scope": "VAR_INPUT" },
+                { "name": "Axis", "value": "Axis1", "type": "AXIS_REF", "scope": "VAR_IN_OUT" },
                 { "name": "Enable", "value": "TRUE", "type": "BOOL", "scope": "VAR_INPUT" }
               ],
               "portOutputs": []

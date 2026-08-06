@@ -87,11 +87,48 @@ async function assertStableBusinessCases() {
     functionBlockTypes(axisResetSuggestions).includes("MC_RESET"),
     "axis reset with local AXIS_REF should return MC_Reset",
   );
+  const axisResetSuggestion = findFunctionBlockSuggestion(
+    axisResetSuggestions,
+    "MC_RESET",
+  );
+  assert.ok(axisResetSuggestion, "MC_Reset suggestion should be available");
+  const axisResetNode = firstAddedNode(axisResetSuggestion);
+  const axisInput = axisResetNode.childrenNode.portInputs.find(
+    (port) => port.name === "Axis",
+  );
+  assert.equal(axisInput?.scope, "VAR_IN_OUT");
+  assert.ok(
+    !axisResetNode.childrenNode.portOutputs.some(
+      (port) => port.name === "Axis",
+    ),
+    "MC_Reset Axis must not be duplicated in portOutputs",
+  );
+
+  const limitSuggestions = await suggestionsFor(
+    fixturePath,
+    "segment-limit",
+    "limit-contact",
+  );
+  assert.ok(
+    functionBlockTypes(limitSuggestions).includes("LIMIT"),
+    "numeric limit case should return LIMIT function",
+  );
+
+  const duplicateStopSuggestions = await suggestionsFor(
+    fixturePath,
+    "segment-existing-stop",
+    "existing-stop-contact",
+  );
+  assert.ok(
+    !functionBlockTypes(duplicateStopSuggestions).includes("MC_STOP"),
+    "existing adjacent MC_Stop must not be suggested again",
+  );
 
   for (const suggestion of [
     ...tonSuggestions,
     ...ordinaryResetSuggestions,
     ...axisResetSuggestions,
+    ...limitSuggestions,
   ]) {
     assertSuggestionUsesLibraryElement(suggestion);
   }
@@ -171,6 +208,68 @@ function assertSuggestionUsesLibraryElement(suggestion) {
     libraryElement.type === "function",
     `${blockType} function/functionBlock type must match st-library-info-data.json`,
   );
+  const expectedPorts = expectedLibraryPorts(libraryElement);
+  assert.deepStrictEqual(
+    node.childrenNode?.portInputs,
+    expectedPorts.portInputs,
+    `${blockType} input ports must match normalized library ports`,
+  );
+  assert.deepStrictEqual(
+    node.childrenNode?.portOutputs,
+    expectedPorts.portOutputs,
+    `${blockType} output ports must match normalized library ports`,
+  );
+}
+
+function expectedLibraryPorts(libraryElement) {
+  const inputs = libraryElement.inputs ?? [];
+  const outputs = libraryElement.outputs ?? [];
+
+  return {
+    portInputs: [
+      { name: "EN", value: "", type: "", scope: "" },
+      ...inputs
+        .filter(([name]) => String(name).toUpperCase() !== "EN")
+        .map((port) => {
+          const expectedPort = expectedLibraryPort(port, "VAR_INPUT");
+          return hasMatchingLibraryPort(outputs, port)
+            ? { ...expectedPort, scope: "VAR_IN_OUT" }
+            : expectedPort;
+        }),
+    ],
+    portOutputs: [
+      { name: "ENO", value: "", type: "", scope: "" },
+      ...outputs
+        .filter(([name]) => String(name).toUpperCase() !== "ENO")
+        .filter((port) => !hasMatchingLibraryPort(inputs, port))
+        .map((port) => expectedLibraryPort(port, "VAR_OUTPUT")),
+    ],
+  };
+}
+
+function hasMatchingLibraryPort(ports, [candidateName, candidateType]) {
+  return ports.some(
+    ([name, type]) => name === candidateName && type === candidateType,
+  );
+}
+
+function expectedLibraryPort([name, type, scope], defaultScope) {
+  return {
+    name,
+    value: name === "EN" || name === "ENO" ? "" : "???",
+    type,
+    scope: scope && scope !== "none" ? scope : defaultScope,
+  };
+}
+
+function findFunctionBlockSuggestion(suggestions, blockType) {
+  return suggestions.find((suggestion) => {
+    const node = firstAddedNode(suggestion);
+    return (
+      node?.type === "FBDCompartment" &&
+      String(node.childrenNode?.type ?? "").toUpperCase() === blockType
+    );
+  });
 }
 
 function firstAddedNode(suggestion) {
