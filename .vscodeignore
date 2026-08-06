@@ -8,6 +8,7 @@ node_modules/**
 !dist/node_modules/@ide-agent/core/package.json
 !dist/node_modules/@ide-agent/core/dist/**
 packages/**
+docs/**
 ladder-examples/**
 .gitignore
 tsconfig.json
@@ -18,6 +19,7 @@ local-graph-suggestion-rules.txt
 plc-ladder-json-prompts.txt
 complex_parallel_ladder_requirements_1_20.txt
 infer_parallel_ladder_requirements_1_20.txt
+infer_special_library_requirements_1_12.txt
 dist/**/*.map
 dist/test/**
 dist/**/*.ts
