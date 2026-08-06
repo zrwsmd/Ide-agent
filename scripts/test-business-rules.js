@@ -124,11 +124,100 @@ async function assertStableBusinessCases() {
     "existing adjacent MC_Stop must not be suggested again",
   );
 
+  const bidirectionalCounterSuggestions = await suggestionsFor(
+    fixturePath,
+    "segment-bidirectional-counter",
+    "bidirectional-contact",
+  );
+  assert.deepStrictEqual(
+    [...new Set(functionBlockTypes(bidirectionalCounterSuggestions))],
+    ["CTUD"],
+    "explicit bidirectional counting should return CTUD without separate up/down terms",
+  );
+
+  const genericLatchSuggestions = await suggestionsFor(
+    fixturePath,
+    "segment-latch-generic",
+    "latch-generic-contact",
+  );
+  assert.ok(
+    !functionBlockTypes(genericLatchSuggestions).some((blockType) =>
+      ["SR", "RS"].includes(blockType),
+    ),
+    "latch context without an explicit priority must not choose SR or RS",
+  );
+
+  const setDominantSuggestions = await suggestionsFor(
+    fixturePath,
+    "segment-latch-set-dominant",
+    "latch-set-contact",
+  );
+  assert.deepStrictEqual(
+    [...new Set(functionBlockTypes(setDominantSuggestions))],
+    ["SR"],
+    "set-dominant latch should return SR",
+  );
+
+  const resetDominantSuggestions = await suggestionsFor(
+    fixturePath,
+    "segment-latch-reset-dominant",
+    "latch-reset-contact",
+  );
+  assert.deepStrictEqual(
+    [...new Set(functionBlockTypes(resetDominantSuggestions))],
+    ["RS"],
+    "reset-dominant latch should return RS",
+  );
+
+  const motionStopSuggestions = await suggestionsFor(
+    fixturePath,
+    "segment-motion-stop",
+    "motion-stop-contact",
+  );
+  assert.ok(functionBlockTypes(motionStopSuggestions).includes("MC_STOP"));
+  assert.ok(!functionBlockTypes(motionStopSuggestions).includes("MC_HALT"));
+
+  const motionHaltSuggestions = await suggestionsFor(
+    fixturePath,
+    "segment-motion-halt",
+    "motion-halt-contact",
+  );
+  assert.ok(functionBlockTypes(motionHaltSuggestions).includes("MC_HALT"));
+  assert.ok(!functionBlockTypes(motionHaltSuggestions).includes("MC_STOP"));
+
+  const faultOnlyCoilSuggestions = await suggestionsFor(
+    fixturePath,
+    "segment-fault-only-coil",
+    "fault-coil",
+  );
+  assert.notEqual(
+    firstAddedNode(faultOnlyCoilSuggestions[0])?.type,
+    "resetCoil",
+    "fault without reset intent must not rank resetCoil first",
+  );
+
+  const resetCoilSuggestions = await suggestionsFor(
+    fixturePath,
+    "segment-reset-coil",
+    "reset-coil",
+  );
+  assert.equal(
+    firstAddedNode(resetCoilSuggestions[0])?.type,
+    "resetCoil",
+    "explicit reset intent should rank resetCoil first",
+  );
+
   for (const suggestion of [
     ...tonSuggestions,
     ...ordinaryResetSuggestions,
     ...axisResetSuggestions,
     ...limitSuggestions,
+    ...bidirectionalCounterSuggestions,
+    ...genericLatchSuggestions,
+    ...setDominantSuggestions,
+    ...resetDominantSuggestions,
+    ...motionStopSuggestions,
+    ...motionHaltSuggestions,
   ]) {
     assertSuggestionUsesLibraryElement(suggestion);
   }

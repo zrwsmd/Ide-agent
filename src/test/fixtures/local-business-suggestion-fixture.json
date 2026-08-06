@@ -13,7 +13,14 @@
       { "name": "Feed_Axis", "type": "AXIS_REF", "scope": "VAR" },
       { "name": "Existing_Stop", "type": "MC_Stop", "scope": "VAR" },
       { "name": "Stop_Deceleration", "type": "LREAL", "scope": "VAR" },
-      { "name": "Stop_Jerk", "type": "LREAL", "scope": "VAR" }
+      { "name": "Stop_Jerk", "type": "LREAL", "scope": "VAR" },
+      { "name": "Count_Event", "type": "BOOL", "scope": "VAR" },
+      { "name": "Alarm_Condition", "type": "BOOL", "scope": "VAR" },
+      { "name": "Fault_Output", "type": "BOOL", "scope": "VAR" },
+      { "name": "Reset_Output", "type": "BOOL", "scope": "VAR" },
+      { "name": "Axis_Stop_Request", "type": "BOOL", "scope": "VAR" },
+      { "name": "Axis_Halt_Request", "type": "BOOL", "scope": "VAR" },
+      { "name": "Motion_Context", "type": "MC_ReadActualPosition", "scope": "VAR" }
     ],
     "segmentList": [
       {
@@ -141,6 +148,250 @@
             "id": "existing-stop-end",
             "type": "endLine",
             "sourceIds": ["existing-stop-fb"],
+            "targetIds": []
+          }
+        }
+      },
+      {
+        "id": "segment-bidirectional-counter",
+        "label": "物料双向计数",
+        "note": "对进出物料进行双向计数。",
+        "nodesObj": {
+          "bidirectional-start": {
+            "id": "bidirectional-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["bidirectional-contact"]
+          },
+          "bidirectional-contact": {
+            "id": "bidirectional-contact",
+            "type": "contact",
+            "sourceIds": ["bidirectional-start"],
+            "targetIds": ["bidirectional-end"],
+            "varName": { "value": "Count_Event", "type": "BOOL", "scope": "VAR" }
+          },
+          "bidirectional-end": {
+            "id": "bidirectional-end",
+            "type": "endLine",
+            "sourceIds": ["bidirectional-contact"],
+            "targetIds": []
+          }
+        }
+      },
+      {
+        "id": "segment-latch-generic",
+        "label": "报警状态锁存",
+        "note": "报警状态触发后需要持续保持。",
+        "nodesObj": {
+          "latch-generic-start": {
+            "id": "latch-generic-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["latch-generic-contact"]
+          },
+          "latch-generic-contact": {
+            "id": "latch-generic-contact",
+            "type": "contact",
+            "sourceIds": ["latch-generic-start"],
+            "targetIds": ["latch-generic-end"],
+            "varName": { "value": "Alarm_Condition", "type": "BOOL", "scope": "VAR" }
+          },
+          "latch-generic-end": {
+            "id": "latch-generic-end",
+            "type": "endLine",
+            "sourceIds": ["latch-generic-contact"],
+            "targetIds": []
+          }
+        }
+      },
+      {
+        "id": "segment-latch-set-dominant",
+        "label": "置位优先锁存",
+        "note": "置位与复位同时有效时保持置位状态。",
+        "nodesObj": {
+          "latch-set-start": {
+            "id": "latch-set-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["latch-set-contact"]
+          },
+          "latch-set-contact": {
+            "id": "latch-set-contact",
+            "type": "contact",
+            "sourceIds": ["latch-set-start"],
+            "targetIds": ["latch-set-end"],
+            "varName": { "value": "Alarm_Condition", "type": "BOOL", "scope": "VAR" }
+          },
+          "latch-set-end": {
+            "id": "latch-set-end",
+            "type": "endLine",
+            "sourceIds": ["latch-set-contact"],
+            "targetIds": []
+          }
+        }
+      },
+      {
+        "id": "segment-latch-reset-dominant",
+        "label": "复位优先锁存",
+        "note": "置位与复位同时有效时保持复位状态。",
+        "nodesObj": {
+          "latch-reset-start": {
+            "id": "latch-reset-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["latch-reset-contact"]
+          },
+          "latch-reset-contact": {
+            "id": "latch-reset-contact",
+            "type": "contact",
+            "sourceIds": ["latch-reset-start"],
+            "targetIds": ["latch-reset-end"],
+            "varName": { "value": "Alarm_Condition", "type": "BOOL", "scope": "VAR" }
+          },
+          "latch-reset-end": {
+            "id": "latch-reset-end",
+            "type": "endLine",
+            "sourceIds": ["latch-reset-contact"],
+            "targetIds": []
+          }
+        }
+      },
+      {
+        "id": "segment-motion-stop",
+        "label": "送料轴停止",
+        "note": "停止请求触发后按设定减速度停止运动轴。",
+        "nodesObj": {
+          "motion-stop-start": {
+            "id": "motion-stop-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["motion-stop-context"]
+          },
+          "motion-stop-context": {
+            "id": "motion-stop-context",
+            "type": "FBDCompartment",
+            "sourceIds": ["motion-stop-start"],
+            "targetIds": ["motion-stop-contact"],
+            "childrenNode": {
+              "type": "MC_ReadActualPosition",
+              "isFunction": false,
+              "varName": { "value": "Motion_Context", "type": "MC_ReadActualPosition", "scope": "VAR" },
+              "portInputs": [
+                { "name": "EN", "value": "", "type": "", "scope": "" },
+                { "name": "Axis", "value": "Feed_Axis", "type": "AXIS_REF", "scope": "VAR_IN_OUT" }
+              ],
+              "portOutputs": [
+                { "name": "ENO", "value": "", "type": "", "scope": "" }
+              ]
+            }
+          },
+          "motion-stop-contact": {
+            "id": "motion-stop-contact",
+            "type": "risingContact",
+            "sourceIds": ["motion-stop-context"],
+            "targetIds": ["motion-stop-end"],
+            "varName": { "value": "Axis_Stop_Request", "type": "BOOL", "scope": "VAR" }
+          },
+          "motion-stop-end": {
+            "id": "motion-stop-end",
+            "type": "endLine",
+            "sourceIds": ["motion-stop-contact"],
+            "targetIds": []
+          }
+        }
+      },
+      {
+        "id": "segment-motion-halt",
+        "label": "送料轴受控暂停",
+        "note": "暂停请求触发后按设定减速度受控暂停运动轴。",
+        "nodesObj": {
+          "motion-halt-start": {
+            "id": "motion-halt-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["motion-halt-context"]
+          },
+          "motion-halt-context": {
+            "id": "motion-halt-context",
+            "type": "FBDCompartment",
+            "sourceIds": ["motion-halt-start"],
+            "targetIds": ["motion-halt-contact"],
+            "childrenNode": {
+              "type": "MC_ReadActualPosition",
+              "isFunction": false,
+              "varName": { "value": "Motion_Context", "type": "MC_ReadActualPosition", "scope": "VAR" },
+              "portInputs": [
+                { "name": "EN", "value": "", "type": "", "scope": "" },
+                { "name": "Axis", "value": "Feed_Axis", "type": "AXIS_REF", "scope": "VAR_IN_OUT" }
+              ],
+              "portOutputs": [
+                { "name": "ENO", "value": "", "type": "", "scope": "" }
+              ]
+            }
+          },
+          "motion-halt-contact": {
+            "id": "motion-halt-contact",
+            "type": "risingContact",
+            "sourceIds": ["motion-halt-context"],
+            "targetIds": ["motion-halt-end"],
+            "varName": { "value": "Axis_Halt_Request", "type": "BOOL", "scope": "VAR" }
+          },
+          "motion-halt-end": {
+            "id": "motion-halt-end",
+            "type": "endLine",
+            "sourceIds": ["motion-halt-contact"],
+            "targetIds": []
+          }
+        }
+      },
+      {
+        "id": "segment-fault-only-coil",
+        "label": "设备故障报警输出",
+        "note": "检测到设备故障时输出报警状态。",
+        "nodesObj": {
+          "fault-coil-start": {
+            "id": "fault-coil-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["fault-coil"]
+          },
+          "fault-coil": {
+            "id": "fault-coil",
+            "type": "coil",
+            "sourceIds": ["fault-coil-start"],
+            "targetIds": ["fault-coil-end"],
+            "varName": { "value": "Fault_Output", "type": "BOOL", "scope": "VAR" }
+          },
+          "fault-coil-end": {
+            "id": "fault-coil-end",
+            "type": "endLine",
+            "sourceIds": ["fault-coil"],
+            "targetIds": []
+          }
+        }
+      },
+      {
+        "id": "segment-reset-coil",
+        "label": "设备故障复位输出",
+        "note": "故障确认后执行复位。",
+        "nodesObj": {
+          "reset-coil-start": {
+            "id": "reset-coil-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["reset-coil"]
+          },
+          "reset-coil": {
+            "id": "reset-coil",
+            "type": "coil",
+            "sourceIds": ["reset-coil-start"],
+            "targetIds": ["reset-coil-end"],
+            "varName": { "value": "Reset_Output", "type": "BOOL", "scope": "VAR" }
+          },
+          "reset-coil-end": {
+            "id": "reset-coil-end",
+            "type": "endLine",
+            "sourceIds": ["reset-coil"],
             "targetIds": []
           }
         }

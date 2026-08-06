@@ -929,9 +929,11 @@ function scoreBusinessSuggestion(
   }
 
   if (addType === "resetCoil") {
-    score += stopSignals * 2;
-    score += businessTermWeight(context, "reset") * 3;
-    score += businessTermWeight(context, "fault") * 2;
+    const resetSignals = businessTermWeight(context, "reset");
+    if (resetSignals > 0) {
+      score += resetSignals * 3;
+      score += businessTermWeight(context, "fault", "alarm", "latch") * 2;
+    }
   }
 
   if (isCoil) {

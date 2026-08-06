@@ -38,6 +38,8 @@
     { "term": "rising", "patterns": ["rising", "r_trig", "上升沿", "按下瞬间", "启动脉冲"] },
     { "term": "run", "patterns": ["run", "running", "运行"] },
     { "term": "set", "patterns": ["set", "置位", "触发保持"] },
+    { "term": "setDominant", "patterns": ["set dominant", "set-dominant", "set priority", "置位优先", "置位占优"] },
+    { "term": "resetDominant", "patterns": ["reset dominant", "reset-dominant", "reset priority", "复位优先", "复位占优"] },
     { "term": "setpoint", "patterns": ["setpoint", "set_point", "设定值", "给定值", "目标值"] },
     { "term": "processValue", "patterns": ["processvalue", "process_value", "测量值", "过程值", "反馈值"] },
     { "term": "manipulatedValue", "patterns": ["manipulatedvalue", "manipulated_value", "控制输出", "调节输出"] },
@@ -125,13 +127,13 @@
     {
       "id": "C03-bidirectional-counter",
       "status": "active",
-      "termsAll": ["counter", "countBidirectional", "countUp", "countDown"],
+      "termsAll": ["counter", "countBidirectional"],
       "excludedTerms": ["safety"],
       "requiredAnyDataTypes": ["BOOL", "INT", "DINT", "UINT", "UDINT"],
       "candidateNames": ["CTUD"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
       "baseScore": 98,
-      "reason": "同时存在增加和减少事件的双向计数使用 CTUD。"
+      "reason": "存在明确双向计数语义时使用 CTUD。"
     },
     {
       "id": "C01-up-counter",
@@ -169,7 +171,7 @@
     {
       "id": "L01-set-dominant-latch",
       "status": "active",
-      "termsAll": ["latch", "set"],
+      "termsAll": ["latch", "setDominant"],
       "excludedTerms": ["stateMachine", "safety"],
       "requiredAnyDataTypes": ["BOOL"],
       "candidateNames": ["SR"],
@@ -180,7 +182,7 @@
     {
       "id": "L02-reset-dominant-latch",
       "status": "active",
-      "termsAll": ["latch", "reset"],
+      "termsAll": ["latch", "resetDominant"],
       "excludedTerms": ["stateMachine", "safety"],
       "requiredAnyDataTypes": ["BOOL"],
       "candidateNames": ["RS"],
@@ -366,15 +368,26 @@
       "reason": "存在明确轴引用和速度运行意图时推荐 MC_MoveVelocity。"
     },
     {
-      "id": "MC08-stop-halt",
+      "id": "MC08-stop",
       "status": "active",
       "termsAll": ["motion", "axis", "stop"],
-      "excludedTerms": ["safety"],
+      "excludedTerms": ["motionHalt", "safety"],
       "requiredAnyDataTypes": ["AXIS_REF", "AXIS_REF_SM3"],
-      "candidateNames": ["MC_Stop", "MC_Halt"],
+      "candidateNames": ["MC_Stop"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "outputFunctionBlock"],
       "baseScore": 102,
-      "reason": "存在明确轴引用和受控停止意图时才允许 MC_Stop/MC_Halt。"
+      "reason": "存在明确轴引用和停止意图时推荐 MC_Stop。"
+    },
+    {
+      "id": "MC09-halt",
+      "status": "active",
+      "termsAll": ["motion", "axis", "motionHalt"],
+      "excludedTerms": ["safety"],
+      "requiredAnyDataTypes": ["AXIS_REF", "AXIS_REF_SM3"],
+      "candidateNames": ["MC_Halt"],
+      "allowedModes": ["functionBlockAfter", "functionBlockBefore", "outputFunctionBlock"],
+      "baseScore": 102,
+      "reason": "存在明确轴引用和受控暂停意图时推荐 MC_Halt。"
     }
   ],
   "rankingRules": [
@@ -398,7 +411,7 @@
     {
       "id": "R03-reset-coil",
       "status": "active",
-      "termsAny": ["reset", "fault"],
+      "termsAll": ["reset"],
       "candidateNodeTypes": ["resetCoil"],
       "baseScore": 7,
       "termMultiplier": 1
