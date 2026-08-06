@@ -298,12 +298,15 @@ export class LocalGraphSuggestionService {
       usedCore = Boolean(result);
     } catch (error) {
       this.log(
-        `local graph suggestions core-first failed, fallback to legacy builder: ${formatUnknownError(error)}`,
+        `local graph suggestions core failed; no unvalidated legacy suggestions will be returned: ${formatUnknownError(error)}`,
       );
     }
 
     if (!result) {
-      result = this.createResult(diagramPath, summary, focus);
+      this.log(
+        "local graph suggestions cancelled: library-validated core result unavailable",
+      );
+      return undefined;
     }
     if (usedCore) {
       this.log(

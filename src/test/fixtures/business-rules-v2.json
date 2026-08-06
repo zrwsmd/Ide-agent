@@ -1,0 +1,109 @@
+[
+  {
+    "pouName": "BUSINESS_RULE_TEST",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Enable", "type": "BOOL", "scope": "VAR" },
+      { "name": "ResetButton", "type": "BOOL", "scope": "VAR" },
+      { "name": "AxisResetButton", "type": "BOOL", "scope": "VAR" },
+      { "name": "Axis1", "type": "AXIS_REF", "scope": "VAR" },
+      { "name": "PowerFb", "type": "MC_Power", "scope": "VAR" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-ton",
+        "label": "电机延时启动",
+        "note": "启动条件持续有效后进行通电延时输出",
+        "nodesObj": {
+          "ton-start": {
+            "id": "ton-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["ton-contact"]
+          },
+          "ton-contact": {
+            "id": "ton-contact",
+            "type": "contact",
+            "sourceIds": ["ton-start"],
+            "targetIds": ["ton-end"],
+            "varName": { "value": "Enable", "type": "BOOL", "scope": "VAR" }
+          },
+          "ton-end": {
+            "id": "ton-end",
+            "type": "endLine",
+            "sourceIds": ["ton-contact"],
+            "targetIds": []
+          }
+        }
+      },
+      {
+        "id": "segment-ordinary-reset",
+        "label": "普通设备故障确认复位",
+        "note": "现场故障排除后由操作员确认复位，不涉及运动轴",
+        "nodesObj": {
+          "reset-start": {
+            "id": "reset-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["reset-contact"]
+          },
+          "reset-contact": {
+            "id": "reset-contact",
+            "type": "risingContact",
+            "sourceIds": ["reset-start"],
+            "targetIds": ["reset-end"],
+            "varName": { "value": "ResetButton", "type": "BOOL", "scope": "VAR" }
+          },
+          "reset-end": {
+            "id": "reset-end",
+            "type": "endLine",
+            "sourceIds": ["reset-contact"],
+            "targetIds": []
+          }
+        }
+      },
+      {
+        "id": "segment-axis-reset",
+        "label": "运动轴故障复位",
+        "note": "轴故障排除后执行运动控制轴复位",
+        "nodesObj": {
+          "axis-start": {
+            "id": "axis-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["axis-reset-contact"]
+          },
+          "axis-reset-contact": {
+            "id": "axis-reset-contact",
+            "type": "risingContact",
+            "sourceIds": ["axis-start"],
+            "targetIds": ["axis-power-fb"],
+            "varName": { "value": "AxisResetButton", "type": "BOOL", "scope": "VAR" }
+          },
+          "axis-power-fb": {
+            "id": "axis-power-fb",
+            "type": "FBDCompartment",
+            "sourceIds": ["axis-reset-contact"],
+            "targetIds": ["axis-end"],
+            "childrenNode": {
+              "type": "MC_Power",
+              "isFunction": false,
+              "varName": { "value": "PowerFb", "type": "MC_Power", "scope": "VAR" },
+              "portInputs": [
+                { "name": "Axis", "value": "Axis1", "type": "AXIS_REF", "scope": "VAR_INPUT" },
+                { "name": "Enable", "value": "TRUE", "type": "BOOL", "scope": "VAR_INPUT" }
+              ],
+              "portOutputs": []
+            }
+          },
+          "axis-end": {
+            "id": "axis-end",
+            "type": "endLine",
+            "sourceIds": ["axis-power-fb"],
+            "targetIds": []
+          }
+        }
+      }
+    ]
+  }
+]

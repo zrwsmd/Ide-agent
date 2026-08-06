@@ -41,17 +41,13 @@ async function assertDirectTargetEditRectSuggestions() {
     targetIds: ["edit-node-rect"],
   });
 
-  const afterFunctionBlock = findSuggestion(suggestions, {
-    position: "behind",
-    serialOrParallel: "serial",
-    addType: "FBDCompartment",
-  });
-  assertSuggestionBoundary(afterFunctionBlock, {
-    startNodes: ["contact-a1"],
-    endNodes: ["edit-node-rect"],
-    sourceIds: ["contact-a1"],
-    targetIds: ["edit-node-rect"],
-  });
+  assert.equal(
+    suggestions.some(
+      (suggestion) => firstAddNode(suggestion)?.type === "FBDCompartment",
+    ),
+    false,
+    "a generic function-block slot without business evidence must not be returned",
+  );
 
   const parallelContact = findSuggestion(suggestions, {
     position: "parallel",

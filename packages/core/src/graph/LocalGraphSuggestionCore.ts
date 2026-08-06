@@ -165,19 +165,26 @@ type BusinessTerm = string;
 interface BusinessSuggestionContext {
   hasBusinessContext: boolean;
   hasLocalBusinessContext: boolean;
+  focusKind: string;
   focusTerms: Set<BusinessTerm>;
   nearbyTerms: Set<BusinessTerm>;
   segmentTerms: Set<BusinessTerm>;
   pouTerms: Set<BusinessTerm>;
+  focusDataTypes: Set<string>;
+  nearbyDataTypes: Set<string>;
+  segmentDataTypes: Set<string>;
+  localDataTypes: Set<string>;
   focusBlockType: string;
   segmentBlockTypes: Set<string>;
 }
 
 interface BusinessRulesConfig {
+  schemaVersion: string;
   enabled: boolean;
   defaultBlocks: string[];
   termPatterns: BusinessTermPatternConfig[];
-  rules: BusinessRuleConfig[];
+  libraryRules: BusinessLibraryRuleConfig[];
+  rankingRules: BusinessRankingRuleConfig[];
 }
 
 interface BusinessTermPatternConfig {
@@ -185,16 +192,38 @@ interface BusinessTermPatternConfig {
   patterns: string[];
 }
 
-interface BusinessRuleConfig {
+interface BusinessLibraryRuleConfig {
   id: string;
-  terms?: BusinessTerm[];
-  requiredAnyTerms?: BusinessTerm[];
-  requiredAllTerms?: BusinessTerm[];
+  status: string;
+  termsAny?: BusinessTerm[];
+  termsAll?: BusinessTerm[];
   excludedTerms?: BusinessTerm[];
+  focusKinds?: string[];
+  requiredAnyDataTypes?: string[];
+  requiredAllDataTypes?: string[];
+  excludedDataTypes?: string[];
   candidateNames: string[];
   baseScore?: number;
+  allowedModes?: string[];
+  allowedPositions?: LocalSuggestionPosition[];
   preferredModes?: string[];
   preferredPositions?: LocalSuggestionPosition[];
+  reason?: string;
+  fallback?: string;
+}
+
+interface BusinessRankingRuleConfig {
+  id: string;
+  status: string;
+  termsAny?: BusinessTerm[];
+  termsAll?: BusinessTerm[];
+  excludedTerms?: BusinessTerm[];
+  candidateNodeTypes?: string[];
+  candidateBlockTypes?: string[];
+  modes?: string[];
+  positions?: LocalSuggestionPosition[];
+  baseScore: number;
+  termMultiplier: number;
 }
 
 interface LibraryElementInfo {
@@ -210,7 +239,8 @@ interface BusinessElementCandidate {
   name: string;
   score: number;
   ruleId: string;
-  libraryElement?: LibraryElementInfo;
+  reason?: string;
+  libraryElement: LibraryElementInfo;
 }
 
 const FALLBACK_COMMON_FUNCTION_BLOCK_TYPES = [
@@ -224,6 +254,7 @@ const FALLBACK_COMMON_FUNCTION_BLOCK_TYPES = [
 ];
 
 const FALLBACK_BUSINESS_RULES_CONFIG: BusinessRulesConfig = {
+  schemaVersion: "ide-agent.business-rules.v2",
   enabled: true,
   defaultBlocks: FALLBACK_COMMON_FUNCTION_BLOCK_TYPES,
   termPatterns: [
@@ -250,67 +281,8 @@ const FALLBACK_BUSINESS_RULES_CONFIG: BusinessRulesConfig = {
     { term: "string", patterns: ["string", "wstring", "字符串", "字符"] },
     { term: "timer", patterns: ["timer", "time", "ton", "tof", "tp", "定时", "延时", "计时", "时间", "超时"] },
   ],
-  rules: [
-    {
-      id: "timer",
-      terms: ["timer"],
-      candidateNames: ["TON", "TOF", "TP"],
-      baseScore: 80,
-      preferredModes: ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
-    },
-    {
-      id: "counter",
-      terms: ["counter"],
-      candidateNames: ["CTU", "CTD"],
-      baseScore: 78,
-      preferredModes: ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
-    },
-    {
-      id: "latch",
-      terms: ["alarm", "fault", "reset", "start", "stop", "interlock"],
-      candidateNames: ["SR", "RS"],
-      baseScore: 72,
-      preferredModes: ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
-    },
-    {
-      id: "edge-rising",
-      terms: ["edge", "rising", "start"],
-      candidateNames: ["R_TRIG"],
-      baseScore: 76,
-      preferredModes: ["functionBlockAfter", "functionBlockBefore"],
-    },
-    {
-      id: "edge-falling",
-      terms: ["falling", "stop"],
-      candidateNames: ["F_TRIG"],
-      baseScore: 74,
-      preferredModes: ["functionBlockAfter", "functionBlockBefore"],
-    },
-    {
-      id: "pid",
-      terms: ["pid", "numeric"],
-      requiredAnyTerms: ["pid"],
-      candidateNames: ["PID"],
-      baseScore: 90,
-      preferredModes: ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
-    },
-    {
-      id: "string-left",
-      terms: ["string", "left"],
-      requiredAnyTerms: ["left", "string"],
-      candidateNames: ["LEFT"],
-      baseScore: 86,
-      preferredModes: ["functionBlockAfter", "functionBlockBefore"],
-    },
-    {
-      id: "motion-reset",
-      terms: ["motion", "axis", "reset", "fault"],
-      requiredAnyTerms: ["motion", "axis"],
-      candidateNames: ["MC_Reset"],
-      baseScore: 92,
-      preferredModes: ["functionBlockAfter", "functionBlockBefore", "outputFunctionBlock"],
-    },
-  ],
+  libraryRules: [],
+  rankingRules: [],
 };
 
 const BUSINESS_RULES_CONFIG = loadBusinessRulesConfig();
@@ -329,10 +301,14 @@ function loadBusinessRulesConfig(): BusinessRulesConfig {
   }
 
   return {
+    schemaVersion:
+      asStringConfig(record.schemaVersion) ||
+      FALLBACK_BUSINESS_RULES_CONFIG.schemaVersion,
     enabled: asBooleanConfig(record.enabled, FALLBACK_BUSINESS_RULES_CONFIG.enabled),
     defaultBlocks: stringList(record.defaultBlocks, FALLBACK_BUSINESS_RULES_CONFIG.defaultBlocks),
     termPatterns: parseTermPatterns(record.termPatterns),
-    rules: parseBusinessRules(record.rules),
+    libraryRules: parseBusinessRules(record.libraryRules ?? record.rules),
+    rankingRules: parseBusinessRankingRules(record.rankingRules),
   };
 }
 
@@ -347,22 +323,59 @@ function parseTermPatterns(value: unknown): BusinessTermPatternConfig[] {
   return parsed.length > 0 ? parsed : FALLBACK_BUSINESS_RULES_CONFIG.termPatterns;
 }
 
-function parseBusinessRules(value: unknown): BusinessRuleConfig[] {
+function parseBusinessRules(value: unknown): BusinessLibraryRuleConfig[] {
   const parsed = asArrayRecord(value)
     .map((item) => ({
       id: asStringConfig(item.id),
-      terms: stringList(item.terms),
-      requiredAnyTerms: stringList(item.requiredAnyTerms),
-      requiredAllTerms: stringList(item.requiredAllTerms),
+      status: asStringConfig(item.status) || "active",
+      termsAny: uniqueStringList([
+        ...stringList(item.termsAny),
+        ...stringList(item.requiredAnyTerms),
+        ...stringList(item.terms),
+      ]),
+      termsAll: stringList(item.termsAll ?? item.requiredAllTerms),
       excludedTerms: stringList(item.excludedTerms),
+      focusKinds: stringList(item.focusKinds),
+      requiredAnyDataTypes: stringList(item.requiredAnyDataTypes),
+      requiredAllDataTypes: stringList(item.requiredAllDataTypes),
+      excludedDataTypes: stringList(item.excludedDataTypes),
       candidateNames: stringList(item.candidateNames),
       baseScore: asOptionalNumberConfig(item.baseScore),
+      allowedModes: stringList(item.allowedModes),
+      allowedPositions: stringList(item.allowedPositions) as LocalSuggestionPosition[],
       preferredModes: stringList(item.preferredModes),
       preferredPositions: stringList(item.preferredPositions) as LocalSuggestionPosition[],
+      reason: asStringConfig(item.reason),
+      fallback: asStringConfig(item.fallback),
     }))
-    .filter((item) => item.id && item.candidateNames.length > 0);
+    .filter(
+      (item) =>
+        item.status.toLowerCase() === "active" &&
+        item.id &&
+        item.candidateNames.length > 0,
+    );
 
-  return parsed.length > 0 ? parsed : FALLBACK_BUSINESS_RULES_CONFIG.rules;
+  return Array.isArray(value) ? parsed : [];
+}
+
+function parseBusinessRankingRules(value: unknown): BusinessRankingRuleConfig[] {
+  return asArrayRecord(value)
+    .map((item) => ({
+      id: asStringConfig(item.id),
+      status: asStringConfig(item.status) || "active",
+      termsAny: stringList(item.termsAny),
+      termsAll: stringList(item.termsAll),
+      excludedTerms: stringList(item.excludedTerms),
+      candidateNodeTypes: stringList(item.candidateNodeTypes),
+      candidateBlockTypes: stringList(item.candidateBlockTypes),
+      modes: stringList(item.modes),
+      positions: stringList(item.positions) as LocalSuggestionPosition[],
+      baseScore: asOptionalNumberConfig(item.baseScore) ?? 0,
+      termMultiplier: asOptionalNumberConfig(item.termMultiplier) ?? 1,
+    }))
+    .filter(
+      (item) => item.status.toLowerCase() === "active" && Boolean(item.id),
+    );
 }
 
 function readJsonFile(filePath: string): unknown {
@@ -399,6 +412,10 @@ function stringList(value: unknown, fallback: string[] = []): string[] {
       : [];
   const filtered = values.filter(Boolean);
   return filtered.length > 0 ? filtered : fallback;
+}
+
+function uniqueStringList(values: string[]): string[] {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
 }
 
 function asArrayConfig(value: unknown): unknown[] {
@@ -588,6 +605,7 @@ function buildSuggestions(
 
   const candidates = keepOutputCoilWithinLimit(dedupeSuggestions(suggestions), 6);
   return rankBusinessSuggestions(candidates, summary, focus, graphState)
+    .filter(isLibraryBackedSuggestion)
     .map((suggestion, index) =>
       toLocalSuggestion(suggestion, index, focus.segment),
     );
@@ -599,13 +617,9 @@ function rankBusinessSuggestions(
   focus: FocusContext,
   graphState: SegmentGraphState,
 ): LocalSuggestionDraft[] {
-  if (suggestions.length <= 1) {
-    return suggestions;
-  }
-
   const context = buildBusinessSuggestionContext(summary, focus);
   if (!context.hasBusinessContext) {
-    return suggestions;
+    return suggestions.filter((suggestion) => !isGenericFunctionBlockDraft(suggestion));
   }
 
   const enhancedSuggestions = applyBusinessLibraryEnhancements(
@@ -635,28 +649,29 @@ function applyBusinessLibraryEnhancements(
     return suggestions;
   }
 
-  const candidates = resolveBusinessLibraryCandidates(context);
-  if (!candidates.length) {
-    return suggestions;
-  }
-
   let candidateIndex = 0;
-  return suggestions.map((suggestion) => {
+  return suggestions.flatMap((suggestion) => {
     if (!isGenericFunctionBlockDraft(suggestion)) {
-      return suggestion;
+      return [suggestion];
+    }
+
+    const candidates = resolveBusinessLibraryCandidates(context, suggestion);
+    if (!candidates.length) {
+      return [];
     }
 
     const candidate = candidates[candidateIndex % candidates.length];
     candidateIndex += 1;
-    return replaceFunctionBlockDraft(suggestion, candidate);
+    return [replaceFunctionBlockDraft(suggestion, candidate)];
   });
 }
 
 function resolveBusinessLibraryCandidates(
   context: BusinessSuggestionContext,
+  suggestion: LocalSuggestionDraft,
 ): BusinessElementCandidate[] {
-  const ruleMatches = BUSINESS_RULES_CONFIG.rules
-    .map((rule) => matchBusinessRule(rule, context))
+  const ruleMatches = BUSINESS_RULES_CONFIG.libraryRules
+    .map((rule) => matchBusinessRule(rule, context, suggestion))
     .filter((item): item is BusinessElementCandidate[] => item.length > 0)
     .flat();
 
@@ -676,25 +691,32 @@ function resolveBusinessLibraryCandidates(
 }
 
 function matchBusinessRule(
-  rule: BusinessRuleConfig,
+  rule: BusinessLibraryRuleConfig,
   context: BusinessSuggestionContext,
+  suggestion: LocalSuggestionDraft,
 ): BusinessElementCandidate[] {
-  if (rule.terms && rule.terms.length > 0) {
-    const termScore = businessTermWeight(context, ...rule.terms);
-    if (termScore <= 0) {
-      return [];
-    }
+  const position = suggestion.position ?? inferPosition(suggestion);
+  if (rule.focusKinds?.length && !includesCaseInsensitive(rule.focusKinds, context.focusKind)) {
+    return [];
   }
 
-  if (rule.requiredAnyTerms && rule.requiredAnyTerms.length > 0) {
-    const hasAny = rule.requiredAnyTerms.some((term) => businessTermWeight(context, term) > 0);
+  if (rule.allowedModes?.length && !rule.allowedModes.includes(suggestion.mode)) {
+    return [];
+  }
+
+  if (rule.allowedPositions?.length && !rule.allowedPositions.includes(position)) {
+    return [];
+  }
+
+  if (rule.termsAny && rule.termsAny.length > 0) {
+    const hasAny = rule.termsAny.some((term) => localBusinessTermWeight(context, term) > 0);
     if (!hasAny) {
       return [];
     }
   }
 
-  if (rule.requiredAllTerms && rule.requiredAllTerms.length > 0) {
-    const hasAll = rule.requiredAllTerms.every((term) => businessTermWeight(context, term) > 0);
+  if (rule.termsAll && rule.termsAll.length > 0) {
+    const hasAll = rule.termsAll.every((term) => localBusinessTermWeight(context, term) > 0);
     if (!hasAll) {
       return [];
     }
@@ -704,9 +726,33 @@ function matchBusinessRule(
     return [];
   }
 
+  if (
+    rule.requiredAnyDataTypes?.length &&
+    !hasAnyDataType(context.localDataTypes, rule.requiredAnyDataTypes)
+  ) {
+    return [];
+  }
+
+  if (
+    rule.requiredAllDataTypes?.length &&
+    !rule.requiredAllDataTypes.every((dataType) =>
+      hasDataType(context.localDataTypes, dataType),
+    )
+  ) {
+    return [];
+  }
+
+  if (
+    rule.excludedDataTypes?.some((dataType) =>
+      hasDataType(context.localDataTypes, dataType),
+    )
+  ) {
+    return [];
+  }
+
   const baseScore = rule.baseScore ?? 0;
 
-  return rule.candidateNames.flatMap((candidateName) => {
+  return rule.candidateNames.flatMap((candidateName, candidateIndex) => {
     const libraryElement = getLibraryElement(candidateName);
     if (!libraryElement) {
       return [];
@@ -717,9 +763,13 @@ function matchBusinessRule(
         name: libraryElement.name,
         score:
           baseScore +
-          businessTermWeight(context, ...(rule.terms ?? [])) * 4 +
-          businessTermWeight(context, ...(rule.requiredAnyTerms ?? [])) * 2,
+          businessTermWeight(context, ...(rule.termsAny ?? [])) * 2 +
+          businessTermWeight(context, ...(rule.termsAll ?? [])) * 3 +
+          (rule.preferredModes?.includes(suggestion.mode) ? 4 : 0) +
+          (rule.preferredPositions?.includes(position) ? 3 : 0) -
+          candidateIndex,
         ruleId: rule.id,
+        reason: rule.reason,
         libraryElement,
       },
     ];
@@ -759,6 +809,20 @@ function buildBusinessSuggestionContext(
     ...pouVariables.flatMap(variableBusinessTexts),
   ];
   const focusBlockType = normalizeBlockType(focus.node?.blockType);
+  const focusDataTypes = collectNodeDataTypes(
+    focus.node ? [focus.node] : [],
+    pouVariables,
+  );
+  const nearbyDataTypes = collectNodeDataTypes(surroundingNodes, pouVariables);
+  const segmentDataTypes = collectNodeDataTypes(
+    focus.segment.nodes,
+    pouVariables,
+  );
+  const localDataTypes = new Set([
+    ...focusDataTypes,
+    ...nearbyDataTypes,
+    ...segmentDataTypes,
+  ]);
   const segmentBlockTypes = new Set(
     focus.segment.nodes
       .map((node) => normalizeBlockType(node.blockType))
@@ -768,6 +832,9 @@ function buildBusinessSuggestionContext(
   const nearbyTerms = collectBusinessTerms(nearbyTexts);
   const segmentTerms = collectBusinessTerms(segmentTexts);
   const pouTerms = collectBusinessTerms(pouTexts);
+  addDataTypeTerms(focusTerms, focusDataTypes);
+  addDataTypeTerms(nearbyTerms, nearbyDataTypes);
+  addDataTypeTerms(segmentTerms, segmentDataTypes);
   const hasLocalBusinessContext =
     focusTerms.size > 0 ||
     nearbyTerms.size > 0 ||
@@ -779,10 +846,15 @@ function buildBusinessSuggestionContext(
       isBusinessBlockType(focusBlockType) ||
       [...segmentBlockTypes].some((value) => isBusinessBlockType(value)),
     hasLocalBusinessContext,
+    focusKind: focus.node?.kind ?? focus.insertionPoint?.kind ?? "",
     focusTerms,
     nearbyTerms,
     segmentTerms,
     pouTerms,
+    focusDataTypes,
+    nearbyDataTypes,
+    segmentDataTypes,
+    localDataTypes,
     focusBlockType,
     segmentBlockTypes,
   };
@@ -802,7 +874,7 @@ function scoreBusinessSuggestion(
   const isContact = isContactNodeType(addType);
   const isFunctionBlock = addType === "functionBlock";
   const isCoil = isCoilNodeType(addType);
-  let score = 0;
+  let score = scoreConfiguredRankingRules(suggestion, context);
 
   const startSignals = businessTermWeight(
     context,
@@ -942,6 +1014,62 @@ function businessTermWeight(
   return score;
 }
 
+function scoreConfiguredRankingRules(
+  suggestion: LocalSuggestionDraft,
+  context: BusinessSuggestionContext,
+): number {
+  const nodeType = suggestion.addElement.nodeType;
+  const blockType = normalizeBlockType(suggestion.addElement.blockType);
+  const position = suggestion.position ?? inferPosition(suggestion);
+
+  return BUSINESS_RULES_CONFIG.rankingRules.reduce((score, rule) => {
+    if (
+      rule.candidateNodeTypes?.length &&
+      !includesCaseInsensitive(rule.candidateNodeTypes, nodeType)
+    ) {
+      return score;
+    }
+    if (
+      rule.candidateBlockTypes?.length &&
+      !includesCaseInsensitive(rule.candidateBlockTypes, blockType)
+    ) {
+      return score;
+    }
+    if (rule.modes?.length && !rule.modes.includes(suggestion.mode)) {
+      return score;
+    }
+    if (rule.positions?.length && !rule.positions.includes(position)) {
+      return score;
+    }
+    if (
+      rule.termsAny?.length &&
+      !rule.termsAny.some((term) => localBusinessTermWeight(context, term) > 0)
+    ) {
+      return score;
+    }
+    if (
+      rule.termsAll?.length &&
+      !rule.termsAll.every((term) => localBusinessTermWeight(context, term) > 0)
+    ) {
+      return score;
+    }
+    if (
+      rule.excludedTerms?.some(
+        (term) => localBusinessTermWeight(context, term) > 0,
+      )
+    ) {
+      return score;
+    }
+
+    const evidenceTerms = [...(rule.termsAny ?? []), ...(rule.termsAll ?? [])];
+    return (
+      score +
+      rule.baseScore +
+      businessTermWeight(context, ...evidenceTerms) * rule.termMultiplier
+    );
+  }, 0);
+}
+
 function localBusinessTermWeight(
   context: BusinessSuggestionContext,
   term: BusinessTerm,
@@ -959,6 +1087,117 @@ function localBusinessTermWeight(
   return score;
 }
 
+function collectNodeDataTypes(
+  nodes: DiagramNodeSummary[],
+  variables: Array<{ name: string; type: string }>,
+): Set<string> {
+  const variableTypes = new Map(
+    variables
+      .filter((variable) => variable.name && variable.type)
+      .map((variable) => [variable.name.trim().toUpperCase(), variable.type]),
+  );
+  const dataTypes = new Set<string>();
+
+  for (const node of nodes) {
+    addNormalizedDataType(dataTypes, node.dataType);
+    const references = [
+      node.var,
+      ...Object.values(node.inputs ?? {}),
+      ...Object.values(node.outputs ?? {}),
+    ];
+    for (const reference of references) {
+      const dataType = variableTypes.get(String(reference ?? "").trim().toUpperCase());
+      addNormalizedDataType(dataTypes, dataType);
+    }
+  }
+
+  return dataTypes;
+}
+
+function addNormalizedDataType(
+  target: Set<string>,
+  dataType: string | undefined,
+): void {
+  const normalized = normalizeDataType(dataType);
+  if (normalized) {
+    target.add(normalized);
+  }
+}
+
+function normalizeDataType(dataType: string | undefined): string {
+  return String(dataType ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, " ");
+}
+
+function hasAnyDataType(
+  localDataTypes: Set<string>,
+  requiredDataTypes: string[],
+): boolean {
+  return requiredDataTypes.some((dataType) =>
+    hasDataType(localDataTypes, dataType),
+  );
+}
+
+function hasDataType(
+  localDataTypes: Set<string>,
+  requiredDataType: string,
+): boolean {
+  const normalizedRequired = normalizeDataType(requiredDataType);
+  if (!normalizedRequired) {
+    return false;
+  }
+
+  if (normalizedRequired === "NUMERIC") {
+    return [...localDataTypes].some(isNumericDataType);
+  }
+
+  return [...localDataTypes].some(
+    (dataType) =>
+      dataType === normalizedRequired ||
+      dataType.startsWith(`${normalizedRequired}(`) ||
+      dataType.startsWith(`${normalizedRequired}[`) ||
+      dataType.endsWith(`.${normalizedRequired}`),
+  );
+}
+
+function isNumericDataType(dataType: string): boolean {
+  return [
+    "SINT",
+    "USINT",
+    "INT",
+    "UINT",
+    "DINT",
+    "UDINT",
+    "LINT",
+    "ULINT",
+    "REAL",
+    "LREAL",
+  ].includes(normalizeDataType(dataType));
+}
+
+function addDataTypeTerms(
+  terms: Set<BusinessTerm>,
+  dataTypes: Set<string>,
+): void {
+  if ([...dataTypes].some(isNumericDataType)) {
+    terms.add("numeric");
+  }
+  if (hasAnyDataType(dataTypes, ["STRING", "WSTRING"])) {
+    terms.add("string");
+  }
+  if ([...dataTypes].some((dataType) => dataType.includes("AXIS_REF"))) {
+    terms.add("axis");
+    terms.add("motion");
+  }
+}
+
+function includesCaseInsensitive(values: string[], target: string): boolean {
+  const normalizedTarget = target.trim().toUpperCase();
+  return values.some((value) => value.trim().toUpperCase() === normalizedTarget);
+}
+
 function collectBusinessTerms(values: Array<string | undefined>): Set<BusinessTerm> {
   const haystack = compactBusinessTexts(values)
     .map((value) => value.toLowerCase())
@@ -970,12 +1209,26 @@ function collectBusinessTerms(values: Array<string | undefined>): Set<BusinessTe
   }
 
   for (const entry of BUSINESS_TERM_PATTERNS) {
-    if (entry.patterns.some((pattern) => haystack.includes(pattern.toLowerCase()))) {
+    if (entry.patterns.some((pattern) => matchesBusinessPattern(haystack, pattern))) {
       terms.add(entry.term);
     }
   }
 
   return terms;
+}
+
+function matchesBusinessPattern(haystack: string, pattern: string): boolean {
+  const normalizedPattern = pattern.trim().toLowerCase();
+  if (!normalizedPattern) {
+    return false;
+  }
+
+  if (/^[a-z0-9_]+$/.test(normalizedPattern) && normalizedPattern.length <= 3) {
+    const escaped = normalizedPattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`).test(haystack);
+  }
+
+  return haystack.includes(normalizedPattern);
 }
 
 function nodeBusinessTexts(node: DiagramNodeSummary): string[] {
@@ -1875,7 +2128,8 @@ function createSuggestedNode(
   addElement: LocalSuggestionAddElement,
 ): SuggestedGraphNode {
   if (addElement.nodeType === "functionBlock") {
-    const blockType = addElement.blockType || "TON";
+    const blockType = addElement.blockType.trim();
+    const libraryElement = getLibraryElement(blockType);
     return {
       id: nodeId,
       type: "FBDCompartment",
@@ -1893,12 +2147,12 @@ function createSuggestedNode(
           Array.isArray(addElement.portInputs) &&
           addElement.portInputs.length > 0
             ? addElement.portInputs
-            : functionBlockInputPorts(blockType),
+            : buildLibraryPortInputs(libraryElement),
         portOutputs:
           Array.isArray(addElement.portOutputs) &&
           addElement.portOutputs.length > 0
             ? addElement.portOutputs
-            : functionBlockOutputPorts(blockType),
+            : buildLibraryPortOutputs(libraryElement),
       },
     };
   }
@@ -1931,117 +2185,6 @@ function createSuggestedNodeLinks(
   return {
     sourceIds: startNodes,
     targetIds: endNodes,
-  };
-}
-
-function functionBlockInputPorts(blockType: string): SuggestedPort[] {
-  const portsByType: Record<string, Array<[string, string, string]>> = {
-    SR: [
-      ["EN", "", ""],
-      ["S1", "BOOL", "VAR_INPUT"],
-      ["R", "BOOL", "VAR_INPUT"],
-    ],
-    RS: [
-      ["EN", "", ""],
-      ["S", "BOOL", "VAR_INPUT"],
-      ["R1", "BOOL", "VAR_INPUT"],
-    ],
-    CTU: [
-      ["EN", "", ""],
-      ["CU", "BOOL", "VAR_INPUT"],
-      ["R", "BOOL", "VAR_INPUT"],
-      ["PV", "INT", "VAR_INPUT"],
-    ],
-    CTD: [
-      ["EN", "", ""],
-      ["CD", "BOOL", "VAR_INPUT"],
-      ["LD", "BOOL", "VAR_INPUT"],
-      ["PV", "INT", "VAR_INPUT"],
-    ],
-    CTUD: [
-      ["EN", "", ""],
-      ["CU", "BOOL", "VAR_INPUT"],
-      ["CD", "BOOL", "VAR_INPUT"],
-      ["R", "BOOL", "VAR_INPUT"],
-      ["LD", "BOOL", "VAR_INPUT"],
-      ["PV", "INT", "VAR_INPUT"],
-    ],
-    TON: [
-      ["EN", "", ""],
-      ["IN", "BOOL", "VAR_INPUT"],
-      ["PT", "TIME", "VAR_INPUT"],
-    ],
-    TOF: [
-      ["EN", "", ""],
-      ["IN", "BOOL", "VAR_INPUT"],
-      ["PT", "TIME", "VAR_INPUT"],
-    ],
-    TP: [
-      ["EN", "", ""],
-      ["IN", "BOOL", "VAR_INPUT"],
-      ["PT", "TIME", "VAR_INPUT"],
-    ],
-  };
-
-  return (portsByType[blockType] ?? portsByType.TON).map(toSuggestedPort);
-}
-
-function functionBlockOutputPorts(blockType: string): SuggestedPort[] {
-  const portsByType: Record<string, Array<[string, string, string]>> = {
-    SR: [
-      ["ENO", "", ""],
-      ["Q1", "BOOL", "VAR_OUTPUT"],
-    ],
-    RS: [
-      ["ENO", "", ""],
-      ["Q1", "BOOL", "VAR_OUTPUT"],
-    ],
-    CTU: [
-      ["ENO", "", ""],
-      ["Q", "BOOL", "VAR_OUTPUT"],
-      ["CV", "INT", "VAR_OUTPUT"],
-    ],
-    CTD: [
-      ["ENO", "", ""],
-      ["Q", "BOOL", "VAR_OUTPUT"],
-      ["CV", "INT", "VAR_OUTPUT"],
-    ],
-    CTUD: [
-      ["ENO", "", ""],
-      ["QU", "BOOL", "VAR_OUTPUT"],
-      ["QD", "BOOL", "VAR_OUTPUT"],
-      ["CV", "INT", "VAR_OUTPUT"],
-    ],
-    TON: [
-      ["ENO", "", ""],
-      ["Q", "BOOL", "VAR_OUTPUT"],
-      ["ET", "TIME", "VAR_OUTPUT"],
-    ],
-    TOF: [
-      ["ENO", "", ""],
-      ["Q", "BOOL", "VAR_OUTPUT"],
-      ["ET", "TIME", "VAR_OUTPUT"],
-    ],
-    TP: [
-      ["ENO", "", ""],
-      ["Q", "BOOL", "VAR_OUTPUT"],
-      ["ET", "TIME", "VAR_OUTPUT"],
-    ],
-  };
-
-  return (portsByType[blockType] ?? portsByType.TON).map(toSuggestedPort);
-}
-
-function toSuggestedPort([name, type, scope]: [
-  string,
-  string,
-  string,
-]): SuggestedPort {
-  return {
-    name,
-    value: name === "EN" || name === "ENO" ? "" : "???",
-    type,
-    scope,
   };
 }
 
@@ -2252,8 +2395,10 @@ function functionBlockElement(blockType?: string): LocalSuggestionAddElement {
 }
 
 function pickFunctionBlockType(): string {
-  const index = Math.floor(Math.random() * COMMON_FUNCTION_BLOCK_TYPES.length);
-  return COMMON_FUNCTION_BLOCK_TYPES[index] ?? "TON";
+  const availableTypes = COMMON_FUNCTION_BLOCK_TYPES.filter((blockType) =>
+    Boolean(getLibraryElement(blockType)),
+  );
+  return availableTypes[0] ?? "";
 }
 
 function withFunctionBlockType(
@@ -2282,6 +2427,14 @@ function replaceFunctionBlockText(
 
 function isGenericFunctionBlockDraft(draft: LocalSuggestionDraft): boolean {
   return draft.addElement.nodeType === "functionBlock";
+}
+
+function isLibraryBackedSuggestion(draft: LocalSuggestionDraft): boolean {
+  if (draft.addElement.nodeType !== "functionBlock") {
+    return true;
+  }
+
+  return Boolean(getLibraryElement(draft.addElement.blockType));
 }
 
 function replaceFunctionBlockDraft(
@@ -2323,11 +2476,7 @@ function buildLibraryPortInputs(
     return [];
   }
 
-  const ports = toLibraryPorts(libraryElement.inputs, "VAR_INPUT");
-  const hasEn = ports.some((port) => port.name === "EN");
-  return hasEn
-    ? ports
-    : [{ name: "EN", value: "", type: "", scope: "" }, ...ports];
+  return toLibraryPorts(libraryElement.inputs, "VAR_INPUT");
 }
 
 function buildLibraryPortOutputs(
@@ -2337,11 +2486,7 @@ function buildLibraryPortOutputs(
     return [];
   }
 
-  const ports = toLibraryPorts(libraryElement.outputs, "VAR_OUTPUT");
-  const hasEno = ports.some((port) => port.name === "ENO");
-  return hasEno
-    ? ports
-    : [{ name: "ENO", value: "", type: "", scope: "" }, ...ports];
+  return toLibraryPorts(libraryElement.outputs, "VAR_OUTPUT");
 }
 
 function toLibraryPorts(
@@ -2366,23 +2511,6 @@ function getLibraryElement(name: string): LibraryElementInfo | undefined {
   const normalized = normalizeBlockType(name);
   if (!normalized) {
     return undefined;
-  }
-
-  if (COMMON_FUNCTION_BLOCK_TYPES.includes(normalized)) {
-    return {
-      name: normalized,
-      type: "functionBlock",
-      inputs: functionBlockInputPorts(normalized).map((port) => [
-        port.name,
-        port.type,
-        port.scope,
-      ]),
-      outputs: functionBlockOutputPorts(normalized).map((port) => [
-        port.name,
-        port.type,
-        port.scope,
-      ]),
-    };
   }
 
   const data = loadLibraryData();

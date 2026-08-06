@@ -182,6 +182,7 @@
     "obfuscate": "node scripts/obfuscate-dist.js",
     "test:local-graph-command": "npm run compile && node scripts/run-local-graph-command-test.js",
     "test:edit-rect-suggestions": "npm run compile && node scripts/test-edit-rect-suggestions.js",
+    "test:business-rules": "npm run compile && node scripts/test-business-rules.js",
     "watch": "tsc -watch -p ./",
     "package": "vsce package"
   },
