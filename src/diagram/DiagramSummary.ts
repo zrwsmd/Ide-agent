@@ -63,6 +63,7 @@ export interface DiagramSummary {
   pouType: string;
   variableCount: number;
   variables: DiagramVariableSummary[];
+  variablesByPou: Record<string, DiagramVariableSummary[]>;
   segments: DiagramSegmentSummary[];
 }
 
@@ -90,21 +91,15 @@ export function summarizeDiagramJson(
     throw new Error("Diagram JSON is empty or not an object.");
   }
 
-  const variables = dedupeVariables(
-    roots.flatMap((root) =>
-      asArray(root.variableList)
-        .map(asRecord)
-        .filter((item): item is Record<string, unknown> => Boolean(item))
-        .map(
-          (item): DiagramVariableSummary => ({
-            name: asString(item.name) || asString(item.value),
-            type: asString(item.type),
-            scope: asString(item.scope),
-          }),
-        )
-        .filter((item) => item.name.length > 0),
-    ),
-  );
+  const variablesByPou: Record<string, DiagramVariableSummary[]> = {};
+  for (const root of roots) {
+    const pouName = asString(root.pouName);
+    variablesByPou[pouName] = dedupeVariables([
+      ...(variablesByPou[pouName] ?? []),
+      ...summarizeVariables(root.variableList),
+    ]);
+  }
+  const variables = dedupeVariables(Object.values(variablesByPou).flat());
 
   const segments = roots.flatMap((root) => {
     const pouName = asString(root.pouName);
@@ -126,8 +121,23 @@ export function summarizeDiagramJson(
     ),
     variableCount: variables.length,
     variables,
+    variablesByPou,
     segments,
   };
+}
+
+function summarizeVariables(value: unknown): DiagramVariableSummary[] {
+  return asArray(value)
+    .map(asRecord)
+    .filter((item): item is Record<string, unknown> => Boolean(item))
+    .map(
+      (item): DiagramVariableSummary => ({
+        name: asString(item.name) || asString(item.value),
+        type: asString(item.type),
+        scope: asString(item.scope),
+      }),
+    )
+    .filter((item) => item.name.length > 0);
 }
 
 function dedupeVariables(

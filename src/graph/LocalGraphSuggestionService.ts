@@ -169,6 +169,7 @@ type BusinessTerm =
 
 interface BusinessSuggestionContext {
   hasBusinessContext: boolean;
+  hasLocalBusinessContext: boolean;
   focusTerms: Set<BusinessTerm>;
   nearbyTerms: Set<BusinessTerm>;
   segmentTerms: Set<BusinessTerm>;
@@ -281,7 +282,34 @@ export class LocalGraphSuggestionService {
       return undefined;
     }
 
-    const result = this.createResult(diagramPath, summary, focus);
+    const request = {
+      diagramPath,
+      segmentId: focus.segment.segmentId,
+      selectedNodeId: focus.node?.id,
+      selectedInsertionPointId: focus.insertionPoint?.id,
+      selectedVar: getFocusVar(focus) || options.selectedVar,
+      focusQuery: options.focusQuery,
+    };
+
+    let result: LocalGraphSuggestionResult | undefined;
+    let usedCore = false;
+    try {
+      result = await getCoreLocalGraphSuggestions(request);
+      usedCore = Boolean(result);
+    } catch (error) {
+      this.log(
+        `local graph suggestions core-first failed, fallback to legacy builder: ${formatUnknownError(error)}`,
+      );
+    }
+
+    if (!result) {
+      result = this.createResult(diagramPath, summary, focus);
+    }
+    if (usedCore) {
+      this.log(
+        `local graph result path=${result.diagramPath} source=${String(result.payload.recognizedFocus.source ?? "")} nodeId=${result.payload.anchorNodeId} insertionPoint=${focus.insertionPoint?.id ?? ""} suggestions=${result.payload.suggestions.length}`,
+      );
+    }
 
     this.log(
       `local graph focus source=${focus.source} nodeId=${getFocusId(focus)} type=${getFocusType(focus)} var=${getFocusVar(focus) || "(none)"}`,
@@ -521,10 +549,13 @@ function buildBusinessSuggestionContext(
     focus.segment.pouType,
     ...focus.segment.nodes.flatMap((node) => nodeBusinessTexts(node)),
   ];
+  const pouVariables = focus.segment.pouName
+    ? summary.variablesByPou[focus.segment.pouName] ?? []
+    : [];
   const pouTexts = [
-    summary.pouName,
-    summary.pouType,
-    ...summary.variables.flatMap((variable) => [
+    focus.segment.pouName,
+    focus.segment.pouType,
+    ...pouVariables.flatMap((variable) => [
       variable.name,
       variable.type,
       variable.scope,
@@ -540,15 +571,17 @@ function buildBusinessSuggestionContext(
   const nearbyTerms = collectBusinessTerms(nearbyTexts);
   const segmentTerms = collectBusinessTerms(segmentTexts);
   const pouTerms = collectBusinessTerms(pouTexts);
+  const hasLocalBusinessContext =
+    focusTerms.size > 0 ||
+    nearbyTerms.size > 0 ||
+    segmentTerms.size > 0;
 
   return {
     hasBusinessContext:
-      focusTerms.size > 0 ||
-      nearbyTerms.size > 0 ||
-      segmentTerms.size > 0 ||
-      pouTerms.size > 0 ||
+      hasLocalBusinessContext ||
       isBusinessBlockType(focusBlockType) ||
       [...segmentBlockTypes].some((value) => isBusinessBlockType(value)),
+    hasLocalBusinessContext,
     focusTerms,
     nearbyTerms,
     segmentTerms,
@@ -702,18 +735,29 @@ function businessTermWeight(
 ): number {
   let score = 0;
   for (const term of terms) {
-    if (context.focusTerms.has(term)) {
-      score += 4;
-    }
-    if (context.nearbyTerms.has(term)) {
-      score += 3;
-    }
-    if (context.segmentTerms.has(term)) {
-      score += 2;
-    }
-    if (context.pouTerms.has(term)) {
+    const localScore = localBusinessTermWeight(context, term);
+    score += localScore;
+
+    if (localScore > 0 && context.pouTerms.has(term)) {
       score += 1;
     }
+  }
+  return score;
+}
+
+function localBusinessTermWeight(
+  context: BusinessSuggestionContext,
+  term: BusinessTerm,
+): number {
+  let score = 0;
+  if (context.focusTerms.has(term)) {
+    score += 4;
+  }
+  if (context.nearbyTerms.has(term)) {
+    score += 3;
+  }
+  if (context.segmentTerms.has(term)) {
+    score += 2;
   }
   return score;
 }
@@ -739,7 +783,7 @@ function collectBusinessTerms(values: Array<string | undefined>): Set<BusinessTe
 
 function nodeBusinessTexts(node: DiagramNodeSummary): string[] {
   return compactBusinessTexts([
-    node.kind,
+    nodeKindBusinessText(node.kind),
     node.var,
     node.dataType,
     node.scope,
@@ -748,6 +792,23 @@ function nodeBusinessTexts(node: DiagramNodeSummary): string[] {
     ...recordBusinessTexts(node.inputs),
     ...recordBusinessTexts(node.outputs),
   ]);
+}
+
+function nodeKindBusinessText(kind: string): string {
+  switch (kind) {
+    case "risingContact":
+      return "rising";
+    case "fallingContact":
+      return "falling";
+    case "negatedContact":
+      return "negated";
+    case "setCoil":
+      return "set";
+    case "resetCoil":
+      return "reset";
+    default:
+      return "";
+  }
 }
 
 function recordBusinessTexts(record: Record<string, string> | undefined): string[] {

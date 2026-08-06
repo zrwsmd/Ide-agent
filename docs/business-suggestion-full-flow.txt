@@ -1,0 +1,609 @@
+Ide Agent LD/FBD 业务感知推荐完整流程
+
+一、目标
+
+在现有 LD/FBD 本地图建议能力上增加一层“业务感知推荐”。
+
+核心原则：
+
+1. 图 JSON 拓扑仍然决定“哪里可以加、怎么连接”。
+2. 业务规则决定“这些合法候选里，哪些更符合当前业务场景”。
+3. st-library-info 只在需要推荐具体函数或功能块时按需查询。
+4. 没有业务信号时，继续使用现有本地规则和默认常见功能块。
+5. 返回给前端的 suggestions 格式保持不变。
+
+
+二、输入数据
+
+调用入口仍然支持现有方式：
+
+1. VS Code 命令：
+   ide-agent.getLocalGraphSuggestions
+
+2. core 包直接调用：
+   getLocalGraphSuggestions(options)
+
+主要输入参数：
+
+1. diagramPath
+   前端生成的 LD/FBD 图 JSON 或 transLd.txt 路径。
+
+2. segmentId
+   当前区段 ID。用于在多个 segmentList 场景下快速定位当前区段。
+
+3. selectedNodeId / selectedInsertionPointId
+   当前用户选中的真实节点或插入点。
+
+可用于业务判断的数据来源：
+
+1. 当前选中节点
+   节点类型、变量名、数据类型、sourceIds、targetIds。
+
+2. 当前区段
+   segmentId、label、note、区段内已有节点、已有功能块/函数。
+
+3. 当前 POU
+   POU 名称、变量表、变量注释、变量类型。
+
+4. 当前节点的上下游邻居
+   左邻、右邻、并联分支、输出节点、插入点位置。
+
+5. businessRules.json
+   业务意图、关键词、候选库元素、过滤条件和权重。
+
+6. st-library-info
+   只在业务规则命中具体函数/功能块候选时查询，用来拿真实输入输出端口结构。
+
+
+三、整体流程
+
+完整流程如下：
+
+1. 读取 diagramPath
+   解析图 JSON，生成 DiagramSummary。
+
+2. 定位当前 segment
+   优先使用 segmentId。
+   如果没有 segmentId，则按 selectedNodeId / selectedInsertionPointId 在所有 segment 中查找。
+
+3. 定位当前 focus
+   focus 可以是：
+   - 真实节点：触点、线圈、功能块、函数
+   - 插入点：edit-node-rect 这类前端插入占位
+
+4. 分析拓扑结构
+   判断当前节点处于：
+   - 串联结构
+   - 并联分支内部
+   - 并联结构外侧
+   - 输出节点前
+   - 左母线后
+   - edit-node-rect 前后
+   - 无输出节点的半成品图
+
+5. 先生成本地合法候选
+   这一步仍然使用现有本地规则。
+   它只负责生成“拓扑合法”的候选，不负责判断业务是否最合适。
+
+6. 收集业务上下文
+   从当前节点、邻居、区段、POU 变量表中提取业务信号。
+
+7. 判断是否存在业务意图
+   如果没有有效业务信号，比如只有一个 ??? 触点，则不进入库增强。
+   如果存在业务信号，则进入 businessRules.json 匹配。
+
+8. 对候选做业务过滤和排序
+   业务信号强时，不只是加分，还可以：
+   - 提高某些候选优先级
+   - 降低泛化候选优先级
+   - 压掉明显不符合业务语义的候选
+   - 将泛化功能块候选替换为具体函数/功能块
+
+9. 按需查询 st-library-info
+   只有当最终需要具体函数/功能块结构时才查询。
+   普通触点、线圈、置位线圈、复位线圈不查库。
+
+10. 生成最终 suggestions
+   保持现有返回格式：
+   - id
+   - title
+   - startNodes
+   - endNodes
+   - position
+   - serialOrParallel
+   - text
+   - addNode
+
+
+四、本地拓扑候选生成
+
+本地拓扑规则仍然是第一层。
+
+它负责回答：
+
+1. 当前节点前面能不能串联一个节点。
+2. 当前节点后面能不能串联一个节点。
+3. 当前节点能不能并联一个节点。
+4. 当前结构是否缺少输出节点。
+5. 当前节点能不能添加线圈。
+6. 当前线圈能不能替换成置位/复位线圈。
+7. 当前插入点位于哪两个节点之间。
+8. edit-node-rect 是否应该作为 startNodes 或 endNodes 返回。
+
+本地候选示例：
+
+1. 前串联 常开触点
+2. 后串联 常开触点
+3. 并联 常开触点
+4. 后插入 功能块
+5. 添加 线圈
+6. 替换为 置位线圈
+7. 替换为 复位线圈
+
+这一步不查询 st-library-info。
+
+
+五、业务上下文收集
+
+业务层会收集以下文本和结构信息：
+
+1. 当前选中节点变量名
+   例如 Axis1_Fault、Motor_Start、Temperature_PV、ResetCmd。
+
+2. 当前节点类型
+   例如 contact、coil、FBDCompartment、function、functionBlock。
+
+3. 当前节点附近变量名
+   左右邻居、上下游节点、同一分支内节点。
+
+4. 当前区段 label / note
+   例如“故障确认复位”“延时启动”“温度闭环调节”。
+
+5. 当前 POU 变量表
+   变量名、类型、注释。
+
+6. 当前区段已有功能块/函数
+   例如已经出现 MC_Power、MC_MoveAbsolute，则说明该区段可能是运动控制上下文。
+
+7. 数据类型
+   BOOL、INT、REAL、LREAL、STRING、TIME、AXIS_REF 等。
+
+
+六、业务意图识别
+
+业务层不是直接做“关键词 -> 唯一功能块”的硬映射。
+
+推荐流程是：
+
+关键词 / label / note / 变量名
+  -> 业务意图
+  -> 候选函数或功能块
+  -> 条件过滤
+  -> 排序
+
+常见业务意图：
+
+1. TIME_CONTROL
+   定时、延时、超时、脉冲。
+
+2. COUNTING
+   计数、计件、批次、累计。
+
+3. LATCH_OR_RESET
+   故障锁存、报警锁存、复位、清除。
+
+4. EDGE_TRIGGER
+   上升沿、下降沿、单次触发。
+
+5. CLOSED_LOOP_CONTROL
+   PID、闭环、控温、控压、流量调节。
+
+6. STRING_PROCESS
+   字符串截取、拼接、查找。
+
+7. MOTION_AXIS_CONTROL
+   轴、伺服、驱动、运动控制、MC_ 功能块。
+
+
+七、businessRules.json 设计
+
+建议第一版使用可扩展 JSON 配置，而不是把业务词写死在大量 if/else 中。
+
+示例结构：
+
+{
+  "enabled": true,
+  "defaultBlocks": ["TON", "TOF", "TP", "CTU", "CTD", "SR", "RS"],
+  "rules": [
+    {
+      "id": "timer-delay",
+      "keywords": ["timer", "time", "delay", "定时", "延时", "超时"],
+      "intent": "TIME_CONTROL",
+      "candidates": ["TON", "TOF", "TP"],
+      "baseScore": 80
+    },
+    {
+      "id": "counter",
+      "keywords": ["count", "counter", "计数", "计件", "批次"],
+      "intent": "COUNTING",
+      "candidates": ["CTU", "CTD"],
+      "baseScore": 75
+    },
+    {
+      "id": "latch-reset",
+      "keywords": ["fault", "alarm", "故障", "报警", "复位", "清除"],
+      "intent": "LATCH_OR_RESET",
+      "candidates": ["SR", "RS"],
+      "baseScore": 70
+    },
+    {
+      "id": "motion-axis-reset",
+      "keywords": ["axis", "servo", "motion", "轴", "伺服", "驱动", "故障复位"],
+      "intent": "MOTION_AXIS_CONTROL",
+      "candidates": ["MC_Reset"],
+      "require": ["hasAxisContext"],
+      "prefer": ["hasFaultOrResetContext"],
+      "baseScore": 95
+    },
+    {
+      "id": "pid-control",
+      "keywords": ["pid", "闭环", "调节", "控温", "控压", "流量"],
+      "intent": "CLOSED_LOOP_CONTROL",
+      "candidates": ["PID"],
+      "require": ["hasNumericContext"],
+      "baseScore": 90
+    },
+    {
+      "id": "string-left",
+      "keywords": ["left", "左取", "左截取", "字符串"],
+      "intent": "STRING_PROCESS",
+      "candidates": ["LEFT"],
+      "require": ["hasStringContext"],
+      "baseScore": 85
+    }
+  ]
+}
+
+字段含义：
+
+1. enabled
+   是否启用业务增强。
+
+2. defaultBlocks
+   没有业务意图时使用的默认常见功能块。
+
+3. rules
+   业务规则列表。
+
+4. keywords
+   用于从 label、note、变量名、上下文中识别业务意图。
+
+5. intent
+   业务意图，不直接等于某个功能块。
+
+6. candidates
+   该意图下可能推荐的函数或功能块名称。
+
+7. require
+   硬条件，不满足则不推荐该规则。
+
+8. prefer
+   软条件，满足后加分。
+
+9. exclude
+   排除条件，满足后移除或强降权。
+
+10. baseScore
+   基础分，用于排序。
+
+
+八、什么时候查 st-library-info
+
+只在下面条件同时满足时查询：
+
+1. 当前候选是功能块/函数类候选。
+2. businessRules.json 命中了明确业务意图。
+3. 命中的规则给出了 candidates。
+4. candidates 中包含非本地默认块，或者需要从库中获取真实端口结构。
+
+不查库的情况：
+
+1. 普通触点建议。
+2. 普通线圈建议。
+3. 置位/复位线圈替换建议。
+4. 没有 label/note/变量名/关键词等业务信号。
+5. 只有 ??? 的空上下文。
+6. 命中结果仍然只是本地默认块，且本地已有端口定义。
+
+
+九、功能块/函数候选替换规则
+
+业务命中后，不是额外追加一个建议，而是可以替换原来泛化的功能块候选。
+
+示例：
+
+原始本地候选：
+
+后插入 功能块
+addNode = TON / CTU / SR 中随机一个
+
+如果当前业务上下文命中 motion-axis-reset：
+
+后插入 MC_Reset 功能块
+addNode = st-library-info 返回的 MC_Reset 结构
+
+需要保持不变的字段：
+
+1. startNodes
+2. endNodes
+3. position
+4. serialOrParallel
+5. sourceIds
+6. targetIds
+
+可以变化的字段：
+
+1. title
+2. text
+3. addNode
+4. addNode 内部的 childrenNode.type
+5. addNode 内部的 portInputs / portOutputs
+
+
+十、函数与功能块区分
+
+st-library-info 返回的元素可能是 function，也可能是 functionBlock。
+
+返回给前端时统一放到 FBDCompartment 结构中，但要区分 isFunction：
+
+1. functionBlock
+   type = "FBDCompartment"
+   childrenNode.isFunction = false
+
+2. function
+   type = "FBDCompartment"
+   childrenNode.isFunction = true
+
+示例：
+
+1. MC_Reset
+   MC_Reset 功能块
+   isFunction = false
+
+2. LEFT
+   LEFT 函数
+   isFunction = true
+
+
+十一、端口生成规则
+
+从 st-library-info 拿到输入输出参数后生成：
+
+1. portInputs
+2. portOutputs
+
+端口 value 规则：
+
+1. EN
+   value = ""
+
+2. ENO
+   value = ""
+
+3. 其他输入端口
+   value = "???"
+
+4. 其他输出端口
+   value = "???"
+
+这样前端可以继续让用户绑定变量。
+
+
+十二、业务排序和过滤
+
+业务信号弱时：
+
+1. 不改变原始本地建议太多。
+2. 只做轻微排序。
+3. 保留泛化建议。
+
+业务信号强时：
+
+1. 更符合业务意图的候选排前面。
+2. 泛化功能块候选可以被具体库元素替换。
+3. 明显不符合业务语义的候选可以降权或压掉。
+
+例如：
+
+1. 当前区段 label = “故障确认复位”
+   更倾向 SR/RS、Reset 类建议。
+   不应只因为 fault/reset 就直接推荐 MC_Reset。
+
+2. 当前上下文存在 AxisRef、MC_Power、Axis1_Fault
+   才更适合推荐 MC_Reset。
+
+3. 当前变量类型是 STRING
+   才更适合推荐 LEFT、RIGHT、MID、CONCAT。
+
+4. 当前变量类型是 REAL/LREAL，且存在 SP/PV/MV 语义
+   才更适合推荐 PID。
+
+
+十三、示例场景
+
+场景 1：只有一个 ??? 触点
+
+上下文：
+
+1. 没有 label
+2. 没有 note
+3. 没有变量名
+4. 没有 POU 变量注释
+
+处理结果：
+
+1. 不查 st-library-info。
+2. 使用本地默认规则。
+3. 功能块仍然从默认常见块中选择。
+
+
+场景 2：区段 label = “延时启动”
+
+处理结果：
+
+1. 命中 TIME_CONTROL。
+2. 功能块候选优先替换为 TON。
+3. 如果 st-library-info 可用，可从库中生成 TON 真实端口。
+4. 如果库不可用，回退本地 TON 端口定义。
+
+
+场景 3：区段 label = “故障确认复位”
+
+处理结果：
+
+1. 命中 LATCH_OR_RESET。
+2. 优先 SR/RS、复位相关候选。
+3. 不直接推荐 MC_Reset，除非还有 Axis/Motion 上下文。
+
+
+场景 4：变量名包含 Axis1_Fault，POU 已有 MC_Power
+
+处理结果：
+
+1. 命中 MOTION_AXIS_CONTROL。
+2. 满足 hasAxisContext。
+3. 可推荐 MC_Reset。
+4. 从 st-library-info 读取 MC_Reset 端口。
+
+
+场景 5：变量名包含 Temp_PV、Temp_SP
+
+处理结果：
+
+1. 命中 CLOSED_LOOP_CONTROL。
+2. 如果存在 REAL/LREAL 等数值信号。
+3. 可推荐 PID。
+
+
+场景 6：变量类型 STRING，note 包含“左截取”
+
+处理结果：
+
+1. 命中 STRING_PROCESS。
+2. 可推荐 LEFT 函数。
+3. addNode 中 childrenNode.isFunction = true。
+
+
+十四、失败和回退策略
+
+必须保证业务增强失败时不影响现有本地建议。
+
+回退情况：
+
+1. businessRules.json 缺失
+   使用内置默认规则。
+
+2. businessRules.json 格式错误
+   忽略业务增强，保留本地建议。
+
+3. st-library-info 加载失败
+   不让命令失败，回退本地默认功能块。
+
+4. 库中找不到 candidate
+   跳过该 candidate，继续尝试其他 candidate。
+
+5. 所有业务候选都不可用
+   回退原始本地功能块候选。
+
+
+十五、性能要求
+
+1. 普通触点、普通线圈不查库。
+2. 没有业务信号不查库。
+3. businessRules.json 应缓存。
+4. st-library-info 查询结果应缓存。
+5. 每次调用不应全量扫描大型库。
+6. segmentId 存在时优先只处理当前 segment。
+
+目标：
+
+1. 普通本地建议仍然保持毫秒级。
+2. 只有业务增强命中时才增加少量开销。
+3. 增强失败不影响返回速度和稳定性。
+
+
+十六、返回格式
+
+返回格式保持现有结构。
+
+示例：
+
+{
+  "schemaVersion": "ide-agent.graph-completion.v1",
+  "action": "suggestGraphCompletions",
+  "source": "local-rules",
+  "segmentId": "segment-xxx",
+  "anchorNodeId": "contact-xxx",
+  "anchorNodeVar": "Start",
+  "confidence": 1,
+  "recognizedFocus": {},
+  "suggestions": [
+    {
+      "id": "local-1",
+      "title": "后插入 MC_Reset 功能块",
+      "startNodes": ["contact-xxx"],
+      "endNodes": ["coil-xxx"],
+      "position": "behind",
+      "serialOrParallel": "serial",
+      "text": "在 Start 常开触点(...) 和输出节点之间插入一个 MC_Reset 功能块",
+      "addNode": {
+        "FBD-compartment-MC_Reset-local-1": {
+          "id": "FBD-compartment-MC_Reset-local-1",
+          "type": "FBDCompartment",
+          "sourceIds": ["contact-xxx"],
+          "targetIds": ["coil-xxx"],
+          "childrenNode": {
+            "type": "MC_Reset",
+            "isFunction": false,
+            "varName": {
+              "name": "",
+              "value": "???",
+              "type": "MC_Reset",
+              "scope": "VAR"
+            },
+            "portInputs": [],
+            "portOutputs": []
+          }
+        }
+      }
+    }
+  ]
+}
+
+
+十七、这版不做的事情
+
+1. 不改 ST 文本补全逻辑。
+2. 不把所有功能块建议都改成查库。
+3. 不让大模型参与本地图建议。
+4. 不改变前端消费 suggestions 的基本格式。
+5. 不把 reset/fault 直接硬映射成 MC_Reset。
+6. 不要求每个业务意图都必须推荐库元素。
+
+
+十八、最终理解
+
+这套能力可以理解成三层：
+
+第一层：拓扑合法性
+由本地 JSON 规则决定，保证推荐位置是合法的。
+
+第二层：业务合理性
+由 label、note、变量名、POU 上下文和 businessRules.json 决定，判断哪些合法候选更像当前业务。
+
+第三层：库元素结构
+由 st-library-info 按需提供真实函数/功能块端口结构。
+
+最终目标不是“多推荐几个功能块”，而是：
+
+在不牺牲本地规则速度和稳定性的前提下，让 LD/FBD suggestions 更贴近当前业务场景。

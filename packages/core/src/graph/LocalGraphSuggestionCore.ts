@@ -1,3 +1,5 @@
+import * as fs from "fs";
+import * as path from "path";
 import {
   DEFAULT_DIAGRAM_JSON_PATH,
   DiagramInsertionPointSummary,
@@ -153,25 +155,16 @@ interface LocalSuggestionAddElement {
   blockType: string;
   instanceSource: string;
   instanceName: string;
+  isFunction?: boolean;
+  portInputs?: SuggestedPort[];
+  portOutputs?: SuggestedPort[];
 }
 
-type BusinessTerm =
-  | "alarm"
-  | "busy"
-  | "counter"
-  | "done"
-  | "enable"
-  | "fault"
-  | "interlock"
-  | "ready"
-  | "reset"
-  | "run"
-  | "start"
-  | "stop"
-  | "timer";
+type BusinessTerm = string;
 
 interface BusinessSuggestionContext {
   hasBusinessContext: boolean;
+  hasLocalBusinessContext: boolean;
   focusTerms: Set<BusinessTerm>;
   nearbyTerms: Set<BusinessTerm>;
   segmentTerms: Set<BusinessTerm>;
@@ -180,7 +173,47 @@ interface BusinessSuggestionContext {
   segmentBlockTypes: Set<string>;
 }
 
-const COMMON_FUNCTION_BLOCK_TYPES = [
+interface BusinessRulesConfig {
+  enabled: boolean;
+  defaultBlocks: string[];
+  termPatterns: BusinessTermPatternConfig[];
+  rules: BusinessRuleConfig[];
+}
+
+interface BusinessTermPatternConfig {
+  term: BusinessTerm;
+  patterns: string[];
+}
+
+interface BusinessRuleConfig {
+  id: string;
+  terms?: BusinessTerm[];
+  requiredAnyTerms?: BusinessTerm[];
+  requiredAllTerms?: BusinessTerm[];
+  excludedTerms?: BusinessTerm[];
+  candidateNames: string[];
+  baseScore?: number;
+  preferredModes?: string[];
+  preferredPositions?: LocalSuggestionPosition[];
+}
+
+interface LibraryElementInfo {
+  name: string;
+  type: string;
+  inputs?: Array<[string, string, string]>;
+  outputs?: Array<[string, string, string]>;
+  comment?: string;
+  category?: string;
+}
+
+interface BusinessElementCandidate {
+  name: string;
+  score: number;
+  ruleId: string;
+  libraryElement?: LibraryElementInfo;
+}
+
+const FALLBACK_COMMON_FUNCTION_BLOCK_TYPES = [
   "TON",
   "TOF",
   "TP",
@@ -190,24 +223,197 @@ const COMMON_FUNCTION_BLOCK_TYPES = [
   "RS",
 ];
 
-const BUSINESS_TERM_PATTERNS: Array<{
-  term: BusinessTerm;
-  patterns: string[];
-}> = [
-  { term: "alarm", patterns: ["alarm", "warning", "报警", "告警"] },
-  { term: "busy", patterns: ["busy", "忙"] },
-  { term: "counter", patterns: ["counter", "count", "ctu", "ctd", "计数"] },
-  { term: "done", patterns: ["done", "complete", "完成", "到位"] },
-  { term: "enable", patterns: ["enable", "enabled", "使能", "允许"] },
-  { term: "fault", patterns: ["fault", "error", "fail", "故障", "错误", "异常"] },
-  { term: "interlock", patterns: ["interlock", "lock", "互锁", "联锁"] },
-  { term: "ready", patterns: ["ready", "就绪", "准备"] },
-  { term: "reset", patterns: ["reset", "复位", "清除"] },
-  { term: "run", patterns: ["run", "running", "运行"] },
-  { term: "start", patterns: ["start", "启动", "开始"] },
-  { term: "stop", patterns: ["stop", "停止", "停机"] },
-  { term: "timer", patterns: ["timer", "time", "ton", "tof", "tp", "定时", "延时", "计时", "时间"] },
-];
+const FALLBACK_BUSINESS_RULES_CONFIG: BusinessRulesConfig = {
+  enabled: true,
+  defaultBlocks: FALLBACK_COMMON_FUNCTION_BLOCK_TYPES,
+  termPatterns: [
+    { term: "alarm", patterns: ["alarm", "warning", "报警", "告警"] },
+    { term: "axis", patterns: ["axis", "axis_ref", "轴"] },
+    { term: "busy", patterns: ["busy", "忙"] },
+    { term: "counter", patterns: ["counter", "count", "ctu", "ctd", "计数", "计件", "批次"] },
+    { term: "done", patterns: ["done", "complete", "完成", "到位"] },
+    { term: "edge", patterns: ["edge", "trigger", "触发", "边沿"] },
+    { term: "enable", patterns: ["enable", "enabled", "使能", "允许"] },
+    { term: "falling", patterns: ["falling", "f_trig", "下降沿"] },
+    { term: "fault", patterns: ["fault", "error", "fail", "故障", "错误", "异常"] },
+    { term: "interlock", patterns: ["interlock", "lock", "互锁", "联锁"] },
+    { term: "left", patterns: ["left", "左取", "左侧", "左边"] },
+    { term: "motion", patterns: ["mc_", "smc_", "motion", "运动", "伺服", "驱动"] },
+    { term: "numeric", patterns: ["real", "lreal", "int", "dint", "数值", "温度", "压力", "流量"] },
+    { term: "pid", patterns: ["pid", "闭环", "调节", "控温", "控压", "控流"] },
+    { term: "ready", patterns: ["ready", "就绪", "准备"] },
+    { term: "reset", patterns: ["reset", "复位", "清除"] },
+    { term: "rising", patterns: ["rising", "r_trig", "上升沿"] },
+    { term: "run", patterns: ["run", "running", "运行"] },
+    { term: "start", patterns: ["start", "启动", "开始"] },
+    { term: "stop", patterns: ["stop", "停止", "停机", "急停"] },
+    { term: "string", patterns: ["string", "wstring", "字符串", "字符"] },
+    { term: "timer", patterns: ["timer", "time", "ton", "tof", "tp", "定时", "延时", "计时", "时间", "超时"] },
+  ],
+  rules: [
+    {
+      id: "timer",
+      terms: ["timer"],
+      candidateNames: ["TON", "TOF", "TP"],
+      baseScore: 80,
+      preferredModes: ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
+    },
+    {
+      id: "counter",
+      terms: ["counter"],
+      candidateNames: ["CTU", "CTD"],
+      baseScore: 78,
+      preferredModes: ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
+    },
+    {
+      id: "latch",
+      terms: ["alarm", "fault", "reset", "start", "stop", "interlock"],
+      candidateNames: ["SR", "RS"],
+      baseScore: 72,
+      preferredModes: ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
+    },
+    {
+      id: "edge-rising",
+      terms: ["edge", "rising", "start"],
+      candidateNames: ["R_TRIG"],
+      baseScore: 76,
+      preferredModes: ["functionBlockAfter", "functionBlockBefore"],
+    },
+    {
+      id: "edge-falling",
+      terms: ["falling", "stop"],
+      candidateNames: ["F_TRIG"],
+      baseScore: 74,
+      preferredModes: ["functionBlockAfter", "functionBlockBefore"],
+    },
+    {
+      id: "pid",
+      terms: ["pid", "numeric"],
+      requiredAnyTerms: ["pid"],
+      candidateNames: ["PID"],
+      baseScore: 90,
+      preferredModes: ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
+    },
+    {
+      id: "string-left",
+      terms: ["string", "left"],
+      requiredAnyTerms: ["left", "string"],
+      candidateNames: ["LEFT"],
+      baseScore: 86,
+      preferredModes: ["functionBlockAfter", "functionBlockBefore"],
+    },
+    {
+      id: "motion-reset",
+      terms: ["motion", "axis", "reset", "fault"],
+      requiredAnyTerms: ["motion", "axis"],
+      candidateNames: ["MC_Reset"],
+      baseScore: 92,
+      preferredModes: ["functionBlockAfter", "functionBlockBefore", "outputFunctionBlock"],
+    },
+  ],
+};
+
+const BUSINESS_RULES_CONFIG = loadBusinessRulesConfig();
+const COMMON_FUNCTION_BLOCK_TYPES =
+  BUSINESS_RULES_CONFIG.defaultBlocks.length > 0
+    ? BUSINESS_RULES_CONFIG.defaultBlocks
+    : FALLBACK_COMMON_FUNCTION_BLOCK_TYPES;
+const BUSINESS_TERM_PATTERNS = BUSINESS_RULES_CONFIG.termPatterns;
+
+function loadBusinessRulesConfig(): BusinessRulesConfig {
+  const configPath = path.join(__dirname, "businessRules.json");
+  const parsed = readJsonFile(configPath);
+  const record = asPlainRecord(parsed);
+  if (!record) {
+    return FALLBACK_BUSINESS_RULES_CONFIG;
+  }
+
+  return {
+    enabled: asBooleanConfig(record.enabled, FALLBACK_BUSINESS_RULES_CONFIG.enabled),
+    defaultBlocks: stringList(record.defaultBlocks, FALLBACK_BUSINESS_RULES_CONFIG.defaultBlocks),
+    termPatterns: parseTermPatterns(record.termPatterns),
+    rules: parseBusinessRules(record.rules),
+  };
+}
+
+function parseTermPatterns(value: unknown): BusinessTermPatternConfig[] {
+  const parsed = asArrayRecord(value)
+    .map((item) => ({
+      term: asStringConfig(item.term),
+      patterns: stringList(item.patterns),
+    }))
+    .filter((item) => item.term && item.patterns.length > 0);
+
+  return parsed.length > 0 ? parsed : FALLBACK_BUSINESS_RULES_CONFIG.termPatterns;
+}
+
+function parseBusinessRules(value: unknown): BusinessRuleConfig[] {
+  const parsed = asArrayRecord(value)
+    .map((item) => ({
+      id: asStringConfig(item.id),
+      terms: stringList(item.terms),
+      requiredAnyTerms: stringList(item.requiredAnyTerms),
+      requiredAllTerms: stringList(item.requiredAllTerms),
+      excludedTerms: stringList(item.excludedTerms),
+      candidateNames: stringList(item.candidateNames),
+      baseScore: asOptionalNumberConfig(item.baseScore),
+      preferredModes: stringList(item.preferredModes),
+      preferredPositions: stringList(item.preferredPositions) as LocalSuggestionPosition[],
+    }))
+    .filter((item) => item.id && item.candidateNames.length > 0);
+
+  return parsed.length > 0 ? parsed : FALLBACK_BUSINESS_RULES_CONFIG.rules;
+}
+
+function readJsonFile(filePath: string): unknown {
+  try {
+    return JSON.parse(fs.readFileSync(filePath, "utf8"));
+  } catch {
+    return undefined;
+  }
+}
+
+function asPlainRecord(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+function asArrayRecord(value: unknown): Array<Record<string, unknown>> {
+  return Array.isArray(value)
+    ? value
+        .map(asPlainRecord)
+        .filter((item): item is Record<string, unknown> => Boolean(item))
+    : [];
+}
+
+function asStringConfig(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function stringList(value: unknown, fallback: string[] = []): string[] {
+  const values = Array.isArray(value)
+    ? value.map(asStringConfig)
+    : typeof value === "string"
+      ? [asStringConfig(value)]
+      : [];
+  const filtered = values.filter(Boolean);
+  return filtered.length > 0 ? filtered : fallback;
+}
+
+function asArrayConfig(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function asBooleanConfig(value: unknown, fallback: boolean): boolean {
+  return typeof value === "boolean" ? value : fallback;
+}
+
+function asOptionalNumberConfig(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : undefined;
+}
 
 export async function getLocalGraphSuggestions(
   request: LocalGraphSuggestionRequest | undefined,
@@ -290,7 +496,9 @@ function suggestedNodeLabel(suggestion: LocalSuggestion): string {
   }
 
   if (node.type === "FBDCompartment") {
-    return `${node.childrenNode?.type || "FB"} 功能块`;
+    return `${node.childrenNode?.type || "FB"} ${
+      node.childrenNode?.isFunction ? "函数" : "功能块"
+    }`;
   }
 
   switch (node.type) {
@@ -400,19 +608,122 @@ function rankBusinessSuggestions(
     return suggestions;
   }
 
-  const ranked = suggestions.map((suggestion, index) => ({
+  const enhancedSuggestions = applyBusinessLibraryEnhancements(
+    suggestions,
+    context,
+  );
+  const ranked = enhancedSuggestions.map((suggestion, index) => ({
     suggestion,
     index,
     score: scoreBusinessSuggestion(suggestion, context, graphState),
   }));
 
   if (!ranked.some((item) => item.score > 0)) {
-    return suggestions;
+    return enhancedSuggestions;
   }
 
   return ranked
     .sort((left, right) => right.score - left.score || left.index - right.index)
     .map((item) => item.suggestion);
+}
+
+function applyBusinessLibraryEnhancements(
+  suggestions: LocalSuggestionDraft[],
+  context: BusinessSuggestionContext,
+): LocalSuggestionDraft[] {
+  if (!BUSINESS_RULES_CONFIG.enabled) {
+    return suggestions;
+  }
+
+  const candidates = resolveBusinessLibraryCandidates(context);
+  if (!candidates.length) {
+    return suggestions;
+  }
+
+  let candidateIndex = 0;
+  return suggestions.map((suggestion) => {
+    if (!isGenericFunctionBlockDraft(suggestion)) {
+      return suggestion;
+    }
+
+    const candidate = candidates[candidateIndex % candidates.length];
+    candidateIndex += 1;
+    return replaceFunctionBlockDraft(suggestion, candidate);
+  });
+}
+
+function resolveBusinessLibraryCandidates(
+  context: BusinessSuggestionContext,
+): BusinessElementCandidate[] {
+  const ruleMatches = BUSINESS_RULES_CONFIG.rules
+    .map((rule) => matchBusinessRule(rule, context))
+    .filter((item): item is BusinessElementCandidate[] => item.length > 0)
+    .flat();
+
+  if (!ruleMatches.length) {
+    return [];
+  }
+
+  const deduped = new Map<string, BusinessElementCandidate>();
+  for (const candidate of ruleMatches) {
+    const current = deduped.get(candidate.name);
+    if (!current || candidate.score > current.score) {
+      deduped.set(candidate.name, candidate);
+    }
+  }
+
+  return [...deduped.values()].sort((left, right) => right.score - left.score);
+}
+
+function matchBusinessRule(
+  rule: BusinessRuleConfig,
+  context: BusinessSuggestionContext,
+): BusinessElementCandidate[] {
+  if (rule.terms && rule.terms.length > 0) {
+    const termScore = businessTermWeight(context, ...rule.terms);
+    if (termScore <= 0) {
+      return [];
+    }
+  }
+
+  if (rule.requiredAnyTerms && rule.requiredAnyTerms.length > 0) {
+    const hasAny = rule.requiredAnyTerms.some((term) => businessTermWeight(context, term) > 0);
+    if (!hasAny) {
+      return [];
+    }
+  }
+
+  if (rule.requiredAllTerms && rule.requiredAllTerms.length > 0) {
+    const hasAll = rule.requiredAllTerms.every((term) => businessTermWeight(context, term) > 0);
+    if (!hasAll) {
+      return [];
+    }
+  }
+
+  if (rule.excludedTerms && rule.excludedTerms.some((term) => businessTermWeight(context, term) > 0)) {
+    return [];
+  }
+
+  const baseScore = rule.baseScore ?? 0;
+
+  return rule.candidateNames.flatMap((candidateName) => {
+    const libraryElement = getLibraryElement(candidateName);
+    if (!libraryElement) {
+      return [];
+    }
+
+    return [
+      {
+        name: libraryElement.name,
+        score:
+          baseScore +
+          businessTermWeight(context, ...(rule.terms ?? [])) * 4 +
+          businessTermWeight(context, ...(rule.requiredAnyTerms ?? [])) * 2,
+        ruleId: rule.id,
+        libraryElement,
+      },
+    ];
+  });
 }
 
 function buildBusinessSuggestionContext(
@@ -439,14 +750,13 @@ function buildBusinessSuggestionContext(
     focus.segment.pouType,
     ...focus.segment.nodes.flatMap((node) => nodeBusinessTexts(node)),
   ];
+  const pouVariables = focus.segment.pouName
+    ? summary.variablesByPou[focus.segment.pouName] ?? []
+    : [];
   const pouTexts = [
-    summary.pouName,
-    summary.pouType,
-    ...summary.variables.flatMap((variable) => [
-      variable.name,
-      variable.type,
-      variable.scope,
-    ]),
+    focus.segment.pouName,
+    focus.segment.pouType,
+    ...pouVariables.flatMap(variableBusinessTexts),
   ];
   const focusBlockType = normalizeBlockType(focus.node?.blockType);
   const segmentBlockTypes = new Set(
@@ -458,15 +768,17 @@ function buildBusinessSuggestionContext(
   const nearbyTerms = collectBusinessTerms(nearbyTexts);
   const segmentTerms = collectBusinessTerms(segmentTexts);
   const pouTerms = collectBusinessTerms(pouTexts);
+  const hasLocalBusinessContext =
+    focusTerms.size > 0 ||
+    nearbyTerms.size > 0 ||
+    segmentTerms.size > 0;
 
   return {
     hasBusinessContext:
-      focusTerms.size > 0 ||
-      nearbyTerms.size > 0 ||
-      segmentTerms.size > 0 ||
-      pouTerms.size > 0 ||
+      hasLocalBusinessContext ||
       isBusinessBlockType(focusBlockType) ||
       [...segmentBlockTypes].some((value) => isBusinessBlockType(value)),
+    hasLocalBusinessContext,
     focusTerms,
     nearbyTerms,
     segmentTerms,
@@ -620,18 +932,29 @@ function businessTermWeight(
 ): number {
   let score = 0;
   for (const term of terms) {
-    if (context.focusTerms.has(term)) {
-      score += 4;
-    }
-    if (context.nearbyTerms.has(term)) {
-      score += 3;
-    }
-    if (context.segmentTerms.has(term)) {
-      score += 2;
-    }
-    if (context.pouTerms.has(term)) {
+    const localScore = localBusinessTermWeight(context, term);
+    score += localScore;
+
+    if (localScore > 0 && context.pouTerms.has(term)) {
       score += 1;
     }
+  }
+  return score;
+}
+
+function localBusinessTermWeight(
+  context: BusinessSuggestionContext,
+  term: BusinessTerm,
+): number {
+  let score = 0;
+  if (context.focusTerms.has(term)) {
+    score += 4;
+  }
+  if (context.nearbyTerms.has(term)) {
+    score += 3;
+  }
+  if (context.segmentTerms.has(term)) {
+    score += 2;
   }
   return score;
 }
@@ -657,7 +980,7 @@ function collectBusinessTerms(values: Array<string | undefined>): Set<BusinessTe
 
 function nodeBusinessTexts(node: DiagramNodeSummary): string[] {
   return compactBusinessTexts([
-    node.kind,
+    nodeKindBusinessText(node.kind),
     node.var,
     node.dataType,
     node.scope,
@@ -665,6 +988,43 @@ function nodeBusinessTexts(node: DiagramNodeSummary): string[] {
     node.instance,
     ...recordBusinessTexts(node.inputs),
     ...recordBusinessTexts(node.outputs),
+  ]);
+}
+
+function nodeKindBusinessText(kind: string): string {
+  switch (kind) {
+    case "risingContact":
+      return "rising";
+    case "fallingContact":
+      return "falling";
+    case "negatedContact":
+      return "negated";
+    case "setCoil":
+      return "set";
+    case "resetCoil":
+      return "reset";
+    default:
+      return "";
+  }
+}
+
+function variableBusinessTexts(
+  variable: {
+    name: string;
+    type: string;
+    scope: string;
+    label?: string;
+    note?: string;
+    comment?: string;
+  },
+): string[] {
+  return compactBusinessTexts([
+    variable.name,
+    variable.type,
+    variable.scope,
+    variable.label,
+    variable.note,
+    variable.comment,
   ]);
 }
 
@@ -1273,7 +1633,11 @@ function makeSuggestion(
   const addElement = input.addElement;
   const text =
     addElement.nodeType === "functionBlock"
-      ? withFunctionBlockType(input.text, addElement.blockType)
+      ? withFunctionBlockType(
+          input.text,
+          addElement.blockType,
+          Boolean(addElement.isFunction),
+        )
       : input.text;
 
   return {
@@ -1499,7 +1863,8 @@ function createSuggestedNodeId(
   suggestionId: string,
 ): string {
   if (addElement.nodeType === "functionBlock") {
-    return `FBD-compartment-${addElement.blockType || "FB"}-${suggestionId}`;
+    const prefix = addElement.isFunction ? "FUN" : "FBD";
+    return `${prefix}-compartment-${addElement.blockType || "FB"}-${suggestionId}`;
   }
 
   return `${addElement.nodeType}-${suggestionId}`;
@@ -1516,7 +1881,7 @@ function createSuggestedNode(
       type: "FBDCompartment",
       childrenNode: {
         type: blockType,
-        isFunction: false,
+        isFunction: Boolean(addElement.isFunction),
         varName: {
           name: "",
           value:
@@ -1524,8 +1889,16 @@ function createSuggestedNode(
           type: blockType,
           scope: "VAR",
         },
-        portInputs: functionBlockInputPorts(blockType),
-        portOutputs: functionBlockOutputPorts(blockType),
+        portInputs:
+          Array.isArray(addElement.portInputs) &&
+          addElement.portInputs.length > 0
+            ? addElement.portInputs
+            : functionBlockInputPorts(blockType),
+        portOutputs:
+          Array.isArray(addElement.portOutputs) &&
+          addElement.portOutputs.length > 0
+            ? addElement.portOutputs
+            : functionBlockOutputPorts(blockType),
       },
     };
   }
@@ -1854,18 +2227,27 @@ function resetCoilElement(variableName = ""): LocalSuggestionAddElement {
   };
 }
 
-function functionBlockElement(): LocalSuggestionAddElement {
-  const blockType = pickFunctionBlockType();
+function functionBlockElement(blockType?: string): LocalSuggestionAddElement {
+  const requestedBlockType = blockType?.trim() || pickFunctionBlockType();
+  const libraryElement = getLibraryElement(requestedBlockType);
+  const normalizedBlockType =
+    libraryElement?.name || normalizeBlockType(requestedBlockType);
+  const isFunction = Boolean(libraryElement && isFunctionLibraryElement(libraryElement));
+  const portInputs = buildLibraryPortInputs(libraryElement);
+  const portOutputs = buildLibraryPortOutputs(libraryElement);
   return {
     nodeType: "functionBlock",
-    displayLabel: `${blockType} 功能块`,
+    displayLabel: `${normalizedBlockType} ${isFunction ? "函数" : "功能块"}`,
     variableSource: "userInput",
     variableName: "",
-    dataType: blockType,
+    dataType: normalizedBlockType,
     userInputRequired: true,
-    blockType,
+    blockType: normalizedBlockType,
     instanceSource: "userInput",
     instanceName: "",
+    isFunction,
+    portInputs,
+    portOutputs,
   };
 }
 
@@ -1874,12 +2256,194 @@ function pickFunctionBlockType(): string {
   return COMMON_FUNCTION_BLOCK_TYPES[index] ?? "TON";
 }
 
-function withFunctionBlockType(text: string, blockType: string): string {
+function withFunctionBlockType(
+  text: string,
+  blockType: string,
+  isFunction = false,
+): string {
   if (!text || !blockType) {
     return text;
   }
 
-  return text.replace(/一个\s*功能块/g, `一个 ${blockType} 功能块`);
+  return replaceFunctionBlockText(text, blockType, isFunction);
+}
+
+function replaceFunctionBlockText(
+  text: string,
+  blockType: string,
+  isFunction = false,
+): string {
+  const label = isFunction ? "函数" : "功能块";
+  return text.replace(
+    /一个\s*(?:[A-Za-z_][A-Za-z0-9_]*\s*)?(?:功能块|函数)/g,
+    `一个 ${blockType} ${label}`,
+  );
+}
+
+function isGenericFunctionBlockDraft(draft: LocalSuggestionDraft): boolean {
+  return draft.addElement.nodeType === "functionBlock";
+}
+
+function replaceFunctionBlockDraft(
+  draft: LocalSuggestionDraft,
+  candidate: BusinessElementCandidate,
+): LocalSuggestionDraft {
+  const libraryElement = candidate.libraryElement;
+  const isFunction = Boolean(libraryElement && isFunctionLibraryElement(libraryElement));
+  const portInputs = buildLibraryPortInputs(libraryElement);
+  const portOutputs = buildLibraryPortOutputs(libraryElement);
+  const nextAddElement: LocalSuggestionAddElement = {
+    ...draft.addElement,
+    displayLabel: `${candidate.name} ${isFunction ? "函数" : "功能块"}`,
+    blockType: candidate.name,
+    dataType: candidate.name,
+    isFunction,
+    portInputs,
+    portOutputs,
+  };
+
+  return {
+    ...draft,
+    addElement: nextAddElement,
+    placement: {
+      ...draft.placement,
+      text: replaceFunctionBlockText(
+        draft.placement.text,
+        candidate.name,
+        isFunction,
+      ),
+    },
+  };
+}
+
+function buildLibraryPortInputs(
+  libraryElement: LibraryElementInfo | undefined,
+): SuggestedPort[] {
+  if (!libraryElement) {
+    return [];
+  }
+
+  const ports = toLibraryPorts(libraryElement.inputs, "VAR_INPUT");
+  const hasEn = ports.some((port) => port.name === "EN");
+  return hasEn
+    ? ports
+    : [{ name: "EN", value: "", type: "", scope: "" }, ...ports];
+}
+
+function buildLibraryPortOutputs(
+  libraryElement: LibraryElementInfo | undefined,
+): SuggestedPort[] {
+  if (!libraryElement) {
+    return [];
+  }
+
+  const ports = toLibraryPorts(libraryElement.outputs, "VAR_OUTPUT");
+  const hasEno = ports.some((port) => port.name === "ENO");
+  return hasEno
+    ? ports
+    : [{ name: "ENO", value: "", type: "", scope: "" }, ...ports];
+}
+
+function toLibraryPorts(
+  ports: Array<[string, string, string]> | undefined,
+  defaultScope: string,
+): SuggestedPort[] {
+  return (ports ?? []).map(([name, type, scope]) => ({
+    name,
+    value: name === "EN" || name === "ENO" ? "" : "???",
+    type,
+    scope: scope && scope !== "none" ? scope : defaultScope,
+  }));
+}
+
+function isFunctionLibraryElement(
+  libraryElement: LibraryElementInfo,
+): boolean {
+  return libraryElement.type === "function";
+}
+
+function getLibraryElement(name: string): LibraryElementInfo | undefined {
+  const normalized = normalizeBlockType(name);
+  if (!normalized) {
+    return undefined;
+  }
+
+  if (COMMON_FUNCTION_BLOCK_TYPES.includes(normalized)) {
+    return {
+      name: normalized,
+      type: "functionBlock",
+      inputs: functionBlockInputPorts(normalized).map((port) => [
+        port.name,
+        port.type,
+        port.scope,
+      ]),
+      outputs: functionBlockOutputPorts(normalized).map((port) => [
+        port.name,
+        port.type,
+        port.scope,
+      ]),
+    };
+  }
+
+  const data = loadLibraryData();
+  return data.get(normalized);
+}
+
+let cachedLibraryData: Map<string, LibraryElementInfo> | undefined;
+
+function loadLibraryData(): Map<string, LibraryElementInfo> {
+  if (cachedLibraryData) {
+    return cachedLibraryData;
+  }
+
+  const filePath = path.join(__dirname, "st-library-info-data.json");
+  const parsed = readJsonFile(filePath);
+  const elements = new Map<string, LibraryElementInfo>();
+
+  for (const category of asArrayRecord(parsed)) {
+    const categoryName = asStringConfig(category.name);
+    for (const item of asArrayRecord(category.list)) {
+      const name = asStringConfig(item.name);
+      const type = asStringConfig(item.type);
+      if (!name || !type) {
+        continue;
+      }
+
+      const libraryElement: LibraryElementInfo = {
+        name,
+        type,
+        category: categoryName,
+        comment: asStringConfig(item.comment),
+        inputs: parseLibraryPorts(item.inputs),
+        outputs: parseLibraryPorts(item.outputs),
+      };
+      const key = normalizeBlockType(name);
+      if (!elements.has(key)) {
+        elements.set(key, libraryElement);
+      }
+    }
+  }
+
+  cachedLibraryData = elements;
+  return elements;
+}
+
+function parseLibraryPorts(
+  value: unknown,
+): Array<[string, string, string]> | undefined {
+  const ports = asArrayConfig(value)
+    .map((entry) =>
+      Array.isArray(entry) && entry.length >= 2
+        ? [
+            asStringConfig(entry[0]),
+            asStringConfig(entry[1]),
+            asStringConfig(entry[2]),
+          ]
+        : undefined,
+    )
+    .filter((entry): entry is [string, string, string] => Boolean(entry));
+
+  return ports.length > 0 ? ports : undefined;
 }
 
 function findNode(

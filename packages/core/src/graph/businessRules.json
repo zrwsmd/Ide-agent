@@ -1,0 +1,89 @@
+{
+  "enabled": true,
+  "defaultBlocks": ["TON", "TOF", "TP", "CTU", "CTD", "SR", "RS"],
+  "termPatterns": [
+    { "term": "alarm", "patterns": ["alarm", "warning", "报警", "告警"] },
+    { "term": "axis", "patterns": ["axis", "axis_ref", "轴"] },
+    { "term": "busy", "patterns": ["busy", "忙"] },
+    { "term": "counter", "patterns": ["counter", "count", "ctu", "ctd", "计数", "计件", "批次"] },
+    { "term": "done", "patterns": ["done", "complete", "完成", "到位"] },
+    { "term": "edge", "patterns": ["edge", "trigger", "触发", "边沿"] },
+    { "term": "enable", "patterns": ["enable", "enabled", "使能", "允许"] },
+    { "term": "falling", "patterns": ["falling", "f_trig", "下降沿"] },
+    { "term": "fault", "patterns": ["fault", "error", "fail", "故障", "错误", "异常"] },
+    { "term": "interlock", "patterns": ["interlock", "lock", "互锁", "联锁"] },
+    { "term": "left", "patterns": ["left", "左取", "左侧", "左边"] },
+    { "term": "motion", "patterns": ["mc_", "smc_", "motion", "运动", "伺服", "驱动"] },
+    { "term": "numeric", "patterns": ["real", "lreal", "int", "dint", "数值", "温度", "压力", "流量"] },
+    { "term": "pid", "patterns": ["pid", "闭环", "调节", "控温", "控压", "控流"] },
+    { "term": "ready", "patterns": ["ready", "就绪", "准备"] },
+    { "term": "reset", "patterns": ["reset", "复位", "清除"] },
+    { "term": "rising", "patterns": ["rising", "r_trig", "上升沿"] },
+    { "term": "run", "patterns": ["run", "running", "运行"] },
+    { "term": "start", "patterns": ["start", "启动", "开始"] },
+    { "term": "stop", "patterns": ["stop", "停止", "停机", "急停"] },
+    { "term": "string", "patterns": ["string", "wstring", "字符串", "字符"] },
+    { "term": "timer", "patterns": ["timer", "time", "ton", "tof", "tp", "定时", "延时", "计时", "时间", "超时"] }
+  ],
+  "rules": [
+    {
+      "id": "timer",
+      "terms": ["timer"],
+      "candidateNames": ["TON", "TOF", "TP"],
+      "baseScore": 80,
+      "preferredModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"]
+    },
+    {
+      "id": "counter",
+      "terms": ["counter"],
+      "candidateNames": ["CTU", "CTD"],
+      "baseScore": 78,
+      "preferredModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"]
+    },
+    {
+      "id": "latch",
+      "terms": ["alarm", "fault", "reset", "start", "stop", "interlock"],
+      "candidateNames": ["SR", "RS"],
+      "baseScore": 72,
+      "preferredModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"]
+    },
+    {
+      "id": "edge-rising",
+      "terms": ["edge", "rising", "start"],
+      "candidateNames": ["R_TRIG"],
+      "baseScore": 76,
+      "preferredModes": ["functionBlockAfter", "functionBlockBefore"]
+    },
+    {
+      "id": "edge-falling",
+      "terms": ["falling", "stop"],
+      "candidateNames": ["F_TRIG"],
+      "baseScore": 74,
+      "preferredModes": ["functionBlockAfter", "functionBlockBefore"]
+    },
+    {
+      "id": "pid",
+      "terms": ["pid", "numeric"],
+      "requiredAnyTerms": ["pid"],
+      "candidateNames": ["PID"],
+      "baseScore": 90,
+      "preferredModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"]
+    },
+    {
+      "id": "string-left",
+      "terms": ["string", "left"],
+      "requiredAnyTerms": ["left", "string"],
+      "candidateNames": ["LEFT"],
+      "baseScore": 86,
+      "preferredModes": ["functionBlockAfter", "functionBlockBefore"]
+    },
+    {
+      "id": "motion-reset",
+      "terms": ["motion", "axis", "reset", "fault"],
+      "requiredAnyTerms": ["motion", "axis"],
+      "candidateNames": ["MC_Reset"],
+      "baseScore": 92,
+      "preferredModes": ["functionBlockAfter", "functionBlockBefore", "outputFunctionBlock"]
+    }
+  ]
+}

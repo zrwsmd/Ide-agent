@@ -176,9 +176,9 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile && npm run obfuscate",
+    "vscode:prepublish": "npm run compile && npm run obfuscate && node scripts/clean-package-artifacts.js",
     "compile": "npm run compile:core && tsc -p ./ && node scripts/copy-core-runtime.js",
-    "compile:core": "npm --prefix packages/core run compile",
+    "compile:core": "tsc -p packages/core && node packages/core/scripts/copy-runtime-assets.js",
     "obfuscate": "node scripts/obfuscate-dist.js",
     "test:local-graph-command": "npm run compile && node scripts/run-local-graph-command-test.js",
     "test:edit-rect-suggestions": "npm run compile && node scripts/test-edit-rect-suggestions.js",
@@ -195,6 +195,7 @@
   },
   "dependencies": {
     "@ide-agent/core": "file:packages/core",
-    "pptxgenjs": "^4.0.1"
+    "pptxgenjs": "^4.0.1",
+    "st-library-info": "github:zrwsmd/st-library-info"
   }
 }
