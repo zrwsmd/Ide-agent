@@ -14,7 +14,7 @@ const fixturePath = path.join(
   "src",
   "test",
   "fixtures",
-  "business-rules-v2.json",
+  "local-business-suggestion-fixture.json",
 );
 const rulesPath = path.join(
   rootDir,
