@@ -207,6 +207,36 @@ async function assertStableBusinessCases() {
     "explicit reset intent should rank resetCoil first",
   );
 
+  const crossSegmentStopSuggestions = await suggestionsFor(
+    fixturePath,
+    "segment-cross-stop-focus",
+    "cross-stop-focus-contact",
+  );
+  assert.ok(
+    !functionBlockTypes(crossSegmentStopSuggestions).includes("MC_STOP"),
+    "non-adjacent related segment with the same request and axis should suppress duplicate MC_Stop",
+  );
+
+  const otherAxisStopSuggestions = await suggestionsFor(
+    fixturePath,
+    "segment-cross-stop-other-axis",
+    "cross-stop-other-contact",
+  );
+  assert.ok(
+    functionBlockTypes(otherAxisStopSuggestions).includes("MC_STOP"),
+    "MC_Stop in another segment must not suppress a suggestion for a different axis and request",
+  );
+
+  const unrelatedAdjacentSuggestions = await suggestionsFor(
+    fixturePath,
+    "segment-cross-unrelated",
+    "cross-unrelated-contact",
+  );
+  assert.ok(
+    !functionBlockTypes(unrelatedAdjacentSuggestions).includes("TON"),
+    "related-segment timer terms must not trigger TON without local timer intent",
+  );
+
   for (const suggestion of [
     ...tonSuggestions,
     ...ordinaryResetSuggestions,
@@ -218,6 +248,9 @@ async function assertStableBusinessCases() {
     ...resetDominantSuggestions,
     ...motionStopSuggestions,
     ...motionHaltSuggestions,
+    ...crossSegmentStopSuggestions,
+    ...otherAxisStopSuggestions,
+    ...unrelatedAdjacentSuggestions,
   ]) {
     assertSuggestionUsesLibraryElement(suggestion);
   }

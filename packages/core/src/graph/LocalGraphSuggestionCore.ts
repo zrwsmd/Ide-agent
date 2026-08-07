@@ -6,6 +6,7 @@ import {
   DiagramNodeSummary,
   DiagramSegmentSummary,
   DiagramSummary,
+  DiagramVariableSummary,
   loadDiagramSummary,
 } from "../diagram/DiagramSummary";
 
@@ -162,6 +163,22 @@ interface LocalSuggestionAddElement {
 
 type BusinessTerm = string;
 
+interface RelatedSegmentContext {
+  segment: DiagramSegmentSummary;
+  relationScore: number;
+  sharedReferences: Set<string>;
+  terms: Set<BusinessTerm>;
+  dataTypes: Set<string>;
+  blockTypes: Set<string>;
+}
+
+interface SegmentBusinessSnapshot {
+  references: Set<string>;
+  terms: Set<BusinessTerm>;
+  dataTypes: Set<string>;
+  blockTypes: Set<string>;
+}
+
 interface BusinessSuggestionContext {
   hasBusinessContext: boolean;
   hasLocalBusinessContext: boolean;
@@ -176,6 +193,10 @@ interface BusinessSuggestionContext {
   localDataTypes: Set<string>;
   focusBlockType: string;
   segmentBlockTypes: Set<string>;
+  relatedSegments: RelatedSegmentContext[];
+  relatedTerms: Set<BusinessTerm>;
+  relatedDataTypes: Set<string>;
+  relatedBlockTypes: Set<string>;
 }
 
 interface BusinessRulesConfig {
@@ -633,7 +654,8 @@ function rankBusinessSuggestions(
   );
   const applicableSuggestions = enhancedSuggestions.filter(
     (suggestion) =>
-      !hasExistingFunctionBlockAtInsertionBoundary(suggestion, focus.segment),
+      !hasExistingFunctionBlockAtInsertionBoundary(suggestion, focus.segment) &&
+      !hasExistingFunctionBlockInRelatedSegment(suggestion, context, focus),
   );
   const ranked = applicableSuggestions.map((suggestion, index) => ({
     suggestion,
@@ -844,6 +866,20 @@ function buildBusinessSuggestionContext(
   addDataTypeTerms(focusTerms, focusDataTypes);
   addDataTypeTerms(nearbyTerms, nearbyDataTypes);
   addDataTypeTerms(segmentTerms, segmentDataTypes);
+  const relatedSegments = findRelatedSegments(
+    summary,
+    focus.segment,
+    pouVariables,
+  );
+  const relatedTerms = new Set(
+    relatedSegments.flatMap((item) => [...item.terms]),
+  );
+  const relatedDataTypes = new Set(
+    relatedSegments.flatMap((item) => [...item.dataTypes]),
+  );
+  const relatedBlockTypes = new Set(
+    relatedSegments.flatMap((item) => [...item.blockTypes]),
+  );
   const hasLocalBusinessContext =
     focusTerms.size > 0 ||
     nearbyTerms.size > 0 ||
@@ -866,7 +902,157 @@ function buildBusinessSuggestionContext(
     localDataTypes,
     focusBlockType,
     segmentBlockTypes,
+    relatedSegments,
+    relatedTerms,
+    relatedDataTypes,
+    relatedBlockTypes,
   };
+}
+
+function findRelatedSegments(
+  summary: DiagramSummary,
+  focusSegment: DiagramSegmentSummary,
+  pouVariables: DiagramVariableSummary[],
+): RelatedSegmentContext[] {
+  const pouName = focusSegment.pouName?.trim();
+  if (!pouName) {
+    return [];
+  }
+
+  const samePouSegments = summary.segments.filter(
+    (segment) => segment.pouName?.trim() === pouName,
+  );
+  const focusIndex = samePouSegments.findIndex(
+    (segment) => segment.segmentId === focusSegment.segmentId,
+  );
+  if (focusIndex < 0) {
+    return [];
+  }
+
+  const focusSnapshot = buildSegmentBusinessSnapshot(
+    focusSegment,
+    pouVariables,
+  );
+  const related = samePouSegments
+    .filter((segment) => segment.segmentId !== focusSegment.segmentId)
+    .map((segment) => {
+      const snapshot = buildSegmentBusinessSnapshot(segment, pouVariables);
+      const sharedReferences = intersection(
+        focusSnapshot.references,
+        snapshot.references,
+      );
+      const sharedTerms = intersection(focusSnapshot.terms, snapshot.terms);
+      const sharedBlockTypes = intersection(
+        focusSnapshot.blockTypes,
+        snapshot.blockTypes,
+      );
+      const segmentIndex = samePouSegments.findIndex(
+        (item) => item.segmentId === segment.segmentId,
+      );
+      const isAdjacent = Math.abs(segmentIndex - focusIndex) === 1;
+      const isSemanticallyRelated =
+        sharedReferences.size > 0 ||
+        (sharedTerms.size >= 2 && sharedBlockTypes.size > 0);
+
+      if (!isSemanticallyRelated) {
+        return undefined;
+      }
+
+      return {
+        segment,
+        relationScore:
+          sharedReferences.size * 10 +
+          Math.min(sharedTerms.size, 3) * 2 +
+          Math.min(sharedBlockTypes.size, 1) +
+          (isAdjacent ? 1 : 0),
+        sharedReferences,
+        terms: snapshot.terms,
+        dataTypes: snapshot.dataTypes,
+        blockTypes: snapshot.blockTypes,
+      } satisfies RelatedSegmentContext;
+    })
+    .filter((item): item is RelatedSegmentContext => Boolean(item))
+    .sort((left, right) => right.relationScore - left.relationScore)
+    .slice(0, 3);
+
+  return related;
+}
+
+function buildSegmentBusinessSnapshot(
+  segment: DiagramSegmentSummary,
+  pouVariables: DiagramVariableSummary[],
+): SegmentBusinessSnapshot {
+  const dataTypes = collectNodeDataTypes(segment.nodes, pouVariables);
+  const knownReferences = new Set(
+    pouVariables
+      .map((variable) => normalizeReference(variable.name))
+      .filter((value) => value.length > 0),
+  );
+  const terms = collectBusinessTerms([
+    segment.label,
+    segment.note,
+    ...segment.nodes.flatMap((node) => nodeBusinessTexts(node)),
+  ]);
+  addDataTypeTerms(terms, dataTypes);
+
+  return {
+    references: collectSegmentReferences(segment, knownReferences),
+    terms,
+    dataTypes,
+    blockTypes: new Set(
+      segment.nodes
+        .map((node) => normalizeBlockType(node.blockType))
+        .filter((value) => value.length > 0),
+    ),
+  };
+}
+
+function collectSegmentReferences(
+  segment: DiagramSegmentSummary,
+  knownReferences: Set<string>,
+): Set<string> {
+  return new Set(
+    segment.nodes.flatMap((node) =>
+      [...collectNodeReferences(node)].filter((value) =>
+        knownReferences.has(value),
+      ),
+    ),
+  );
+}
+
+function collectNodeReferences(node: DiagramNodeSummary): Set<string> {
+  return new Set(
+    [
+      node.var,
+      node.instance,
+      ...Object.values(node.inputs ?? {}),
+      ...Object.values(node.outputs ?? {}),
+    ]
+      .map(normalizeReference)
+      .filter((value): value is string => Boolean(value)),
+  );
+}
+
+function normalizeReference(value: string | undefined): string {
+  const normalized = String(value ?? "").trim().toUpperCase();
+  if (
+    !normalized ||
+    normalized === "???" ||
+    normalized === "TRUE" ||
+    normalized === "FALSE" ||
+    normalized === "NULL" ||
+    /^[-+]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(normalized) ||
+    normalized.startsWith("\"") ||
+    normalized.startsWith("'")
+  ) {
+    return "";
+  }
+
+  return normalized;
+}
+
+function intersection<T>(left: Set<T>, right: Set<T>): Set<T> {
+  return new Set([...left].filter((value) => right.has(value)));
 }
 
 function scoreBusinessSuggestion(
@@ -945,6 +1131,8 @@ function scoreBusinessSuggestion(
   }
 
   if (isFunctionBlock) {
+    score += scoreRelatedFunctionBlockEvidence(addBlockType, context);
+
     if (isTimerBlockType(addBlockType)) {
       score += timerSignals * 3;
       score += isTimerBlockType(context.focusBlockType) ? 4 : 0;
@@ -1023,6 +1211,35 @@ function businessTermWeight(
     }
   }
   return score;
+}
+
+function scoreRelatedFunctionBlockEvidence(
+  blockType: string,
+  context: BusinessSuggestionContext,
+): number {
+  let score = context.relatedBlockTypes.has(blockType) ? 1 : 0;
+
+  if (isTimerBlockType(blockType) && context.relatedTerms.has("timer")) {
+    score += 1;
+  } else if (
+    isCounterBlockType(blockType) &&
+    context.relatedTerms.has("counter")
+  ) {
+    score += 1;
+  } else if (
+    isLatchBlockType(blockType) &&
+    context.relatedTerms.has("latch")
+  ) {
+    score += 1;
+  } else if (
+    isMotionBlockType(blockType) &&
+    context.relatedTerms.has("motion") &&
+    context.relatedTerms.has("axis")
+  ) {
+    score += 1;
+  }
+
+  return Math.min(score, 2);
 }
 
 function scoreConfiguredRankingRules(
@@ -2856,6 +3073,50 @@ function hasExistingFunctionBlockAtInsertionBoundary(
       boundaryNode?.kind === "FBDCompartment" &&
       normalizeBlockType(boundaryNode.blockType) === blockType
     );
+  });
+}
+
+function hasExistingFunctionBlockInRelatedSegment(
+  suggestion: LocalSuggestionDraft,
+  context: BusinessSuggestionContext,
+  focus: FocusContext,
+): boolean {
+  if (
+    suggestion.addElement.nodeType !== "functionBlock" ||
+    inferSerialOrParallel(suggestion) !== "serial" ||
+    !focus.node
+  ) {
+    return false;
+  }
+
+  const blockType = normalizeBlockType(suggestion.addElement.blockType);
+  const focusReferences = collectNodeReferences(focus.node);
+  if (!blockType || focusReferences.size === 0) {
+    return false;
+  }
+
+  return context.relatedSegments.some((related) => {
+    const sharedFocusReferences = intersection(
+      focusReferences,
+      related.sharedReferences,
+    );
+    if (sharedFocusReferences.size === 0) {
+      return false;
+    }
+
+    return related.segment.nodes.some((node) => {
+      if (
+        node.kind !== "FBDCompartment" ||
+        normalizeBlockType(node.blockType) !== blockType
+      ) {
+        return false;
+      }
+
+      return intersection(
+        sharedFocusReferences,
+        collectNodeReferences(node),
+      ).size > 0;
+    });
   });
 }
 

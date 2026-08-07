@@ -20,7 +20,12 @@
       { "name": "Reset_Output", "type": "BOOL", "scope": "VAR" },
       { "name": "Axis_Stop_Request", "type": "BOOL", "scope": "VAR" },
       { "name": "Axis_Halt_Request", "type": "BOOL", "scope": "VAR" },
-      { "name": "Motion_Context", "type": "MC_ReadActualPosition", "scope": "VAR" }
+      { "name": "Motion_Context", "type": "MC_ReadActualPosition", "scope": "VAR" },
+      { "name": "Cross_Stop_Request", "type": "BOOL", "scope": "VAR" },
+      { "name": "Cross_Stop_Fb", "type": "MC_Stop", "scope": "VAR" },
+      { "name": "Feed_Axis_2", "type": "AXIS_REF", "scope": "VAR" },
+      { "name": "Axis_Stop_Request_2", "type": "BOOL", "scope": "VAR" },
+      { "name": "Motion_Context_2", "type": "MC_ReadActualPosition", "scope": "VAR" }
     ],
     "segmentList": [
       {
@@ -392,6 +397,160 @@
             "id": "reset-coil-end",
             "type": "endLine",
             "sourceIds": ["reset-coil"],
+            "targetIds": []
+          }
+        }
+      },
+      {
+        "id": "segment-cross-stop-focus",
+        "label": "送料轴停止请求",
+        "note": "停止请求触发后停止送料轴。",
+        "nodesObj": {
+          "cross-stop-focus-start": {
+            "id": "cross-stop-focus-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["cross-stop-focus-context"]
+          },
+          "cross-stop-focus-context": {
+            "id": "cross-stop-focus-context",
+            "type": "FBDCompartment",
+            "sourceIds": ["cross-stop-focus-start"],
+            "targetIds": ["cross-stop-focus-contact"],
+            "childrenNode": {
+              "type": "MC_ReadActualPosition",
+              "isFunction": false,
+              "varName": { "value": "Motion_Context", "type": "MC_ReadActualPosition", "scope": "VAR" },
+              "portInputs": [
+                { "name": "EN", "value": "", "type": "", "scope": "" },
+                { "name": "Axis", "value": "Feed_Axis", "type": "AXIS_REF", "scope": "VAR_IN_OUT" }
+              ],
+              "portOutputs": [
+                { "name": "ENO", "value": "", "type": "", "scope": "" }
+              ]
+            }
+          },
+          "cross-stop-focus-contact": {
+            "id": "cross-stop-focus-contact",
+            "type": "risingContact",
+            "sourceIds": ["cross-stop-focus-context"],
+            "targetIds": ["cross-stop-focus-end"],
+            "varName": { "value": "Cross_Stop_Request", "type": "BOOL", "scope": "VAR" }
+          },
+          "cross-stop-focus-end": {
+            "id": "cross-stop-focus-end",
+            "type": "endLine",
+            "sourceIds": ["cross-stop-focus-contact"],
+            "targetIds": []
+          }
+        }
+      },
+      {
+        "id": "segment-cross-unrelated",
+        "label": "加热温度报警",
+        "note": "温度超过设定值时输出报警。",
+        "nodesObj": {
+          "cross-unrelated-start": {
+            "id": "cross-unrelated-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["cross-unrelated-contact"]
+          },
+          "cross-unrelated-contact": {
+            "id": "cross-unrelated-contact",
+            "type": "contact",
+            "sourceIds": ["cross-unrelated-start"],
+            "targetIds": ["cross-unrelated-end"],
+            "varName": { "value": "Enable", "type": "BOOL", "scope": "VAR" }
+          },
+          "cross-unrelated-end": {
+            "id": "cross-unrelated-end",
+            "type": "endLine",
+            "sourceIds": ["cross-unrelated-contact"],
+            "targetIds": []
+          }
+        }
+      },
+      {
+        "id": "segment-cross-stop-existing",
+        "label": "送料轴执行停止",
+        "note": "由停止请求触发 MC_Stop。",
+        "nodesObj": {
+          "cross-stop-existing-start": {
+            "id": "cross-stop-existing-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["cross-stop-existing-fb"]
+          },
+          "cross-stop-existing-fb": {
+            "id": "cross-stop-existing-fb",
+            "type": "FBDCompartment",
+            "sourceIds": ["cross-stop-existing-start"],
+            "targetIds": ["cross-stop-existing-end"],
+            "childrenNode": {
+              "type": "MC_Stop",
+              "isFunction": false,
+              "varName": { "value": "Cross_Stop_Fb", "type": "MC_Stop", "scope": "VAR" },
+              "portInputs": [
+                { "name": "EN", "value": "", "type": "", "scope": "" },
+                { "name": "Axis", "value": "Feed_Axis", "type": "AXIS_REF", "scope": "VAR_IN_OUT" },
+                { "name": "Execute", "value": "Cross_Stop_Request", "type": "BOOL", "scope": "VAR_INPUT" },
+                { "name": "Deceleration", "value": "Stop_Deceleration", "type": "LREAL", "scope": "VAR_INPUT" },
+                { "name": "Jerk", "value": "Stop_Jerk", "type": "LREAL", "scope": "VAR_INPUT" }
+              ],
+              "portOutputs": [
+                { "name": "ENO", "value": "", "type": "", "scope": "" }
+              ]
+            }
+          },
+          "cross-stop-existing-end": {
+            "id": "cross-stop-existing-end",
+            "type": "endLine",
+            "sourceIds": ["cross-stop-existing-fb"],
+            "targetIds": []
+          }
+        }
+      },
+      {
+        "id": "segment-cross-stop-other-axis",
+        "label": "辅助轴停止请求",
+        "note": "停止请求触发后停止辅助轴。",
+        "nodesObj": {
+          "cross-stop-other-start": {
+            "id": "cross-stop-other-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["cross-stop-other-context"]
+          },
+          "cross-stop-other-context": {
+            "id": "cross-stop-other-context",
+            "type": "FBDCompartment",
+            "sourceIds": ["cross-stop-other-start"],
+            "targetIds": ["cross-stop-other-contact"],
+            "childrenNode": {
+              "type": "MC_ReadActualPosition",
+              "isFunction": false,
+              "varName": { "value": "Motion_Context_2", "type": "MC_ReadActualPosition", "scope": "VAR" },
+              "portInputs": [
+                { "name": "EN", "value": "", "type": "", "scope": "" },
+                { "name": "Axis", "value": "Feed_Axis_2", "type": "AXIS_REF", "scope": "VAR_IN_OUT" }
+              ],
+              "portOutputs": [
+                { "name": "ENO", "value": "", "type": "", "scope": "" }
+              ]
+            }
+          },
+          "cross-stop-other-contact": {
+            "id": "cross-stop-other-contact",
+            "type": "risingContact",
+            "sourceIds": ["cross-stop-other-context"],
+            "targetIds": ["cross-stop-other-end"],
+            "varName": { "value": "Axis_Stop_Request_2", "type": "BOOL", "scope": "VAR" }
+          },
+          "cross-stop-other-end": {
+            "id": "cross-stop-other-end",
+            "type": "endLine",
+            "sourceIds": ["cross-stop-other-contact"],
             "targetIds": []
           }
         }
