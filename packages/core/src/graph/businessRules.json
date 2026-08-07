@@ -14,6 +14,7 @@
     { "term": "enable", "literalPatterns": ["enable", "enabled", "使能", "允许"], "regexPatterns": [] },
     { "term": "falling", "literalPatterns": ["falling", "下降沿", "松开瞬间", "失效瞬间"], "regexPatterns": ["(?:^|[^a-z0-9])f[_\\-.\\s]*trig(?:$|[^a-z0-9])"] },
     { "term": "fault", "literalPatterns": ["fault", "error", "fail", "故障", "错误", "异常"], "regexPatterns": [] },
+    { "term": "healthy", "literalPatterns": ["正常", "健康", "完好"], "regexPatterns": ["(?:^|[^a-z0-9])(?:ok|ready|healthy|normal)(?:$|[^a-z0-9])"] },
     { "term": "interlock", "literalPatterns": ["interlock", "互锁", "联锁"], "regexPatterns": [] },
     { "term": "latch", "literalPatterns": ["latch", "latched", "锁存", "自保持", "状态保持", "故障保持", "报警保持"], "regexPatterns": [] },
     { "term": "limit", "literalPatterns": ["limit", "clamp", "限幅", "上下限", "范围限制"], "regexPatterns": [] },
@@ -32,6 +33,7 @@
     { "term": "onDelay", "literalPatterns": ["on delay", "通电延时", "延时启动", "等待稳定", "持续有效确认", "最大时间", "超时检测"], "regexPatterns": ["(?:^|[^a-z0-9])on[_\\-.\\s]*delay(?:$|[^a-z0-9])"] },
     { "term": "offDelay", "literalPatterns": ["off delay", "断电延时", "延时停止", "延时停机", "停机后继续", "后运行"], "regexPatterns": ["(?:^|[^a-z0-9])off[_\\-.\\s]*delay(?:$|[^a-z0-9])"] },
     { "term": "pid", "literalPatterns": ["closed loop", "闭环", "调节回路", "控温", "控压", "控流", "液位调节"], "regexPatterns": ["(?:^|[^a-z0-9])pid(?:$|[^a-z0-9])"] },
+    { "term": "permissive", "literalPatterns": ["运行许可", "启动许可", "允许运行", "许可条件", "允许条件", "联锁条件", "互锁条件", "联锁", "互锁"], "regexPatterns": ["(?:^|[^a-z0-9])(?:permissive|permit|permitted|interlock)(?:$|[^a-z0-9])"] },
     { "term": "pulse", "literalPatterns": ["pulse", "固定脉冲", "单次输出", "点动脉冲", "定宽脉冲"], "regexPatterns": ["(?:^|[^a-z0-9])tp(?:$|[^a-z0-9])"] },
     { "term": "ready", "literalPatterns": ["ready", "就绪", "准备"], "regexPatterns": [] },
     { "term": "reset", "literalPatterns": ["reset", "acknowledge", "复位", "清除", "确认清除"], "regexPatterns": ["(?:^|[^a-z0-9])ack(?:$|[^a-z0-9])"] },
@@ -53,6 +55,18 @@
     { "term": "timer", "literalPatterns": ["timer", "定时", "延时", "计时", "时间", "超时"], "regexPatterns": ["(?:^|[^a-z0-9])(?:ton|tof|tp)(?:$|[^a-z0-9])"] },
     { "term": "safety", "literalPatterns": ["safety", "safe", "emergency stop", "急停", "安全门", "光栅"], "regexPatterns": ["(?:^|[^a-z0-9])sto(?:$|[^a-z0-9])"] },
     { "term": "stateMachine", "literalPatterns": ["state machine", "状态机", "步序"], "regexPatterns": ["(?:^|[^a-z0-9])(?:state[_\\-.\\s]*machine|sfc)(?:$|[^a-z0-9])"] }
+  ],
+  "contactPolarityRules": [
+    {
+      "id": "P01-permissive-inhibit-negated",
+      "status": "active",
+      "polarity": "negated",
+      "termsAny": ["stop", "fault", "alarm", "interlock"],
+      "termsAll": ["permissive"],
+      "excludedTerms": ["safety"],
+      "excludedAnchorTerms": ["healthy"],
+      "reason": "运行许可或联锁链路中的停止、故障和报警抑制条件优先使用常闭触点；正逻辑健康信号除外。"
+    }
   ],
   "libraryRules": [
     {
@@ -401,11 +415,13 @@
       "termMultiplier": 1
     },
     {
-      "id": "R02-stop-negated-contact",
+      "id": "R02-permissive-negated-contact",
       "status": "active",
       "termsAny": ["stop", "fault", "alarm", "interlock"],
+      "termsAll": ["permissive"],
+      "excludedTerms": ["safety"],
       "candidateNodeTypes": ["negatedContact"],
-      "baseScore": 7,
+      "baseScore": 9,
       "termMultiplier": 1
     },
     {
@@ -422,6 +438,14 @@
       "termsAll": ["latch", "set"],
       "candidateNodeTypes": ["setCoil"],
       "baseScore": 6,
+      "termMultiplier": 1
+    },
+    {
+      "id": "R05-healthy-normal-contact",
+      "status": "active",
+      "termsAny": ["healthy", "ready"],
+      "candidateNodeTypes": ["contact"],
+      "baseScore": 9,
       "termMultiplier": 1
     }
   ],

@@ -17,6 +17,8 @@
       { "name": "Stop_Jerk", "type": "LREAL", "scope": "VAR" },
       { "name": "Count_Event", "type": "BOOL", "scope": "VAR" },
       { "name": "Alarm_Condition", "type": "BOOL", "scope": "VAR" },
+      { "name": "Run_Permissive", "type": "BOOL", "scope": "VAR" },
+      { "name": "EStop_OK", "type": "BOOL", "scope": "VAR" },
       { "name": "Fault_Output", "type": "BOOL", "scope": "VAR" },
       { "name": "Reset_Output", "type": "BOOL", "scope": "VAR" },
       { "name": "Axis_Stop_Request", "type": "BOOL", "scope": "VAR" },
@@ -372,6 +374,58 @@
             "id": "motion-halt-end",
             "type": "endLine",
             "sourceIds": ["motion-halt-contact"],
+            "targetIds": []
+          }
+        }
+      },
+      {
+        "id": "segment-fault-permissive",
+        "label": "主电机运行许可联锁",
+        "note": "驱动故障或停止请求有效时禁止主电机运行。",
+        "nodesObj": {
+          "fault-permissive-start": {
+            "id": "fault-permissive-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["fault-permissive-contact"]
+          },
+          "fault-permissive-contact": {
+            "id": "fault-permissive-contact",
+            "type": "contact",
+            "sourceIds": ["fault-permissive-start"],
+            "targetIds": ["fault-permissive-end"],
+            "varName": { "value": "Run_Permissive", "type": "BOOL", "scope": "VAR" }
+          },
+          "fault-permissive-end": {
+            "id": "fault-permissive-end",
+            "type": "endLine",
+            "sourceIds": ["fault-permissive-contact"],
+            "targetIds": []
+          }
+        }
+      },
+      {
+        "id": "segment-estop-ok-permissive",
+        "label": "急停回路正常运行许可",
+        "note": "EStop_OK 为 TRUE 时允许设备运行。",
+        "nodesObj": {
+          "estop-ok-start": {
+            "id": "estop-ok-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["estop-ok-contact"]
+          },
+          "estop-ok-contact": {
+            "id": "estop-ok-contact",
+            "type": "contact",
+            "sourceIds": ["estop-ok-start"],
+            "targetIds": ["estop-ok-end"],
+            "varName": { "value": "EStop_OK", "type": "BOOL", "scope": "VAR" }
+          },
+          "estop-ok-end": {
+            "id": "estop-ok-end",
+            "type": "endLine",
+            "sourceIds": ["estop-ok-contact"],
             "targetIds": []
           }
         }

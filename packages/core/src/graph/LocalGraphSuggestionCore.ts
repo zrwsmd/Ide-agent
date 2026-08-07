@@ -204,6 +204,7 @@ interface BusinessRulesConfig {
   enabled: boolean;
   defaultBlocks: string[];
   termPatterns: BusinessTermPatternConfig[];
+  contactPolarityRules: BusinessContactPolarityRuleConfig[];
   libraryRules: BusinessLibraryRuleConfig[];
   rankingRules: BusinessRankingRuleConfig[];
 }
@@ -218,6 +219,17 @@ interface BusinessTermMatcher {
   term: BusinessTerm;
   literalPatterns: string[];
   regexPatterns: RegExp[];
+}
+
+interface BusinessContactPolarityRuleConfig {
+  id: string;
+  status: string;
+  polarity: "normal" | "negated";
+  termsAny?: BusinessTerm[];
+  termsAll?: BusinessTerm[];
+  excludedTerms?: BusinessTerm[];
+  excludedAnchorTerms?: BusinessTerm[];
+  reason?: string;
 }
 
 interface BusinessLibraryRuleConfig {
@@ -285,6 +297,7 @@ const FALLBACK_COMMON_FUNCTION_BLOCK_TYPES = [
   "SR",
   "RS",
 ];
+const MAX_RETURNED_SUGGESTIONS = 16;
 
 const FALLBACK_BUSINESS_RULES_CONFIG: BusinessRulesConfig = {
   schemaVersion: "ide-agent.business-rules.v3",
@@ -314,6 +327,7 @@ const FALLBACK_BUSINESS_RULES_CONFIG: BusinessRulesConfig = {
     { term: "string", literalPatterns: ["字符串", "字符"], regexPatterns: ["(?:^|[^a-z0-9])w?string(?:$|[^a-z0-9])"] },
     { term: "timer", literalPatterns: ["定时", "延时", "计时", "时间", "超时"], regexPatterns: ["(?:^|[^a-z0-9])(?:timer|time|ton|tof|tp)(?:$|[^a-z0-9])"] },
   ],
+  contactPolarityRules: [],
   libraryRules: [],
   rankingRules: [],
 };
@@ -342,6 +356,9 @@ function loadBusinessRulesConfig(): BusinessRulesConfig {
     enabled: asBooleanConfig(record.enabled, FALLBACK_BUSINESS_RULES_CONFIG.enabled),
     defaultBlocks: stringList(record.defaultBlocks, FALLBACK_BUSINESS_RULES_CONFIG.defaultBlocks),
     termPatterns: parseTermPatterns(record.termPatterns),
+    contactPolarityRules: parseContactPolarityRules(
+      record.contactPolarityRules,
+    ),
     libraryRules: parseBusinessRules(record.libraryRules ?? record.rules),
     rankingRules: parseBusinessRankingRules(record.rankingRules),
   };
@@ -382,6 +399,28 @@ function compileBusinessTermMatchers(
       }
     }),
   }));
+}
+
+function parseContactPolarityRules(
+  value: unknown,
+): BusinessContactPolarityRuleConfig[] {
+  return asArrayRecord(value)
+    .map((item) => ({
+      id: asStringConfig(item.id),
+      status: asStringConfig(item.status) || "active",
+      polarity: asStringConfig(item.polarity) as "normal" | "negated",
+      termsAny: stringList(item.termsAny),
+      termsAll: stringList(item.termsAll),
+      excludedTerms: stringList(item.excludedTerms),
+      excludedAnchorTerms: stringList(item.excludedAnchorTerms),
+      reason: asStringConfig(item.reason),
+    }))
+    .filter(
+      (item) =>
+        item.status.toLowerCase() === "active" &&
+        Boolean(item.id) &&
+        ["normal", "negated"].includes(item.polarity),
+    );
 }
 
 function parseBusinessRules(value: unknown): BusinessLibraryRuleConfig[] {
@@ -664,9 +703,17 @@ function buildSuggestions(
     addCoilSuggestions(suggestions, focus);
   }
 
-  const candidates = keepOutputCoilWithinLimit(dedupeSuggestions(suggestions), 6);
-  return rankBusinessSuggestions(candidates, summary, focus, graphState)
-    .filter(isLibraryBackedSuggestion)
+  const candidates = dedupeSuggestions(suggestions);
+  const rankedSuggestions = rankBusinessSuggestions(
+    candidates,
+    summary,
+    focus,
+    graphState,
+  ).filter(isLibraryBackedSuggestion);
+  return limitRankedSuggestions(
+    rankedSuggestions,
+    MAX_RETURNED_SUGGESTIONS,
+  )
     .map((suggestion, index) =>
       toLocalSuggestion(suggestion, index, focus.segment),
     );
@@ -683,8 +730,12 @@ function rankBusinessSuggestions(
     return suggestions.filter((suggestion) => !isGenericFunctionBlockDraft(suggestion));
   }
 
-  const enhancedSuggestions = applyBusinessLibraryEnhancements(
+  const contactAwareSuggestions = addBusinessContactVariants(
     suggestions,
+    context,
+  );
+  const enhancedSuggestions = applyBusinessLibraryEnhancements(
+    contactAwareSuggestions,
     context,
     focus,
   );
@@ -706,6 +757,78 @@ function rankBusinessSuggestions(
   return ranked
     .sort((left, right) => right.score - left.score || left.index - right.index)
     .map((item) => item.suggestion);
+}
+
+function addBusinessContactVariants(
+  suggestions: LocalSuggestionDraft[],
+  context: BusinessSuggestionContext,
+): LocalSuggestionDraft[] {
+  return suggestions.flatMap((suggestion) => {
+    if (suggestion.addElement.nodeType !== "contact") {
+      return [suggestion];
+    }
+
+    const negatedContact = replaceWithNegatedContact(suggestion);
+    if (!matchesContactPolarity("negated", context)) {
+      return [suggestion];
+    }
+
+    return [suggestion, negatedContact];
+  });
+}
+
+function matchesContactPolarity(
+  polarity: "normal" | "negated",
+  context: BusinessSuggestionContext,
+): boolean {
+  const anchorTerms =
+    context.focusTerms.size > 0 ? context.focusTerms : context.nearbyTerms;
+
+  return BUSINESS_RULES_CONFIG.contactPolarityRules.some((rule) => {
+    if (rule.polarity !== polarity) {
+      return false;
+    }
+    if (
+      rule.termsAny?.length &&
+      !rule.termsAny.some(
+        (term) => localBusinessTermWeight(context, term) > 0,
+      )
+    ) {
+      return false;
+    }
+    if (
+      rule.termsAll?.length &&
+      !rule.termsAll.every(
+        (term) => localBusinessTermWeight(context, term) > 0,
+      )
+    ) {
+      return false;
+    }
+    if (
+      rule.excludedTerms?.some(
+        (term) => localBusinessTermWeight(context, term) > 0,
+      )
+    ) {
+      return false;
+    }
+    if (rule.excludedAnchorTerms?.some((term) => anchorTerms.has(term))) {
+      return false;
+    }
+    return true;
+  });
+}
+
+function replaceWithNegatedContact(
+  suggestion: LocalSuggestionDraft,
+): LocalSuggestionDraft {
+  return {
+    ...suggestion,
+    placement: {
+      ...suggestion.placement,
+      text: suggestion.placement.text.replaceAll("常开触点", "常闭触点"),
+    },
+    addElement: negatedContactElement(),
+  };
 }
 
 function applyBusinessLibraryEnhancements(
@@ -1131,14 +1254,15 @@ function scoreBusinessSuggestion(
     "enable",
     "ready",
   );
-  const stopSignals = businessTermWeight(
+  const inhibitSignals = businessTermWeight(
     context,
     "stop",
     "fault",
     "alarm",
-    "reset",
     "interlock",
   );
+  const stopSignals =
+    inhibitSignals + businessTermWeight(context, "reset");
   const timerSignals = businessTermWeight(context, "timer");
   const counterSignals = businessTermWeight(context, "counter");
   const doneSignals = businessTermWeight(context, "done");
@@ -1150,9 +1274,8 @@ function scoreBusinessSuggestion(
   }
 
   if (addType === "negatedContact") {
-    score += stopSignals * 3;
+    score += inhibitSignals * 3;
     score += businessTermWeight(context, "fault") * 2;
-    score += businessTermWeight(context, "reset") * 2;
   }
 
   if (addType === "risingContact" || addType === "fallingContact") {
@@ -2599,6 +2722,20 @@ function contactElement(): LocalSuggestionAddElement {
   };
 }
 
+function negatedContactElement(): LocalSuggestionAddElement {
+  return {
+    nodeType: "negatedContact",
+    displayLabel: "常闭触点",
+    variableSource: "userInput",
+    variableName: "",
+    dataType: "BOOL",
+    userInputRequired: true,
+    blockType: "",
+    instanceSource: "",
+    instanceName: "",
+  };
+}
+
 function coilElement(variableName = ""): LocalSuggestionAddElement {
   return {
     nodeType: "coil",
@@ -3162,7 +3299,7 @@ function hasExistingFunctionBlockInRelatedSegment(
   });
 }
 
-function keepOutputCoilWithinLimit(
+function limitRankedSuggestions(
   suggestions: LocalSuggestionDraft[],
   limit: number,
 ): LocalSuggestionDraft[] {

@@ -64,6 +64,12 @@ function assertActiveRuleCandidatesExistInLibrary() {
       );
     }
   }
+  const negatedPolarityRule = rules.contactPolarityRules?.find(
+    (rule) => rule.id === "P01-permissive-inhibit-negated",
+  );
+  assert.equal(negatedPolarityRule?.polarity, "negated");
+  assert.ok(negatedPolarityRule?.excludedTerms?.includes("safety"));
+  assert.ok(negatedPolarityRule?.excludedAnchorTerms?.includes("healthy"));
 
   for (const rule of rules.libraryRules ?? []) {
     if (String(rule.status).toLowerCase() !== "active") {
@@ -207,6 +213,10 @@ async function assertStableBusinessCases() {
   );
   assert.ok(functionBlockTypes(motionStopSuggestions).includes("MC_STOP"));
   assert.ok(!functionBlockTypes(motionStopSuggestions).includes("MC_HALT"));
+  assert.ok(
+    !suggestedNodeTypes(motionStopSuggestions).includes("negatedContact"),
+    "MC_Stop command triggering must keep a normal contact",
+  );
 
   const motionHaltSuggestions = await suggestionsFor(
     fixturePath,
@@ -215,6 +225,37 @@ async function assertStableBusinessCases() {
   );
   assert.ok(functionBlockTypes(motionHaltSuggestions).includes("MC_HALT"));
   assert.ok(!functionBlockTypes(motionHaltSuggestions).includes("MC_STOP"));
+
+  const faultPermissiveSuggestions = await suggestionsFor(
+    fixturePath,
+    "segment-fault-permissive",
+    "fault-permissive-contact",
+  );
+  const faultPermissiveTypes = suggestedNodeTypes(
+    faultPermissiveSuggestions,
+  );
+  assert.equal(
+    faultPermissiveTypes[0],
+    "negatedContact",
+    "fault/stop inhibition in a run permissive should prefer a negated contact",
+  );
+  assert.ok(faultPermissiveTypes.includes("contact"));
+  assert.ok(faultPermissiveTypes.includes("negatedContact"));
+  assert.ok(
+    faultPermissiveSuggestions.length > 6,
+    "business-rich contexts should not be truncated to six suggestions before ranking",
+  );
+
+  const estopOkSuggestions = await suggestionsFor(
+    fixturePath,
+    "segment-estop-ok-permissive",
+    "estop-ok-contact",
+  );
+  assert.ok(suggestedNodeTypes(estopOkSuggestions).includes("contact"));
+  assert.ok(
+    !suggestedNodeTypes(estopOkSuggestions).includes("negatedContact"),
+    "positive-logic EStop_OK must not be inverted just because its name contains stop",
+  );
 
   const faultOnlyCoilSuggestions = await suggestionsFor(
     fixturePath,
@@ -225,6 +266,10 @@ async function assertStableBusinessCases() {
     firstAddedNode(faultOnlyCoilSuggestions[0])?.type,
     "resetCoil",
     "fault without reset intent must not rank resetCoil first",
+  );
+  assert.ok(
+    !suggestedNodeTypes(faultOnlyCoilSuggestions).includes("negatedContact"),
+    "fault alarm output activation is not a permissive and should keep a normal contact",
   );
 
   const resetCoilSuggestions = await suggestionsFor(
@@ -280,6 +325,8 @@ async function assertStableBusinessCases() {
     ...resetDominantSuggestions,
     ...motionStopSuggestions,
     ...motionHaltSuggestions,
+    ...faultPermissiveSuggestions,
+    ...estopOkSuggestions,
     ...crossSegmentStopSuggestions,
     ...otherAxisStopSuggestions,
     ...unrelatedAdjacentSuggestions,
@@ -346,6 +393,13 @@ function functionBlockTypes(suggestions) {
     .map(firstAddedNode)
     .filter((node) => node?.type === "FBDCompartment")
     .map((node) => String(node.childrenNode?.type ?? "").toUpperCase());
+}
+
+function suggestedNodeTypes(suggestions) {
+  return suggestions
+    .map(firstAddedNode)
+    .filter(Boolean)
+    .map((node) => String(node.type ?? ""));
 }
 
 function assertSuggestionUsesLibraryElement(suggestion) {

@@ -117,7 +117,7 @@
 
 ## 7. 规则文件模型
 
-机器规则文件使用三类内容：
+机器规则文件使用五类内容：术语识别、触点极性、库元素选择、候选排序和规划规则。
 
 ### 7.1 `libraryRules`
 
@@ -132,15 +132,19 @@
 - `baseScore`
 - `reason`、`fallback`
 
-### 7.2 `rankingRules`
+### 7.2 `contactPolarityRules`
+
+用于判断拓扑合法的普通触点是否需要扩展常闭候选。常闭规则必须同时具备明确的抑制信号和许可/联锁语义；`excludedAnchorTerms` 用于阻止把 `EStop_OK`、`Drive_Ready` 等正逻辑健康信号反相。
+
+### 7.3 `rankingRules`
 
 用于对已经拓扑合法的触点、线圈、函数和功能块候选进行软排序，不直接改变连接边界。
 
-### 7.3 `plannedRules`
+### 7.4 `plannedRules`
 
 记录重要但当前证据或输出能力不足的业务需求。`plannedRules` 不参与运行时匹配，必须写明缺少的能力和当前降级行为。
 
-### 7.4 活动规则字段语义
+### 7.5 活动规则字段语义
 
 | 字段 | 类型 | 执行语义 |
 | --- | --- | --- |
@@ -149,6 +153,8 @@
 | `termsAny` | string[] | 至少一个术语必须出现在焦点、邻居或当前 segment。 |
 | `termsAll` | string[] | 每个术语都必须有局部证据；POU 证据不能单独满足。 |
 | `excludedTerms` | string[] | 任一排除术语有局部证据时规则失败。 |
+| `polarity` | string | 触点极性规则的目标类型：`normal` 或 `negated`。 |
+| `excludedAnchorTerms` | string[] | 焦点节点有任一术语时不扩展该极性；无节点焦点时检查直接邻居。 |
 | `focusKinds` | string[] | 焦点节点类型白名单，例如 `contact`、`FBDCompartment`、`editRect`。 |
 | `requiredAnyDataTypes` | string[] | 当前 segment 至少存在一种指定数据类型；`NUMERIC` 表示 IEC 整数或浮点类型族。 |
 | `requiredAllDataTypes` | string[] | 当前 segment 必须同时具有全部指定数据类型。 |
@@ -348,6 +354,16 @@
 4. 具体功能块规则优先于宽泛业务规则。
 5. 当前 POU 只作为局部证据的增强项。
 6. 拓扑完成度，例如半成品回路优先补输出。
+
+触点极性遵循以下附加原则：
+
+1. 没有明确极性证据时只生成常开触点。
+2. 运行许可或联锁链路同时出现停止、故障、报警或互锁抑制语义时，生成常闭候选并优先排序。
+3. `EStop_OK`、`Drive_Ready`、`Healthy`、`Normal` 等正逻辑健康信号不因名称中包含 `Stop` 而反相。
+4. 触发 `MC_Stop`、报警输出或故障处理动作属于事件/命令逻辑，不按许可链路自动改为常闭。
+5. 现场物理常闭接线不等于 LD 中必须使用常闭指令；程序只能依据 PLC 变量的 TRUE/FALSE 语义选择触点极性。
+
+候选数量限制在业务排序之后执行。通常场景返回实际合法候选；候选很多时最多返回 16 条，并保留合法的输出线圈候选，避免排序前固定截断导致高价值建议丢失。
 
 业务分值只用于相对排序：
 
