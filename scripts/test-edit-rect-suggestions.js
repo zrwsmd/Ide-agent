@@ -17,6 +17,7 @@ async function main() {
   await assertDirectTargetEditRectSuggestions();
   await assertDirectSourceEditRectFrontSuggestion();
   await assertLeftRailEditRectFrontSuggestions();
+  await assertParallelBranchExitSuggestions();
 
   console.log("[test-edit-rect-suggestions] passed");
 }
@@ -72,6 +73,11 @@ async function assertDirectTargetEditRectSuggestions() {
     sourceIds: ["edit-node-rect"],
     targetIds: [],
   });
+  assert.equal(
+    suggestions.some((suggestion) => suggestion.position === "outsideBehind"),
+    false,
+    "a non-parallel editRect must not create an outside-behind suggestion",
+  );
 }
 
 async function assertDirectSourceEditRectFrontSuggestion() {
@@ -128,6 +134,108 @@ async function assertLeftRailEditRectFrontSuggestions() {
     sourceIds: ["start-node-line"],
     targetIds: ["edit-node-rect"],
   });
+}
+
+async function assertParallelBranchExitSuggestions() {
+  const tailResult = await getLocalGraphSuggestions({
+    diagramPath: fixturePath,
+    segmentId: "segment-parallel-exit",
+    selectedNodeId: "parallel-lower-tail",
+  });
+  const tailSuggestions = tailResult?.payload?.suggestions ?? [];
+  const branchInternalBehind = findSuggestion(tailSuggestions, {
+    position: "behind",
+    serialOrParallel: "serial",
+    addType: "contact",
+    startNodes: ["parallel-lower-tail"],
+    endNodes: ["parallel-merge"],
+  });
+  assertSuggestionBoundary(branchInternalBehind, {
+    startNodes: ["parallel-lower-tail"],
+    endNodes: ["parallel-merge"],
+    sourceIds: ["parallel-lower-tail"],
+    targetIds: ["parallel-merge"],
+  });
+
+  const outsideBehind = findSuggestion(tailSuggestions, {
+    position: "outsideBehind",
+    serialOrParallel: "serial",
+    addType: "contact",
+  });
+  assertSuggestionBoundary(outsideBehind, {
+    startNodes: ["parallel-upper", "parallel-lower-tail"],
+    endNodes: ["parallel-merge"],
+    sourceIds: ["parallel-upper", "parallel-lower-tail"],
+    targetIds: ["parallel-merge"],
+  });
+  assert.ok(
+    tailSuggestions.indexOf(outsideBehind) <
+      tailSuggestions.indexOf(branchInternalBehind),
+    "outside-behind should rank above branch-internal behind without business evidence",
+  );
+
+  const internalResult = await getLocalGraphSuggestions({
+    diagramPath: fixturePath,
+    segmentId: "segment-parallel-exit",
+    selectedNodeId: "parallel-lower-head",
+  });
+  const internalOutsideBehind = findSuggestion(
+    internalResult?.payload?.suggestions ?? [],
+    {
+      position: "outsideBehind",
+      serialOrParallel: "serial",
+      addType: "contact",
+    },
+  );
+  assertSuggestionBoundary(internalOutsideBehind, {
+    startNodes: ["parallel-upper", "parallel-lower-tail"],
+    endNodes: ["parallel-merge"],
+    sourceIds: ["parallel-upper", "parallel-lower-tail"],
+    targetIds: ["parallel-merge"],
+  });
+
+  const commonPrefixResult = await getLocalGraphSuggestions({
+    diagramPath: fixturePath,
+    segmentId: "segment-parallel-exit",
+    selectedNodeId: "parallel-common",
+  });
+  assert.equal(
+    (commonPrefixResult?.payload?.suggestions ?? []).some(
+      (suggestion) => suggestion.position === "outsideBehind",
+    ),
+    false,
+    "a common prefix that reaches multiple branch tails must not be treated as branch-internal",
+  );
+
+  const beforeCoilResult = await getLocalGraphSuggestions({
+    diagramPath: fixturePath,
+    segmentId: "segment-parallel-exit-before-coil",
+    selectedNodeId: "parallel-coil-lower",
+  });
+  const beforeCoilSuggestions = beforeCoilResult?.payload?.suggestions ?? [];
+  const beforeCoilOutsideBehind = findSuggestion(beforeCoilSuggestions, {
+    position: "outsideBehind",
+    serialOrParallel: "serial",
+    addType: "contact",
+  });
+  assertSuggestionBoundary(beforeCoilOutsideBehind, {
+    startNodes: ["parallel-coil-upper", "parallel-coil-lower"],
+    endNodes: ["parallel-coil-merge"],
+    sourceIds: ["parallel-coil-upper", "parallel-coil-lower"],
+    targetIds: ["parallel-coil-merge"],
+  });
+  assertDisjointBoundaries(beforeCoilSuggestions);
+}
+
+function assertDisjointBoundaries(suggestions) {
+  for (const suggestion of suggestions) {
+    const endNodeIds = new Set(suggestion.endNodes);
+    assert.equal(
+      suggestion.startNodes.some((nodeId) => endNodeIds.has(nodeId)),
+      false,
+      `${suggestion.title} must not create a self-loop`,
+    );
+  }
 }
 
 function findSuggestion(suggestions, criteria) {

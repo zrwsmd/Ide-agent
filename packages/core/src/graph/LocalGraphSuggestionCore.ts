@@ -81,6 +81,12 @@ interface OutputCoilPlan {
   partialText: (nodeText: string) => string;
 }
 
+interface OutsideBehindPlan {
+  startNodes: string[];
+  endNodes: string[];
+  preserveEndNodes?: boolean;
+}
+
 export interface SuggestedVarName {
   name: string;
   value: string;
@@ -897,7 +903,26 @@ function buildSuggestions(
   )
     .map((suggestion, index) =>
       toLocalSuggestion(suggestion, index, focus.segment),
+    )
+    .filter((suggestion) =>
+      hasValidSuggestionBoundaries(focus.segment, suggestion),
     );
+}
+
+function hasValidSuggestionBoundaries(
+  segment: DiagramSegmentSummary,
+  suggestion: LocalSuggestion,
+): boolean {
+  const endNodeIds = new Set(suggestion.endNodes);
+  if (suggestion.startNodes.some((nodeId) => endNodeIds.has(nodeId))) {
+    return false;
+  }
+
+  return !suggestion.endNodes.some((endNodeId) =>
+    suggestion.startNodes.some((startNodeId) =>
+      canReachNode(segment, endNodeId, startNodeId),
+    ),
+  );
 }
 
 function rankBusinessSuggestions(
@@ -908,7 +933,11 @@ function rankBusinessSuggestions(
 ): LocalSuggestionDraft[] {
   const context = buildBusinessSuggestionContext(summary, focus);
   if (!context.hasBusinessContext) {
-    return suggestions.filter((suggestion) => !isGenericFunctionBlockDraft(suggestion));
+    return rankTopologySuggestions(
+      suggestions.filter(
+        (suggestion) => !isGenericFunctionBlockDraft(suggestion),
+      ),
+    );
   }
 
   const contactAwareSuggestions = addBusinessContactVariants(
@@ -938,6 +967,31 @@ function rankBusinessSuggestions(
   return ranked
     .sort((left, right) => right.score - left.score || left.index - right.index)
     .map((item) => item.suggestion);
+}
+
+function rankTopologySuggestions(
+  suggestions: LocalSuggestionDraft[],
+): LocalSuggestionDraft[] {
+  return suggestions
+    .map((suggestion, index) => ({
+      suggestion,
+      index,
+      score: scoreTopologySuggestion(suggestion),
+    }))
+    .sort((left, right) => right.score - left.score || left.index - right.index)
+    .map((item) => item.suggestion);
+}
+
+function scoreTopologySuggestion(suggestion: LocalSuggestionDraft): number {
+  const position = suggestion.position ?? inferPosition(suggestion);
+  if (
+    position === "outsideBehind" &&
+    isContactNodeType(suggestion.addElement.nodeType)
+  ) {
+    return 3;
+  }
+
+  return 0;
 }
 
 function addBusinessContactVariants(
@@ -1496,7 +1550,9 @@ function scoreBusinessSuggestion(
   const isContact = isContactNodeType(addType);
   const isFunctionBlock = addType === "functionBlock";
   const isCoil = isCoilNodeType(addType);
-  let score = scoreConfiguredRankingRules(suggestion, context);
+  let score =
+    scoreTopologySuggestion(suggestion) +
+    scoreConfiguredRankingRules(suggestion, context);
 
   const startSignals = businessTermWeight(
     context,
@@ -2060,6 +2116,7 @@ function addContactSuggestions(
   const nodeText = nodePlacementLabelWithSegment(focus.segment, node);
   const leftRailInsertionPoint =
     findLeftRailInsertionPointBeforeNode(focus.segment, node);
+  const outsideBehindPlan = findOutsideBehindPlan(focus.segment, node);
 
   if (leftRailInsertionPoint) {
     addFrontSerialSuggestions(suggestions, focus, nodeText, {
@@ -2099,11 +2156,6 @@ function addContactSuggestions(
   if (rightNodes.length) {
     for (const rightNode of rightNodes) {
       const rightText = nodePlacementLabelWithSegment(focus.segment, rightNode);
-      const outsideBehindStartNodes = findOutsideBehindStartNodes(
-        focus.segment,
-        node,
-        rightNode,
-      );
       suggestions.push(
         makeSuggestion(focus, {
           mode: "seriesAfter",
@@ -2122,23 +2174,6 @@ function addContactSuggestions(
           addElement: functionBlockElement(),
         }),
       );
-
-      if (outsideBehindStartNodes.length > 1) {
-        suggestions.push(
-          makeSuggestion(focus, {
-            mode: "seriesAfter",
-            relationToFocus: "afterSelected",
-            insertAfterNodeId: node.id,
-            insertBeforeNodeId: rightNode.id,
-            startNodes: outsideBehindStartNodes,
-            endNodes: [rightNode.id],
-            position: "outsideBehind",
-            serialOrParallel: "serial",
-            text: `在${nodeText}所在并联结构外侧和${rightText}之间串联一个常开触点`,
-            addElement: contactElement(),
-          }),
-        );
-      }
     }
   } else {
     suggestions.push(
@@ -2157,6 +2192,24 @@ function addContactSuggestions(
         insertBeforeNodeId: first(node.to),
         text: `在${nodeText}后串联一个功能块`,
         addElement: functionBlockElement(),
+      }),
+    );
+  }
+
+  if (outsideBehindPlan) {
+    suggestions.push(
+      makeSuggestion(focus, {
+        mode: "seriesAfter",
+        relationToFocus: "afterSelected",
+        insertAfterNodeId: node.id,
+        insertBeforeNodeId: first(outsideBehindPlan.endNodes),
+        startNodes: outsideBehindPlan.startNodes,
+        endNodes: outsideBehindPlan.endNodes,
+        preserveEndNodes: outsideBehindPlan.preserveEndNodes,
+        position: "outsideBehind",
+        serialOrParallel: "serial",
+        text: `在${nodeText}所在并联结构汇合后串联一个常开触点`,
+        addElement: contactElement(),
       }),
     );
   }
@@ -3911,23 +3964,80 @@ function directInsertionPointTargetsBeforeNode(
   );
 }
 
-function findOutsideBehindStartNodes(
+function findOutsideBehindPlan(
   segment: DiagramSegmentSummary,
   anchorNode: DiagramNodeSummary,
-  rightNode: DiagramNodeSummary,
-): string[] {
-  const branchTailNodes = orderBoundaryDisplayNodes(
-    collectNearestDisplayNodes(segment, rightNode.from, "backward"),
-  );
+): OutsideBehindPlan | undefined {
+  const visited = new Set<string>();
+  const queue = [...anchorNode.to];
 
-  if (
-    branchTailNodes.length <= 1 ||
-    !branchTailNodes.some((node) => node.id === anchorNode.id)
-  ) {
-    return [];
+  while (queue.length > 0) {
+    const currentId = queue.shift();
+    if (!currentId || visited.has(currentId)) {
+      continue;
+    }
+
+    visited.add(currentId);
+    const current = findNode(segment, currentId);
+    if (!current) {
+      continue;
+    }
+
+    const branchTailNodes = orderBoundaryDisplayNodes(
+      collectNearestDisplayNodes(segment, current.from, "backward"),
+    );
+    const reachableBranchTails = branchTailNodes.filter((tailNode) =>
+      canReachNode(segment, anchorNode.id, tailNode.id),
+    );
+    if (branchTailNodes.length > 1 && reachableBranchTails.length === 1) {
+      const endNodes =
+        isRealGraphElementKind(current.kind) ||
+        isBoundaryLineKind(current.kind)
+          ? [current.id]
+          : resolveBoundaryNodeIds(segment, current.to, "forward");
+      if (endNodes.length > 0) {
+        const mergeInsertionPoint = isInsertionPointKind(current.kind);
+        return {
+          startNodes: branchTailNodes.map((tailNode) => tailNode.id),
+          endNodes: mergeInsertionPoint ? [current.id] : endNodes,
+          preserveEndNodes: mergeInsertionPoint,
+        };
+      }
+    }
+
+    if (!isCoilKind(current.kind)) {
+      queue.push(...current.to);
+    }
   }
 
-  return branchTailNodes.map((node) => node.id);
+  return undefined;
+}
+
+function canReachNode(
+  segment: DiagramSegmentSummary,
+  startNodeId: string,
+  targetNodeId: string,
+): boolean {
+  const visited = new Set<string>();
+  const queue = [startNodeId];
+
+  while (queue.length > 0) {
+    const currentId = queue.shift();
+    if (!currentId || visited.has(currentId)) {
+      continue;
+    }
+    if (currentId === targetNodeId) {
+      return true;
+    }
+
+    visited.add(currentId);
+    const current = findNode(segment, currentId);
+    if (current) {
+      queue.push(...current.to);
+    }
+  }
+
+  return false;
 }
 
 function collectNearestDisplayNodes(

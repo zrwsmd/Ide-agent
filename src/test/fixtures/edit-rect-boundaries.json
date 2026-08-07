@@ -193,6 +193,129 @@
             }
           }
         }
+      },
+      {
+        "id": "segment-parallel-exit",
+        "label": "",
+        "note": "",
+        "height": 240,
+        "width": 620,
+        "isExpand": true,
+        "nodesObj": {
+          "parallel-start": {
+            "id": "parallel-start",
+            "type": "startLine",
+            "Xlayer": 0,
+            "Ylayer": 0,
+            "sourceIds": [],
+            "targetIds": ["parallel-common"]
+          },
+          "parallel-common": {
+            "id": "parallel-common",
+            "type": "contact",
+            "Xlayer": 1,
+            "Ylayer": 0,
+            "sourceIds": ["parallel-start"],
+            "targetIds": ["parallel-upper", "parallel-lower-head"],
+            "varName": { "name": "", "value": "???", "type": "BOOL", "scope": "VAR" }
+          },
+          "parallel-upper": {
+            "id": "parallel-upper",
+            "type": "contact",
+            "Xlayer": 2,
+            "Ylayer": 0,
+            "sourceIds": ["parallel-common"],
+            "targetIds": ["parallel-merge"],
+            "varName": { "name": "", "value": "???", "type": "BOOL", "scope": "VAR" }
+          },
+          "parallel-lower-head": {
+            "id": "parallel-lower-head",
+            "type": "contact",
+            "Xlayer": 2,
+            "Ylayer": 1,
+            "sourceIds": ["parallel-common"],
+            "targetIds": ["parallel-lower-tail"],
+            "varName": { "name": "", "value": "???", "type": "BOOL", "scope": "VAR" }
+          },
+          "parallel-lower-tail": {
+            "id": "parallel-lower-tail",
+            "type": "contact",
+            "Xlayer": 3,
+            "Ylayer": 1,
+            "sourceIds": ["parallel-lower-head"],
+            "targetIds": ["parallel-merge"],
+            "varName": { "name": "", "value": "???", "type": "BOOL", "scope": "VAR" }
+          },
+          "parallel-merge": {
+            "id": "parallel-merge",
+            "type": "editRect",
+            "Xlayer": 4,
+            "Ylayer": 0,
+            "sourceIds": ["parallel-upper", "parallel-lower-tail"],
+            "targetIds": ["parallel-end"]
+          },
+          "parallel-end": {
+            "id": "parallel-end",
+            "type": "endLine",
+            "Xlayer": 5,
+            "Ylayer": 0,
+            "sourceIds": ["parallel-merge"],
+            "targetIds": []
+          }
+        }
+      },
+      {
+        "id": "segment-parallel-exit-before-coil",
+        "label": "",
+        "note": "",
+        "height": 240,
+        "width": 620,
+        "isExpand": true,
+        "nodesObj": {
+          "parallel-coil-start": {
+            "id": "parallel-coil-start",
+            "type": "startLine",
+            "Xlayer": 0,
+            "Ylayer": 0,
+            "sourceIds": [],
+            "targetIds": ["parallel-coil-upper", "parallel-coil-lower"]
+          },
+          "parallel-coil-upper": {
+            "id": "parallel-coil-upper",
+            "type": "contact",
+            "Xlayer": 1,
+            "Ylayer": 0,
+            "sourceIds": ["parallel-coil-start"],
+            "targetIds": ["parallel-coil-merge"],
+            "varName": { "name": "", "value": "???", "type": "BOOL", "scope": "VAR" }
+          },
+          "parallel-coil-lower": {
+            "id": "parallel-coil-lower",
+            "type": "contact",
+            "Xlayer": 1,
+            "Ylayer": 1,
+            "sourceIds": ["parallel-coil-start"],
+            "targetIds": ["parallel-coil-merge"],
+            "varName": { "name": "", "value": "???", "type": "BOOL", "scope": "VAR" }
+          },
+          "parallel-coil-merge": {
+            "id": "parallel-coil-merge",
+            "type": "editRect",
+            "Xlayer": 2,
+            "Ylayer": 0,
+            "sourceIds": ["parallel-coil-upper", "parallel-coil-lower"],
+            "targetIds": ["parallel-coil-output"]
+          },
+          "parallel-coil-output": {
+            "id": "parallel-coil-output",
+            "type": "setCoil",
+            "Xlayer": 3,
+            "Ylayer": 0,
+            "sourceIds": ["parallel-coil-merge"],
+            "targetIds": [],
+            "varName": { "name": "", "value": "out", "type": "BOOL", "scope": "VAR" }
+          }
+        }
       }
     ]
   }
