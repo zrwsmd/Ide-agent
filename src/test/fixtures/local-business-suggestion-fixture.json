@@ -4,12 +4,15 @@
     "pouType": "PROGRAM",
     "variableList": [
       { "name": "Enable", "type": "BOOL", "scope": "VAR" },
-      { "name": "Stop_On_Delay_Timer", "type": "BOOL", "scope": "VAR" },
+      { "name": "Stop_On_Delay", "type": "BOOL", "scope": "VAR" },
       { "name": "ResetButton", "type": "BOOL", "scope": "VAR" },
       { "name": "AxisResetButton", "type": "BOOL", "scope": "VAR" },
       { "name": "Axis1", "type": "AXIS_REF", "scope": "VAR" },
       { "name": "PowerFb", "type": "MC_Power", "scope": "VAR" },
       { "name": "Measured_Value", "type": "LREAL", "scope": "VAR" },
+      { "name": "String_Operation_Request", "type": "BOOL", "scope": "VAR" },
+      { "name": "Source_Text", "type": "STRING", "scope": "VAR" },
+      { "name": "Text_Length", "type": "INT", "scope": "VAR" },
       { "name": "Stop_Request", "type": "BOOL", "scope": "VAR" },
       { "name": "Feed_Axis", "type": "AXIS_REF", "scope": "VAR" },
       { "name": "Existing_Stop", "type": "MC_Stop", "scope": "VAR" },
@@ -19,6 +22,7 @@
       { "name": "Alarm_Condition", "type": "BOOL", "scope": "VAR" },
       { "name": "Run_Permissive", "type": "BOOL", "scope": "VAR" },
       { "name": "EStop_OK", "type": "BOOL", "scope": "VAR" },
+      { "name": "GuardInterlockClosed", "type": "BOOL", "scope": "VAR" },
       { "name": "Fault_Output", "type": "BOOL", "scope": "VAR" },
       { "name": "Reset_Output", "type": "BOOL", "scope": "VAR" },
       { "name": "Axis_Stop_Request", "type": "BOOL", "scope": "VAR" },
@@ -73,7 +77,7 @@
             "type": "contact",
             "sourceIds": ["ton-regex-start"],
             "targetIds": ["ton-regex-end"],
-            "varName": { "value": "Stop_On_Delay_Timer", "type": "BOOL", "scope": "VAR" }
+            "varName": { "value": "Stop_On_Delay", "type": "BOOL", "scope": "VAR" }
           },
           "ton-regex-end": {
             "id": "ton-regex-end",
@@ -182,6 +186,51 @@
             "id": "existing-stop-end",
             "type": "endLine",
             "sourceIds": ["existing-stop-fb"],
+            "targetIds": []
+          }
+        }
+      },
+      {
+        "id": "segment-string-left",
+        "label": "字符串左取",
+        "note": "从源字符串左侧截取指定长度。",
+        "nodesObj": {
+          "string-left-start": {
+            "id": "string-left-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["string-left-contact"]
+          },
+          "string-left-contact": {
+            "id": "string-left-contact",
+            "type": "contact",
+            "sourceIds": ["string-left-start"],
+            "targetIds": ["string-left-context"],
+            "varName": { "value": "String_Operation_Request", "type": "BOOL", "scope": "VAR" }
+          },
+          "string-left-context": {
+            "id": "string-left-context",
+            "type": "FBDCompartment",
+            "sourceIds": ["string-left-contact"],
+            "targetIds": ["string-left-end"],
+            "childrenNode": {
+              "type": "LEN",
+              "isFunction": true,
+              "varName": { "value": "???", "type": "LEN", "scope": "VAR" },
+              "portInputs": [
+                { "name": "EN", "value": "", "type": "", "scope": "" },
+                { "name": "IN", "value": "Source_Text", "type": "STRING", "scope": "VAR_INPUT" }
+              ],
+              "portOutputs": [
+                { "name": "ENO", "value": "", "type": "", "scope": "" },
+                { "name": "OUT", "value": "Text_Length", "type": "INT", "scope": "VAR_OUTPUT" }
+              ]
+            }
+          },
+          "string-left-end": {
+            "id": "string-left-end",
+            "type": "endLine",
+            "sourceIds": ["string-left-context"],
             "targetIds": []
           }
         }
@@ -426,6 +475,32 @@
             "id": "estop-ok-end",
             "type": "endLine",
             "sourceIds": ["estop-ok-contact"],
+            "targetIds": []
+          }
+        }
+      },
+      {
+        "id": "segment-guard-closed-permissive",
+        "label": "防护门运行许可",
+        "note": "GuardInterlockClosed 为 TRUE 且无故障时允许启动。",
+        "nodesObj": {
+          "guard-closed-start": {
+            "id": "guard-closed-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["guard-closed-contact"]
+          },
+          "guard-closed-contact": {
+            "id": "guard-closed-contact",
+            "type": "contact",
+            "sourceIds": ["guard-closed-start"],
+            "targetIds": ["guard-closed-end"],
+            "varName": { "value": "GuardInterlockClosed", "type": "BOOL", "scope": "VAR" }
+          },
+          "guard-closed-end": {
+            "id": "guard-closed-end",
+            "type": "endLine",
+            "sourceIds": ["guard-closed-contact"],
             "targetIds": []
           }
         }

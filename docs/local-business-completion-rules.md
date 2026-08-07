@@ -117,34 +117,42 @@
 
 ## 7. 规则文件模型
 
-机器规则文件使用五类内容：术语识别、触点极性、库元素选择、候选排序和规划规则。
+机器规则文件包含语义归一化、触点极性、库元素选择、候选排序和规划规则。
 
-### 7.1 `libraryRules`
+### 7.1 语义归一化配置
 
-用于把通用功能块候选替换为具体 IEC/PLCopen/运行时库元素。活动规则支持：
-
-- `termsAny`、`termsAll`、`excludedTerms`
-- `focusKinds`
-- `requiredAnyDataTypes`、`requiredAllDataTypes`、`excludedDataTypes`
-- `candidateNames`
-- `allowedModes`、`allowedPositions`
-- `preferredModes`、`preferredPositions`
-- `baseScore`
-- `reason`、`fallback`
+- `termPatterns`：从名称、标签和备注识别直接业务术语。
+- `termImplications`：计算术语继承闭包，例如 `onDelay -> timer`、`moveAbsolute -> motion`。
+- `dataTypeGroups`：定义 `NUMERIC`、`INTEGER`、`FLOAT` 等配置类型组；这些名称不是 PLC 真实数据类型。
+- `typeCapabilities`：把厂商数据类型映射为稳定能力，例如 `MOTION_AXIS_REFERENCE`。
+- `derivedTerms`：依据局部数据类型或类型能力派生 `numeric`、`string`、`axis`、`motion`。
 
 ### 7.2 `contactPolarityRules`
 
 用于判断拓扑合法的普通触点是否需要扩展常闭候选。常闭规则必须同时具备明确的抑制信号和许可/联锁语义；`excludedAnchorTerms` 用于阻止把 `EStop_OK`、`Drive_Ready` 等正逻辑健康信号反相。
 
-### 7.3 `rankingRules`
+执行顺序固定为：
+
+1. 使用焦点、直接邻居和当前区段检查 `termsAll`、`termsAny`、`excludedTerms`。
+2. 按 `anchorTermScope` 获取选中节点；没有节点焦点时才按配置回退到直接邻居。
+3. 锚点命中 `excludedAnchorTerms` 时排除规则。
+4. 同时命中多个极性规则时先按 `priority` 选择；`P02-healthy-permissive-normal` 的正逻辑健康许可高于负向抑制规则。
+5. 仅对最终选中的极性进入候选扩展和评分。
+
+### 7.3 `libraryRules`
+
+用于把通用功能块候选替换为具体 IEC/PLCopen/运行时库元素。活动规则支持术语、数据类型、类型能力、端口约束、位置、优先级和评分条件。
+
+### 7.4 `rankingRules`
 
 用于对已经拓扑合法的触点、线圈、函数和功能块候选进行软排序，不直接改变连接边界。
+`rankingRules` 也必须声明 `priority`。多个规则同时命中同一候选时，只计算最高优先级层；同层规则再累计 `baseScore` 和术语加分。这样通用启动 fallback 不会仅靠分数累加压过更具体的健康许可、复位或锁存规则。
 
-### 7.4 `plannedRules`
+### 7.5 `plannedRules`
 
 记录重要但当前证据或输出能力不足的业务需求。`plannedRules` 不参与运行时匹配，必须写明缺少的能力和当前降级行为。
 
-### 7.5 活动规则字段语义
+### 7.6 活动规则字段语义
 
 | 字段 | 类型 | 执行语义 |
 | --- | --- | --- |
@@ -155,14 +163,18 @@
 | `excludedTerms` | string[] | 任一排除术语有局部证据时规则失败。 |
 | `polarity` | string | 触点极性规则的目标类型：`normal` 或 `negated`。 |
 | `excludedAnchorTerms` | string[] | 焦点节点有任一术语时不扩展该极性；无节点焦点时检查直接邻居。 |
+| `anchorTermScope` | string | `selectedNode` 只检查选中节点；`selectedNodeOrDirectNeighbors` 在无节点焦点时检查直接邻居。术语规则通过后才执行锚点排除。 |
 | `focusKinds` | string[] | 焦点节点类型白名单，例如 `contact`、`FBDCompartment`、`editRect`。 |
-| `requiredAnyDataTypes` | string[] | 当前 segment 至少存在一种指定数据类型；`NUMERIC` 表示 IEC 整数或浮点类型族。 |
+| `requiredAnyDataTypes` | string[] | 当前 segment 至少存在一种指定数据类型或 `dataTypeGroups` 中定义的类型组。 |
 | `requiredAllDataTypes` | string[] | 当前 segment 必须同时具有全部指定数据类型。 |
 | `excludedDataTypes` | string[] | 出现任一类型时规则失败。 |
+| `requiredTypeCapabilities` | string[] | 当前局部类型必须满足全部能力；Motion 规则使用 `MOTION_AXIS_REFERENCE`，不直接重复厂商轴类型。 |
+| `portRequirements` | object[] | 校验候选库元素存在指定输入端口、端口声明类型兼容，并检查必需端口是否有局部可绑定类型或允许创建参数。 |
 | `candidateNames` | string[] | 候选名称；必须能在运行时复制的 `st-library-info-data.json` 中精确查到。 |
 | `allowedModes/Positions` | string[] | 硬约束；当前拓扑候选不在集合中时规则失败。 |
 | `preferredModes/Positions` | string[] | 软偏好；只加分，不改变候选合法性。 |
-| `baseScore` | number | 规则内部的相对优先级，不是概率。 |
+| `priority` | number | 先处理规则特异性和极性冲突；精确规则高于模糊 fallback。 |
+| `baseScore` | number | 同一优先级内的候选业务评分，不是概率。 |
 | `reason` | string | 面向审计和维护者的业务依据。 |
 | `fallback` | string | 前置条件不足时的明确降级行为。 |
 
@@ -175,9 +187,19 @@
   "termsAll": ["timer", "onDelay"],
   "excludedTerms": ["offDelay", "pulse", "safety"],
   "requiredAnyDataTypes": ["BOOL", "TIME"],
+  "portRequirements": [
+    { "port": "IN", "required": true, "acceptedDataTypes": ["BOOL"] },
+    {
+      "port": "PT",
+      "required": true,
+      "acceptedDataTypes": ["TIME"],
+      "allowCreateParameter": true
+    }
+  ],
   "candidateNames": ["TON"],
   "allowedModes": ["functionBlockAfter", "functionBlockBefore"],
   "preferredPositions": ["behind"],
+  "priority": 80,
   "baseScore": 100,
   "reason": "通电延时、持续确认或超时检测使用 TON。",
   "fallback": "无法确认延时类型时不强行选择具体定时器。"
@@ -188,6 +210,8 @@
 
 - `literalPatterns`：忽略大小写的字面包含匹配，适合中文业务表达和自然语言短语。
 - `regexPatterns`：使用固定的 `iu` 标志执行正则匹配，适合 IEC 标识、变量命名和分隔符变化。
+
+匹配前同时保留原始文本并拆分 CamelCase/PascalCase 标识，因此 `InterlockOK`、`SafetyInterlockHealthy`、`GuardInterlockClosed` 能分别识别出 `interlock` 与正逻辑健康术语。
 
 示例：
 
@@ -201,9 +225,9 @@
 }
 ```
 
-`Stop_On_Delay_Timer` 由正则识别为 `onDelay`，但其中 `Stop` 末尾的 `tp` 不会误识别为脉冲术语。正则在规则加载时统一预编译；非法表达式只跳过该表达式并输出诊断，不中断本地建议。修改模式时必须同时补充正例和误命中反例。
+`Stop_On_Delay` 由正则识别为 `onDelay`，再由 `termImplications` 自动得到 `timer`；其中 `Stop` 末尾的 `tp` 不会误识别为脉冲术语。正则在规则加载时统一预编译；非法表达式只跳过该表达式并输出诊断，不中断本地建议。修改模式时必须同时补充正例和误命中反例。
 
-规则结构可以扩展，但破坏兼容性的字段变更必须提升 `schemaVersion`。Core 继续读取旧版顶层 `rules` 作为迁移兼容；新规则只能写入 `libraryRules` 或 `rankingRules`。
+规则结构可以扩展，但破坏兼容性的字段变更必须提升 `schemaVersion`。Core 继续读取旧版顶层 `rules` 作为迁移兼容；新规则应写入职责对应的 `contactPolarityRules`、`libraryRules`、`rankingRules` 或 `plannedRules`。
 
 ## 8. V1 可执行规则
 
@@ -346,7 +370,7 @@
 
 ## 10. 软排序原则
 
-在硬约束通过后，按以下顺序排序：
+在硬约束通过后，先按 `priority` 解决精确规则、模糊 fallback 和触点极性冲突，再在同一优先级内按以下证据和 `baseScore` 排序：
 
 1. 当前焦点和直接邻居的业务证据。
 2. 当前区段 `label/note` 和局部数据类型。
@@ -377,7 +401,9 @@
 - 图无可建议节点：返回 `noSuggestion`。
 - 无业务术语：保留触点、线圈等可确定类型的拓扑候选，不返回未确定类型的通用功能块槽位。
 - 库元素不存在：跳过该具体功能块候选，不伪造端口。
+- 库元素端口不满足 `portRequirements`：跳过该候选。
 - 数据类型不足：跳过要求类型证据的规则。
+- 当前只能确认元素存在于随插件打包的 `st-library-info-data.json`；没有项目库元数据时，不声称目标 PLC 工程已经加载对应外部库。
 - 设备归属不明：不自动选择实际变量。
 - 控制框架所有权不明：不声称应在状态机外或状态机内实现。
 
@@ -395,6 +421,8 @@
 | PID 工程化配置 | 单位、量程、采样周期、参数和模式 | 只在强证据下推荐 PID 节点 |
 | 计数持久化 | RETAIN/PERSISTENT 和生命周期策略 | 不自动决定持久化 |
 | 项目模板复用 | 模板库、版本、适用条件和角色映射 | 不召回项目模板 |
+| 工程库可用性 | 项目已加载库元数据、运行时库解析器 | 只校验打包库数据中存在，不声称工程已加载 |
+| 完整规则诊断 | 规则追踪 schema、被拒候选记录、评分明细 | 配置保留 id/reason，不输出完整拒绝链 |
 
 ## 13. 验收要求
 
@@ -405,6 +433,8 @@
 - 一个冲突例：存在排除证据时不命中。
 - 一个拓扑例：业务匹配但位置非法时不得返回。
 - 一个库例：库中无元素时不得伪造候选。
+- 一个端口例：必需端口缺失、声明类型不兼容或无可绑定类型时不得返回。
+- 一个优先级冲突例：精确规则或正逻辑健康许可不得被低优先级规则覆盖。
 
 建议的项目级回归场景包括：
 

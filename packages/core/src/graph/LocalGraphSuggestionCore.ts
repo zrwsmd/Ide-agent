@@ -203,10 +203,25 @@ interface BusinessRulesConfig {
   schemaVersion: string;
   enabled: boolean;
   defaultBlocks: string[];
+  dataTypeGroups: Record<string, string[]>;
+  typeCapabilities: Record<string, string[]>;
+  derivedTerms: BusinessDerivedTermConfig[];
+  termImplications: BusinessTermImplicationConfig[];
   termPatterns: BusinessTermPatternConfig[];
   contactPolarityRules: BusinessContactPolarityRuleConfig[];
   libraryRules: BusinessLibraryRuleConfig[];
   rankingRules: BusinessRankingRuleConfig[];
+}
+
+interface BusinessDerivedTermConfig {
+  term: BusinessTerm;
+  whenDataTypesAny: string[];
+  whenTypeCapabilitiesAny: string[];
+}
+
+interface BusinessTermImplicationConfig {
+  ifMatched: BusinessTerm;
+  alsoMatch: BusinessTerm[];
 }
 
 interface BusinessTermPatternConfig {
@@ -229,7 +244,16 @@ interface BusinessContactPolarityRuleConfig {
   termsAll?: BusinessTerm[];
   excludedTerms?: BusinessTerm[];
   excludedAnchorTerms?: BusinessTerm[];
+  anchorTermScope: "selectedNode" | "selectedNodeOrDirectNeighbors";
+  priority: number;
   reason?: string;
+}
+
+interface BusinessPortRequirementConfig {
+  port: string;
+  required: boolean;
+  acceptedDataTypes: string[];
+  allowCreateParameter: boolean;
 }
 
 interface BusinessLibraryRuleConfig {
@@ -242,7 +266,10 @@ interface BusinessLibraryRuleConfig {
   requiredAnyDataTypes?: string[];
   requiredAllDataTypes?: string[];
   excludedDataTypes?: string[];
+  requiredTypeCapabilities?: string[];
+  portRequirements?: BusinessPortRequirementConfig[];
   candidateNames: string[];
+  priority: number;
   baseScore?: number;
   allowedModes?: string[];
   allowedPositions?: LocalSuggestionPosition[];
@@ -262,6 +289,7 @@ interface BusinessRankingRuleConfig {
   candidateBlockTypes?: string[];
   modes?: string[];
   positions?: LocalSuggestionPosition[];
+  priority: number;
   baseScore: number;
   termMultiplier: number;
 }
@@ -282,6 +310,7 @@ interface LibraryPorts {
 
 interface BusinessElementCandidate {
   name: string;
+  priority: number;
   score: number;
   ruleId: string;
   reason?: string;
@@ -298,11 +327,79 @@ const FALLBACK_COMMON_FUNCTION_BLOCK_TYPES = [
   "RS",
 ];
 const MAX_RETURNED_SUGGESTIONS = 16;
+const FALLBACK_DATA_TYPE_GROUPS: Record<string, string[]> = {
+  NUMERIC: [
+    "SINT",
+    "USINT",
+    "INT",
+    "UINT",
+    "DINT",
+    "UDINT",
+    "LINT",
+    "ULINT",
+    "REAL",
+    "LREAL",
+  ],
+  INTEGER: [
+    "SINT",
+    "USINT",
+    "INT",
+    "UINT",
+    "DINT",
+    "UDINT",
+    "LINT",
+    "ULINT",
+  ],
+  FLOAT: ["REAL", "LREAL"],
+};
+const FALLBACK_TYPE_CAPABILITIES: Record<string, string[]> = {
+  MOTION_AXIS_REFERENCE: ["AXIS_REF", "AXIS_REF_SM3"],
+};
+const FALLBACK_DERIVED_TERMS: BusinessDerivedTermConfig[] = [
+  {
+    term: "numeric",
+    whenDataTypesAny: ["NUMERIC"],
+    whenTypeCapabilitiesAny: [],
+  },
+  {
+    term: "string",
+    whenDataTypesAny: ["STRING", "WSTRING"],
+    whenTypeCapabilitiesAny: [],
+  },
+  {
+    term: "axis",
+    whenDataTypesAny: [],
+    whenTypeCapabilitiesAny: ["MOTION_AXIS_REFERENCE"],
+  },
+  {
+    term: "motion",
+    whenDataTypesAny: [],
+    whenTypeCapabilitiesAny: ["MOTION_AXIS_REFERENCE"],
+  },
+];
+const FALLBACK_TERM_IMPLICATIONS: BusinessTermImplicationConfig[] = [
+  { ifMatched: "onDelay", alsoMatch: ["timer"] },
+  { ifMatched: "offDelay", alsoMatch: ["timer"] },
+  { ifMatched: "pulse", alsoMatch: ["timer"] },
+  { ifMatched: "countUp", alsoMatch: ["counter"] },
+  { ifMatched: "countDown", alsoMatch: ["counter"] },
+  { ifMatched: "countBidirectional", alsoMatch: ["counter"] },
+  { ifMatched: "motionPower", alsoMatch: ["motion"] },
+  { ifMatched: "motionHome", alsoMatch: ["motion"] },
+  { ifMatched: "moveAbsolute", alsoMatch: ["motion"] },
+  { ifMatched: "moveRelative", alsoMatch: ["motion"] },
+  { ifMatched: "moveVelocity", alsoMatch: ["motion"] },
+  { ifMatched: "motionHalt", alsoMatch: ["motion"] },
+];
 
 const FALLBACK_BUSINESS_RULES_CONFIG: BusinessRulesConfig = {
   schemaVersion: "ide-agent.business-rules.v3",
   enabled: true,
   defaultBlocks: FALLBACK_COMMON_FUNCTION_BLOCK_TYPES,
+  dataTypeGroups: FALLBACK_DATA_TYPE_GROUPS,
+  typeCapabilities: FALLBACK_TYPE_CAPABILITIES,
+  derivedTerms: FALLBACK_DERIVED_TERMS,
+  termImplications: FALLBACK_TERM_IMPLICATIONS,
   termPatterns: [
     { term: "alarm", literalPatterns: ["alarm", "warning", "报警", "告警"], regexPatterns: [] },
     { term: "axis", literalPatterns: ["axis", "轴"], regexPatterns: ["(?:^|[^a-z0-9])axis[-_.\\s]*ref(?:$|[^a-z0-9])"] },
@@ -355,6 +452,16 @@ function loadBusinessRulesConfig(): BusinessRulesConfig {
       FALLBACK_BUSINESS_RULES_CONFIG.schemaVersion,
     enabled: asBooleanConfig(record.enabled, FALLBACK_BUSINESS_RULES_CONFIG.enabled),
     defaultBlocks: stringList(record.defaultBlocks, FALLBACK_BUSINESS_RULES_CONFIG.defaultBlocks),
+    dataTypeGroups: parseStringListRecord(
+      record.dataTypeGroups,
+      FALLBACK_BUSINESS_RULES_CONFIG.dataTypeGroups,
+    ),
+    typeCapabilities: parseStringListRecord(
+      record.typeCapabilities,
+      FALLBACK_BUSINESS_RULES_CONFIG.typeCapabilities,
+    ),
+    derivedTerms: parseDerivedTerms(record.derivedTerms),
+    termImplications: parseTermImplications(record.termImplications),
     termPatterns: parseTermPatterns(record.termPatterns),
     contactPolarityRules: parseContactPolarityRules(
       record.contactPolarityRules,
@@ -378,6 +485,54 @@ function parseTermPatterns(value: unknown): BusinessTermPatternConfig[] {
     );
 
   return parsed.length > 0 ? parsed : FALLBACK_BUSINESS_RULES_CONFIG.termPatterns;
+}
+
+function parseDerivedTerms(value: unknown): BusinessDerivedTermConfig[] {
+  const parsed = asArrayRecord(value)
+    .map((item) => ({
+      term: asStringConfig(item.term),
+      whenDataTypesAny: stringList(item.whenDataTypesAny),
+      whenTypeCapabilitiesAny: stringList(item.whenTypeCapabilitiesAny),
+    }))
+    .filter(
+      (item) =>
+        item.term &&
+        (item.whenDataTypesAny.length > 0 ||
+          item.whenTypeCapabilitiesAny.length > 0),
+    );
+
+  return parsed.length > 0
+    ? parsed
+    : FALLBACK_BUSINESS_RULES_CONFIG.derivedTerms;
+}
+
+function parseTermImplications(value: unknown): BusinessTermImplicationConfig[] {
+  const parsed = asArrayRecord(value)
+    .map((item) => ({
+      ifMatched: asStringConfig(item.ifMatched),
+      alsoMatch: stringList(item.alsoMatch),
+    }))
+    .filter((item) => item.ifMatched && item.alsoMatch.length > 0);
+  return parsed.length > 0
+    ? parsed
+    : FALLBACK_BUSINESS_RULES_CONFIG.termImplications;
+}
+
+function parseStringListRecord(
+  value: unknown,
+  fallback: Record<string, string[]>,
+): Record<string, string[]> {
+  const record = asPlainRecord(value);
+  if (!record) {
+    return fallback;
+  }
+
+  const parsed = Object.fromEntries(
+    Object.entries(record)
+      .map(([key, entry]) => [normalizeDataType(key), stringList(entry)])
+      .filter(([key, entries]) => key && entries.length > 0),
+  );
+  return { ...fallback, ...parsed };
 }
 
 function compileBusinessTermMatchers(
@@ -413,6 +568,12 @@ function parseContactPolarityRules(
       termsAll: stringList(item.termsAll),
       excludedTerms: stringList(item.excludedTerms),
       excludedAnchorTerms: stringList(item.excludedAnchorTerms),
+      anchorTermScope: (
+        asStringConfig(item.anchorTermScope) === "selectedNode"
+          ? "selectedNode"
+          : "selectedNodeOrDirectNeighbors"
+      ) as BusinessContactPolarityRuleConfig["anchorTermScope"],
+      priority: asOptionalNumberConfig(item.priority) ?? 0,
       reason: asStringConfig(item.reason),
     }))
     .filter(
@@ -439,7 +600,10 @@ function parseBusinessRules(value: unknown): BusinessLibraryRuleConfig[] {
       requiredAnyDataTypes: stringList(item.requiredAnyDataTypes),
       requiredAllDataTypes: stringList(item.requiredAllDataTypes),
       excludedDataTypes: stringList(item.excludedDataTypes),
+      requiredTypeCapabilities: stringList(item.requiredTypeCapabilities),
+      portRequirements: parsePortRequirements(item.portRequirements),
       candidateNames: stringList(item.candidateNames),
+      priority: asOptionalNumberConfig(item.priority) ?? 0,
       baseScore: asOptionalNumberConfig(item.baseScore),
       allowedModes: stringList(item.allowedModes),
       allowedPositions: stringList(item.allowedPositions) as LocalSuggestionPosition[],
@@ -458,6 +622,22 @@ function parseBusinessRules(value: unknown): BusinessLibraryRuleConfig[] {
   return Array.isArray(value) ? parsed : [];
 }
 
+function parsePortRequirements(
+  value: unknown,
+): BusinessPortRequirementConfig[] {
+  return asArrayRecord(value)
+    .map((item) => ({
+      port: asStringConfig(item.port),
+      required: asBooleanConfig(item.required, false),
+      acceptedDataTypes: stringList(item.acceptedDataTypes),
+      allowCreateParameter: asBooleanConfig(
+        item.allowCreateParameter,
+        false,
+      ),
+    }))
+    .filter((item) => item.port);
+}
+
 function parseBusinessRankingRules(value: unknown): BusinessRankingRuleConfig[] {
   return asArrayRecord(value)
     .map((item) => ({
@@ -470,6 +650,7 @@ function parseBusinessRankingRules(value: unknown): BusinessRankingRuleConfig[] 
       candidateBlockTypes: stringList(item.candidateBlockTypes),
       modes: stringList(item.modes),
       positions: stringList(item.positions) as LocalSuggestionPosition[],
+      priority: asOptionalNumberConfig(item.priority) ?? 0,
       baseScore: asOptionalNumberConfig(item.baseScore) ?? 0,
       termMultiplier: asOptionalNumberConfig(item.termMultiplier) ?? 1,
     }))
@@ -781,41 +962,47 @@ function matchesContactPolarity(
   polarity: "normal" | "negated",
   context: BusinessSuggestionContext,
 ): boolean {
-  const anchorTerms =
-    context.focusTerms.size > 0 ? context.focusTerms : context.nearbyTerms;
+  const matchingRules = BUSINESS_RULES_CONFIG.contactPolarityRules
+    .filter((rule) => matchesContactPolarityRule(rule, context))
+    .sort((left, right) => right.priority - left.priority);
+  return matchingRules[0]?.polarity === polarity;
+}
 
-  return BUSINESS_RULES_CONFIG.contactPolarityRules.some((rule) => {
-    if (rule.polarity !== polarity) {
-      return false;
-    }
-    if (
-      rule.termsAny?.length &&
-      !rule.termsAny.some(
-        (term) => localBusinessTermWeight(context, term) > 0,
-      )
-    ) {
-      return false;
-    }
-    if (
-      rule.termsAll?.length &&
-      !rule.termsAll.every(
-        (term) => localBusinessTermWeight(context, term) > 0,
-      )
-    ) {
-      return false;
-    }
-    if (
-      rule.excludedTerms?.some(
-        (term) => localBusinessTermWeight(context, term) > 0,
-      )
-    ) {
-      return false;
-    }
-    if (rule.excludedAnchorTerms?.some((term) => anchorTerms.has(term))) {
-      return false;
-    }
-    return true;
-  });
+function matchesContactPolarityRule(
+  rule: BusinessContactPolarityRuleConfig,
+  context: BusinessSuggestionContext,
+): boolean {
+  if (
+    rule.termsAny?.length &&
+    !rule.termsAny.some(
+      (term) => localBusinessTermWeight(context, term) > 0,
+    )
+  ) {
+    return false;
+  }
+  if (
+    rule.termsAll?.length &&
+    !rule.termsAll.every(
+      (term) => localBusinessTermWeight(context, term) > 0,
+    )
+  ) {
+    return false;
+  }
+  if (
+    rule.excludedTerms?.some(
+      (term) => localBusinessTermWeight(context, term) > 0,
+    )
+  ) {
+    return false;
+  }
+
+  const anchorTerms =
+    rule.anchorTermScope === "selectedNode"
+      ? context.focusTerms
+      : context.focusTerms.size > 0
+        ? context.focusTerms
+        : context.nearbyTerms;
+  return !rule.excludedAnchorTerms?.some((term) => anchorTerms.has(term));
 }
 
 function replaceWithNegatedContact(
@@ -889,12 +1076,20 @@ function resolveBusinessLibraryCandidates(
   const deduped = new Map<string, BusinessElementCandidate>();
   for (const candidate of ruleMatches) {
     const current = deduped.get(candidate.name);
-    if (!current || candidate.score > current.score) {
+    if (
+      !current ||
+      candidate.priority > current.priority ||
+      (candidate.priority === current.priority &&
+        candidate.score > current.score)
+    ) {
       deduped.set(candidate.name, candidate);
     }
   }
 
-  return [...deduped.values()].sort((left, right) => right.score - left.score);
+  return [...deduped.values()].sort(
+    (left, right) =>
+      right.priority - left.priority || right.score - left.score,
+  );
 }
 
 function matchBusinessRule(
@@ -957,17 +1152,34 @@ function matchBusinessRule(
     return [];
   }
 
+  if (
+    rule.requiredTypeCapabilities?.length &&
+    !rule.requiredTypeCapabilities.every((capability) =>
+      hasTypeCapability(context.localDataTypes, capability),
+    )
+  ) {
+    return [];
+  }
+
   const baseScore = rule.baseScore ?? 0;
 
   return rule.candidateNames.flatMap((candidateName, candidateIndex) => {
     const libraryElement = getLibraryElement(candidateName);
-    if (!libraryElement) {
+    if (
+      !libraryElement ||
+      !matchesPortRequirements(
+        rule.portRequirements ?? [],
+        libraryElement,
+        context.localDataTypes,
+      )
+    ) {
       return [];
     }
 
     return [
       {
         name: libraryElement.name,
+        priority: rule.priority,
         score:
           baseScore +
           businessTermWeight(context, ...(rule.termsAny ?? [])) * 2 +
@@ -980,6 +1192,45 @@ function matchBusinessRule(
         libraryElement,
       },
     ];
+  });
+}
+
+function matchesPortRequirements(
+  requirements: BusinessPortRequirementConfig[],
+  libraryElement: LibraryElementInfo,
+  localDataTypes: Set<string>,
+): boolean {
+  if (requirements.length === 0) {
+    return true;
+  }
+
+  const inputPorts = libraryElement.inputs ?? [];
+  return requirements.every((requirement) => {
+    if (requirement.required && requirement.acceptedDataTypes.length === 0) {
+      return false;
+    }
+
+    const libraryPort = inputPorts.find(
+      ([name]) =>
+        name.trim().toUpperCase() === requirement.port.trim().toUpperCase(),
+    );
+    if (!libraryPort) {
+      return !requirement.required;
+    }
+
+    const libraryPortTypes = new Set([normalizeDataType(libraryPort[1])]);
+    if (
+      requirement.acceptedDataTypes.length > 0 &&
+      !hasAnyDataType(libraryPortTypes, requirement.acceptedDataTypes)
+    ) {
+      return false;
+    }
+
+    return (
+      !requirement.required ||
+      requirement.allowCreateParameter ||
+      hasAnyDataType(localDataTypes, requirement.acceptedDataTypes)
+    );
   });
 }
 
@@ -1039,9 +1290,9 @@ function buildBusinessSuggestionContext(
   const nearbyTerms = collectBusinessTerms(nearbyTexts);
   const segmentTerms = collectBusinessTerms(segmentTexts);
   const pouTerms = collectBusinessTerms(pouTexts);
-  addDataTypeTerms(focusTerms, focusDataTypes);
-  addDataTypeTerms(nearbyTerms, nearbyDataTypes);
-  addDataTypeTerms(segmentTerms, segmentDataTypes);
+  addDerivedTerms(focusTerms, focusDataTypes);
+  addDerivedTerms(nearbyTerms, nearbyDataTypes);
+  addDerivedTerms(segmentTerms, segmentDataTypes);
   const relatedSegments = findRelatedSegments(
     summary,
     focus.segment,
@@ -1169,7 +1420,7 @@ function buildSegmentBusinessSnapshot(
     segment.note,
     ...segment.nodes.flatMap((node) => nodeBusinessTexts(node)),
   ]);
-  addDataTypeTerms(terms, dataTypes);
+  addDerivedTerms(terms, dataTypes);
 
   return {
     references: collectSegmentReferences(segment, knownReferences),
@@ -1426,52 +1677,67 @@ function scoreConfiguredRankingRules(
   const blockType = normalizeBlockType(suggestion.addElement.blockType);
   const position = suggestion.position ?? inferPosition(suggestion);
 
-  return BUSINESS_RULES_CONFIG.rankingRules.reduce((score, rule) => {
+  const matchedRules = BUSINESS_RULES_CONFIG.rankingRules.filter((rule) => {
     if (
       rule.candidateNodeTypes?.length &&
       !includesCaseInsensitive(rule.candidateNodeTypes, nodeType)
     ) {
-      return score;
+      return false;
     }
     if (
       rule.candidateBlockTypes?.length &&
       !includesCaseInsensitive(rule.candidateBlockTypes, blockType)
     ) {
-      return score;
+      return false;
     }
     if (rule.modes?.length && !rule.modes.includes(suggestion.mode)) {
-      return score;
+      return false;
     }
     if (rule.positions?.length && !rule.positions.includes(position)) {
-      return score;
+      return false;
     }
     if (
       rule.termsAny?.length &&
       !rule.termsAny.some((term) => localBusinessTermWeight(context, term) > 0)
     ) {
-      return score;
+      return false;
     }
     if (
       rule.termsAll?.length &&
       !rule.termsAll.every((term) => localBusinessTermWeight(context, term) > 0)
     ) {
-      return score;
+      return false;
     }
     if (
       rule.excludedTerms?.some(
         (term) => localBusinessTermWeight(context, term) > 0,
       )
     ) {
-      return score;
+      return false;
     }
+    return true;
+  });
 
-    const evidenceTerms = [...(rule.termsAny ?? []), ...(rule.termsAll ?? [])];
-    return (
-      score +
-      rule.baseScore +
-      businessTermWeight(context, ...evidenceTerms) * rule.termMultiplier
-    );
-  }, 0);
+  if (!matchedRules.length) {
+    return 0;
+  }
+
+  const highestPriority = Math.max(
+    ...matchedRules.map((rule) => rule.priority),
+  );
+  return matchedRules
+    .filter((rule) => rule.priority === highestPriority)
+    .reduce((score, rule) => {
+      const evidenceTerms = [
+        ...(rule.termsAny ?? []),
+        ...(rule.termsAll ?? []),
+      ];
+      return (
+        score +
+        rule.baseScore +
+        businessTermWeight(context, ...evidenceTerms) * rule.termMultiplier
+      );
+    }, 0);
 }
 
 function localBusinessTermWeight(
@@ -1548,13 +1814,30 @@ function hasDataType(
   localDataTypes: Set<string>,
   requiredDataType: string,
 ): boolean {
+  return hasDataTypeInternal(
+    localDataTypes,
+    requiredDataType,
+    new Set<string>(),
+  );
+}
+
+function hasDataTypeInternal(
+  localDataTypes: Set<string>,
+  requiredDataType: string,
+  visitedGroups: Set<string>,
+): boolean {
   const normalizedRequired = normalizeDataType(requiredDataType);
   if (!normalizedRequired) {
     return false;
   }
 
-  if (normalizedRequired === "NUMERIC") {
-    return [...localDataTypes].some(isNumericDataType);
+  const groupMembers =
+    BUSINESS_RULES_CONFIG.dataTypeGroups[normalizedRequired];
+  if (groupMembers?.length && !visitedGroups.has(normalizedRequired)) {
+    const nextVisited = new Set(visitedGroups).add(normalizedRequired);
+    return groupMembers.some((member) =>
+      hasDataTypeInternal(localDataTypes, member, nextVisited),
+    );
   }
 
   return [...localDataTypes].some(
@@ -1566,34 +1849,51 @@ function hasDataType(
   );
 }
 
-function isNumericDataType(dataType: string): boolean {
-  return [
-    "SINT",
-    "USINT",
-    "INT",
-    "UINT",
-    "DINT",
-    "UDINT",
-    "LINT",
-    "ULINT",
-    "REAL",
-    "LREAL",
-  ].includes(normalizeDataType(dataType));
+function hasTypeCapability(
+  localDataTypes: Set<string>,
+  capability: string,
+): boolean {
+  const mappedDataTypes =
+    BUSINESS_RULES_CONFIG.typeCapabilities[normalizeDataType(capability)] ?? [];
+  return mappedDataTypes.some((dataType) =>
+    hasDataType(localDataTypes, dataType),
+  );
 }
 
-function addDataTypeTerms(
+function addDerivedTerms(
   terms: Set<BusinessTerm>,
   dataTypes: Set<string>,
 ): void {
-  if ([...dataTypes].some(isNumericDataType)) {
-    terms.add("numeric");
+  for (const rule of BUSINESS_RULES_CONFIG.derivedTerms) {
+    if (
+      (rule.whenDataTypesAny.length > 0 &&
+        hasAnyDataType(dataTypes, rule.whenDataTypesAny)) ||
+      (rule.whenTypeCapabilitiesAny.length > 0 &&
+        rule.whenTypeCapabilitiesAny.some((capability) =>
+          hasTypeCapability(dataTypes, capability),
+        ))
+    ) {
+      terms.add(rule.term);
+    }
   }
-  if (hasAnyDataType(dataTypes, ["STRING", "WSTRING"])) {
-    terms.add("string");
-  }
-  if ([...dataTypes].some((dataType) => dataType.includes("AXIS_REF"))) {
-    terms.add("axis");
-    terms.add("motion");
+  applyTermImplications(terms);
+}
+
+function applyTermImplications(terms: Set<BusinessTerm>): void {
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const implication of BUSINESS_RULES_CONFIG.termImplications) {
+      if (!terms.has(implication.ifMatched)) {
+        continue;
+      }
+      for (const impliedTerm of implication.alsoMatch) {
+        if (!terms.has(impliedTerm)) {
+          terms.add(impliedTerm);
+          changed = true;
+        }
+      }
+    }
   }
 }
 
@@ -1604,6 +1904,7 @@ function includesCaseInsensitive(values: string[], target: string): boolean {
 
 function collectBusinessTerms(values: Array<string | undefined>): Set<BusinessTerm> {
   const haystack = compactBusinessTexts(values)
+    .flatMap((value) => [value, splitBusinessIdentifierWords(value)])
     .map((value) => value.toLowerCase())
     .join(" ");
   const terms = new Set<BusinessTerm>();
@@ -1621,7 +1922,14 @@ function collectBusinessTerms(values: Array<string | undefined>): Set<BusinessTe
     }
   }
 
+  applyTermImplications(terms);
   return terms;
+}
+
+function splitBusinessIdentifierWords(value: string): string {
+  return value
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2");
 }
 
 function nodeBusinessTexts(node: DiagramNodeSummary): string[] {

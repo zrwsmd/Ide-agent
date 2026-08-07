@@ -87,12 +87,17 @@ Ide Agent LD/FBD 业务感知推荐完整流程
 
 6. 收集业务上下文
    从当前节点、邻居、区段、POU 变量表中提取业务信号。
+   先展开 dataTypeGroups/typeCapabilities，再由 derivedTerms 注入类型语义，
+   最后计算 termImplications 闭包。
 
 7. 判断是否存在业务意图
    如果没有有效业务信号，比如只有一个 ??? 触点，则不进入库增强。
    如果存在业务信号，则进入 businessRules.json 匹配。
 
 8. 对候选做业务过滤和排序
+   先按 priority 处理精确规则、fallback 和触点极性冲突，
+   rankingRules 同时命中时只计算最高 priority 层，
+   再使用该层的 baseScore 与局部上下文分值排序。
    业务信号强时，不只是加分，还可以：
    - 提高某些候选优先级
    - 降低泛化候选优先级
@@ -101,7 +106,9 @@ Ide Agent LD/FBD 业务感知推荐完整流程
 
 9. 按需查询 st-library-info
    只有当最终需要具体函数/功能块结构时才查询。
+   候选必须存在，并满足 portRequirements 中的端口名称、声明类型和可绑定性要求。
    普通触点、线圈、置位线圈、复位线圈不查库。
+   这里不能证明目标 PLC 工程已经加载对应外部库；该判断需要项目库元数据。
 
 10. 生成最终 suggestions
    保持现有返回格式：
@@ -513,7 +520,10 @@ st-library-info 返回的元素可能是 function，也可能是 functionBlock�
 4. 库中找不到 candidate
    跳过该 candidate，继续尝试其他 candidate。
 
-5. 所有业务候选都不可用
+5. candidate 缺少必需端口、端口类型不兼容或缺少不可创建的绑定类型
+   跳过该 candidate，继续尝试其他 candidate。
+
+6. 所有业务候选都不可用
    回退原始本地功能块候选。
 
 

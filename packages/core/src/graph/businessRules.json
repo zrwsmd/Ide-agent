@@ -2,6 +2,34 @@
   "schemaVersion": "ide-agent.business-rules.v3",
   "enabled": true,
   "defaultBlocks": ["TON", "TOF", "TP", "R_TRIG", "F_TRIG", "CTU", "CTD", "CTUD", "SR", "RS"],
+  "dataTypeGroups": {
+    "NUMERIC": ["SINT", "USINT", "INT", "UINT", "DINT", "UDINT", "LINT", "ULINT", "REAL", "LREAL"],
+    "INTEGER": ["SINT", "USINT", "INT", "UINT", "DINT", "UDINT", "LINT", "ULINT"],
+    "FLOAT": ["REAL", "LREAL"]
+  },
+  "typeCapabilities": {
+    "MOTION_AXIS_REFERENCE": ["AXIS_REF", "AXIS_REF_SM3"]
+  },
+  "derivedTerms": [
+    { "term": "numeric", "whenDataTypesAny": ["NUMERIC"] },
+    { "term": "string", "whenDataTypesAny": ["STRING", "WSTRING"] },
+    { "term": "axis", "whenTypeCapabilitiesAny": ["MOTION_AXIS_REFERENCE"] },
+    { "term": "motion", "whenTypeCapabilitiesAny": ["MOTION_AXIS_REFERENCE"] }
+  ],
+  "termImplications": [
+    { "ifMatched": "onDelay", "alsoMatch": ["timer"] },
+    { "ifMatched": "offDelay", "alsoMatch": ["timer"] },
+    { "ifMatched": "pulse", "alsoMatch": ["timer"] },
+    { "ifMatched": "countUp", "alsoMatch": ["counter"] },
+    { "ifMatched": "countDown", "alsoMatch": ["counter"] },
+    { "ifMatched": "countBidirectional", "alsoMatch": ["counter"] },
+    { "ifMatched": "motionPower", "alsoMatch": ["motion"] },
+    { "ifMatched": "motionHome", "alsoMatch": ["motion"] },
+    { "ifMatched": "moveAbsolute", "alsoMatch": ["motion"] },
+    { "ifMatched": "moveRelative", "alsoMatch": ["motion"] },
+    { "ifMatched": "moveVelocity", "alsoMatch": ["motion"] },
+    { "ifMatched": "motionHalt", "alsoMatch": ["motion"] }
+  ],
   "termPatterns": [
     { "term": "alarm", "literalPatterns": ["alarm", "warning", "报警", "告警"], "regexPatterns": [] },
     { "term": "axis", "literalPatterns": ["axis", "轴"], "regexPatterns": ["(?:^|[^a-z0-9])axis[_\\-.\\s]*ref(?:$|[^a-z0-9])"] },
@@ -14,7 +42,7 @@
     { "term": "enable", "literalPatterns": ["enable", "enabled", "使能", "允许"], "regexPatterns": [] },
     { "term": "falling", "literalPatterns": ["falling", "下降沿", "松开瞬间", "失效瞬间"], "regexPatterns": ["(?:^|[^a-z0-9])f[_\\-.\\s]*trig(?:$|[^a-z0-9])"] },
     { "term": "fault", "literalPatterns": ["fault", "error", "fail", "故障", "错误", "异常"], "regexPatterns": [] },
-    { "term": "healthy", "literalPatterns": ["正常", "健康", "完好"], "regexPatterns": ["(?:^|[^a-z0-9])(?:ok|ready|healthy|normal)(?:$|[^a-z0-9])"] },
+    { "term": "healthy", "literalPatterns": ["正常", "健康", "完好"], "regexPatterns": ["(?:^|[^a-z0-9])(?:ok|ready|healthy|normal|closed)(?:$|[^a-z0-9])"] },
     { "term": "interlock", "literalPatterns": ["interlock", "互锁", "联锁"], "regexPatterns": [] },
     { "term": "latch", "literalPatterns": ["latch", "latched", "锁存", "自保持", "状态保持", "故障保持", "报警保持"], "regexPatterns": [] },
     { "term": "limit", "literalPatterns": ["limit", "clamp", "限幅", "上下限", "范围限制"], "regexPatterns": [] },
@@ -30,6 +58,7 @@
     { "term": "moveRelative", "literalPatterns": ["相对移动", "相对定位"], "regexPatterns": ["(?:^|[^a-z0-9])move[_\\-.\\s]*relative(?:$|[^a-z0-9])"] },
     { "term": "moveVelocity", "literalPatterns": ["速度运行", "速度模式"], "regexPatterns": ["(?:^|[^a-z0-9])move[_\\-.\\s]*velocity(?:$|[^a-z0-9])"] },
     { "term": "motionHalt", "literalPatterns": ["axis halt", "运动暂停", "受控暂停"], "regexPatterns": ["(?:^|[^a-z0-9])(?:mc|axis)[_\\-.\\s]*halt(?:$|[^a-z0-9])"] },
+    { "term": "negated", "literalPatterns": ["常闭触点", "常闭", "取反条件", "反相信号"], "regexPatterns": ["(?:^|[^a-z0-9])nc(?:$|[^a-z0-9])"] },
     { "term": "onDelay", "literalPatterns": ["on delay", "通电延时", "延时启动", "等待稳定", "持续有效确认", "最大时间", "超时检测"], "regexPatterns": ["(?:^|[^a-z0-9])on[_\\-.\\s]*delay(?:$|[^a-z0-9])"] },
     { "term": "offDelay", "literalPatterns": ["off delay", "断电延时", "延时停止", "延时停机", "停机后继续", "后运行"], "regexPatterns": ["(?:^|[^a-z0-9])off[_\\-.\\s]*delay(?:$|[^a-z0-9])"] },
     { "term": "pid", "literalPatterns": ["closed loop", "闭环", "调节回路", "控温", "控压", "控流", "液位调节"], "regexPatterns": ["(?:^|[^a-z0-9])pid(?:$|[^a-z0-9])"] },
@@ -61,11 +90,23 @@
       "id": "P01-permissive-inhibit-negated",
       "status": "active",
       "polarity": "negated",
-      "termsAny": ["stop", "fault", "alarm", "interlock"],
+      "priority": 80,
+      "termsAny": ["stop", "fault", "alarm", "negated"],
       "termsAll": ["permissive"],
       "excludedTerms": ["safety"],
       "excludedAnchorTerms": ["healthy"],
+      "anchorTermScope": "selectedNodeOrDirectNeighbors",
       "reason": "运行许可或联锁链路中的停止、故障和报警抑制条件优先使用常闭触点；正逻辑健康信号除外。"
+    },
+    {
+      "id": "P02-healthy-permissive-normal",
+      "status": "active",
+      "polarity": "normal",
+      "priority": 90,
+      "termsAny": ["healthy", "ready"],
+      "termsAll": ["permissive"],
+      "anchorTermScope": "selectedNodeOrDirectNeighbors",
+      "reason": "正逻辑健康、就绪或闭合反馈作为许可条件时优先使用常开触点。"
     }
   ],
   "libraryRules": [
@@ -75,9 +116,14 @@
       "termsAll": ["timer", "onDelay"],
       "excludedTerms": ["offDelay", "pulse", "safety"],
       "requiredAnyDataTypes": ["BOOL", "TIME"],
+      "portRequirements": [
+        { "port": "IN", "required": true, "acceptedDataTypes": ["BOOL"] },
+        { "port": "PT", "required": true, "acceptedDataTypes": ["TIME"], "allowCreateParameter": true }
+      ],
       "candidateNames": ["TON"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
       "preferredPositions": ["behind", "outsideBehind"],
+      "priority": 80,
       "baseScore": 100,
       "reason": "通电延时、持续确认或超时检测使用 TON。",
       "fallback": "无法确认延时类型时保留通用拓扑建议。"
@@ -88,9 +134,14 @@
       "termsAll": ["timer", "offDelay"],
       "excludedTerms": ["onDelay", "pulse", "safety"],
       "requiredAnyDataTypes": ["BOOL", "TIME"],
+      "portRequirements": [
+        { "port": "IN", "required": true, "acceptedDataTypes": ["BOOL"] },
+        { "port": "PT", "required": true, "acceptedDataTypes": ["TIME"], "allowCreateParameter": true }
+      ],
       "candidateNames": ["TOF"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
       "preferredPositions": ["behind", "outsideBehind"],
+      "priority": 80,
       "baseScore": 100,
       "reason": "断电延时或停机后继续运行使用 TOF。"
     },
@@ -100,8 +151,13 @@
       "termsAll": ["timer", "pulse"],
       "excludedTerms": ["onDelay", "offDelay", "safety"],
       "requiredAnyDataTypes": ["BOOL", "TIME"],
+      "portRequirements": [
+        { "port": "IN", "required": true, "acceptedDataTypes": ["BOOL"] },
+        { "port": "PT", "required": true, "acceptedDataTypes": ["TIME"], "allowCreateParameter": true }
+      ],
       "candidateNames": ["TP"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
+      "priority": 80,
       "baseScore": 100,
       "reason": "固定宽度单次脉冲使用 TP。"
     },
@@ -111,8 +167,13 @@
       "termsAny": ["timer"],
       "excludedTerms": ["onDelay", "offDelay", "pulse", "safety"],
       "requiredAnyDataTypes": ["BOOL", "TIME"],
+      "portRequirements": [
+        { "port": "IN", "required": true, "acceptedDataTypes": ["BOOL"] },
+        { "port": "PT", "required": true, "acceptedDataTypes": ["TIME"], "allowCreateParameter": true }
+      ],
       "candidateNames": ["TON", "TOF", "TP"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
+      "priority": 40,
       "baseScore": 70,
       "reason": "存在定时意图，但当前证据不足以唯一确定定时器种类。"
     },
@@ -124,6 +185,7 @@
       "requiredAnyDataTypes": ["BOOL"],
       "candidateNames": ["R_TRIG"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore"],
+      "priority": 80,
       "baseScore": 94,
       "reason": "上升沿或单次启动事件使用 R_TRIG。"
     },
@@ -135,6 +197,7 @@
       "requiredAnyDataTypes": ["BOOL"],
       "candidateNames": ["F_TRIG"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore"],
+      "priority": 80,
       "baseScore": 94,
       "reason": "下降沿或失效瞬间使用 F_TRIG。"
     },
@@ -144,8 +207,14 @@
       "termsAll": ["counter", "countBidirectional"],
       "excludedTerms": ["safety"],
       "requiredAnyDataTypes": ["BOOL", "INT", "DINT", "UINT", "UDINT"],
+      "portRequirements": [
+        { "port": "CU", "required": true, "acceptedDataTypes": ["BOOL"] },
+        { "port": "CD", "required": true, "acceptedDataTypes": ["BOOL"] },
+        { "port": "PV", "required": false, "acceptedDataTypes": ["INTEGER"], "allowCreateParameter": true }
+      ],
       "candidateNames": ["CTUD"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
+      "priority": 80,
       "baseScore": 98,
       "reason": "存在明确双向计数语义时使用 CTUD。"
     },
@@ -155,8 +224,13 @@
       "termsAll": ["counter", "countUp"],
       "excludedTerms": ["countDown", "countBidirectional", "safety"],
       "requiredAnyDataTypes": ["BOOL", "INT", "DINT", "UINT", "UDINT"],
+      "portRequirements": [
+        { "port": "CU", "required": true, "acceptedDataTypes": ["BOOL"] },
+        { "port": "PV", "required": false, "acceptedDataTypes": ["INTEGER"], "allowCreateParameter": true }
+      ],
       "candidateNames": ["CTU"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
+      "priority": 80,
       "baseScore": 92,
       "reason": "累计次数、计件或上计数使用 CTU。"
     },
@@ -166,8 +240,13 @@
       "termsAll": ["counter", "countDown"],
       "excludedTerms": ["countUp", "countBidirectional", "safety"],
       "requiredAnyDataTypes": ["BOOL", "INT", "DINT", "UINT", "UDINT"],
+      "portRequirements": [
+        { "port": "CD", "required": true, "acceptedDataTypes": ["BOOL"] },
+        { "port": "PV", "required": false, "acceptedDataTypes": ["INTEGER"], "allowCreateParameter": true }
+      ],
       "candidateNames": ["CTD"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
+      "priority": 80,
       "baseScore": 92,
       "reason": "倒计数或剩余量递减使用 CTD。"
     },
@@ -179,6 +258,7 @@
       "requiredAnyDataTypes": ["BOOL", "INT", "DINT", "UINT", "UDINT"],
       "candidateNames": ["CTU", "CTD"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
+      "priority": 40,
       "baseScore": 68,
       "reason": "存在计数意图，但方向不明确。"
     },
@@ -190,6 +270,7 @@
       "requiredAnyDataTypes": ["BOOL"],
       "candidateNames": ["SR"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
+      "priority": 80,
       "baseScore": 88,
       "reason": "明确的置位优先保持语义使用 SR。"
     },
@@ -201,6 +282,7 @@
       "requiredAnyDataTypes": ["BOOL"],
       "candidateNames": ["RS"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
+      "priority": 80,
       "baseScore": 90,
       "reason": "明确的复位优先保持语义使用 RS。"
     },
@@ -211,6 +293,7 @@
       "requiredAnyDataTypes": ["NUMERIC"],
       "candidateNames": ["LIMIT", "MIN", "MAX"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore"],
+      "priority": 80,
       "baseScore": 86,
       "reason": "数值限幅或上下限约束使用 LIMIT、MIN 或 MAX。"
     },
@@ -221,6 +304,7 @@
       "requiredAnyDataTypes": ["NUMERIC"],
       "candidateNames": ["GT", "GE"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore"],
+      "priority": 80,
       "baseScore": 85,
       "reason": "数值大于类比较使用 GT 或 GE。"
     },
@@ -231,6 +315,7 @@
       "requiredAnyDataTypes": ["NUMERIC"],
       "candidateNames": ["LT", "LE"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore"],
+      "priority": 80,
       "baseScore": 85,
       "reason": "数值小于类比较使用 LT 或 LE。"
     },
@@ -241,6 +326,7 @@
       "excludedTerms": ["notEqual"],
       "candidateNames": ["EQ"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore"],
+      "priority": 80,
       "baseScore": 82,
       "reason": "相等判断使用 EQ。"
     },
@@ -250,6 +336,7 @@
       "termsAll": ["comparison", "notEqual"],
       "candidateNames": ["NE"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore"],
+      "priority": 80,
       "baseScore": 84,
       "reason": "不等判断使用 NE。"
     },
@@ -261,6 +348,7 @@
       "requiredAnyDataTypes": ["REAL", "LREAL"],
       "candidateNames": ["PID"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
+      "priority": 80,
       "baseScore": 110,
       "reason": "只有 SP、PV、MV 角色及浮点类型齐全时才推荐 PID。",
       "fallback": "角色、单位、量程或采样周期不明时不推荐 PID。"
@@ -272,6 +360,7 @@
       "requiredAnyDataTypes": ["STRING", "WSTRING"],
       "candidateNames": ["LEFT"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore"],
+      "priority": 80,
       "baseScore": 90,
       "reason": "STRING/WSTRING 左侧截取使用 LEFT。"
     },
@@ -282,6 +371,7 @@
       "requiredAnyDataTypes": ["STRING", "WSTRING"],
       "candidateNames": ["RIGHT"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore"],
+      "priority": 80,
       "baseScore": 90,
       "reason": "STRING/WSTRING 右侧截取使用 RIGHT。"
     },
@@ -292,6 +382,7 @@
       "requiredAnyDataTypes": ["STRING", "WSTRING"],
       "candidateNames": ["MID"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore"],
+      "priority": 80,
       "baseScore": 90,
       "reason": "STRING/WSTRING 中段截取使用 MID。"
     },
@@ -302,6 +393,7 @@
       "requiredAnyDataTypes": ["STRING", "WSTRING"],
       "candidateNames": ["CONCAT"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore"],
+      "priority": 80,
       "baseScore": 90,
       "reason": "STRING/WSTRING 拼接使用 CONCAT。"
     },
@@ -312,6 +404,7 @@
       "requiredAnyDataTypes": ["STRING", "WSTRING"],
       "candidateNames": ["FIND"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore"],
+      "priority": 80,
       "baseScore": 90,
       "reason": "STRING/WSTRING 子串查找使用 FIND。"
     },
@@ -320,9 +413,10 @@
       "status": "active",
       "termsAll": ["motion", "axis", "motionPower"],
       "excludedTerms": ["safety"],
-      "requiredAnyDataTypes": ["AXIS_REF", "AXIS_REF_SM3"],
+      "requiredTypeCapabilities": ["MOTION_AXIS_REFERENCE"],
       "candidateNames": ["MC_Power"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "outputFunctionBlock"],
+      "priority": 80,
       "baseScore": 105,
       "reason": "存在明确轴引用和轴使能意图时推荐 MC_Power。"
     },
@@ -331,9 +425,10 @@
       "status": "active",
       "termsAll": ["motion", "axis", "reset"],
       "excludedTerms": ["safety"],
-      "requiredAnyDataTypes": ["AXIS_REF", "AXIS_REF_SM3"],
+      "requiredTypeCapabilities": ["MOTION_AXIS_REFERENCE"],
       "candidateNames": ["MC_Reset"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "outputFunctionBlock"],
+      "priority": 80,
       "baseScore": 106,
       "reason": "普通故障复位不得触发；只有局部轴引用和运动复位语义齐全时推荐 MC_Reset。"
     },
@@ -342,9 +437,10 @@
       "status": "active",
       "termsAll": ["motion", "axis", "motionHome"],
       "excludedTerms": ["safety"],
-      "requiredAnyDataTypes": ["AXIS_REF", "AXIS_REF_SM3"],
+      "requiredTypeCapabilities": ["MOTION_AXIS_REFERENCE"],
       "candidateNames": ["MC_Home"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "outputFunctionBlock"],
+      "priority": 80,
       "baseScore": 105,
       "reason": "存在明确轴引用和回零意图时推荐 MC_Home。"
     },
@@ -353,9 +449,10 @@
       "status": "active",
       "termsAll": ["motion", "axis", "moveAbsolute"],
       "excludedTerms": ["safety"],
-      "requiredAnyDataTypes": ["AXIS_REF", "AXIS_REF_SM3"],
+      "requiredTypeCapabilities": ["MOTION_AXIS_REFERENCE"],
       "candidateNames": ["MC_MoveAbsolute"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "outputFunctionBlock"],
+      "priority": 80,
       "baseScore": 105,
       "reason": "存在明确轴引用和绝对定位意图时推荐 MC_MoveAbsolute。"
     },
@@ -364,9 +461,10 @@
       "status": "active",
       "termsAll": ["motion", "axis", "moveRelative"],
       "excludedTerms": ["safety"],
-      "requiredAnyDataTypes": ["AXIS_REF", "AXIS_REF_SM3"],
+      "requiredTypeCapabilities": ["MOTION_AXIS_REFERENCE"],
       "candidateNames": ["MC_MoveRelative"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "outputFunctionBlock"],
+      "priority": 80,
       "baseScore": 105,
       "reason": "存在明确轴引用和相对移动意图时推荐 MC_MoveRelative。"
     },
@@ -375,9 +473,10 @@
       "status": "active",
       "termsAll": ["motion", "axis", "moveVelocity"],
       "excludedTerms": ["safety"],
-      "requiredAnyDataTypes": ["AXIS_REF", "AXIS_REF_SM3"],
+      "requiredTypeCapabilities": ["MOTION_AXIS_REFERENCE"],
       "candidateNames": ["MC_MoveVelocity"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "outputFunctionBlock"],
+      "priority": 80,
       "baseScore": 105,
       "reason": "存在明确轴引用和速度运行意图时推荐 MC_MoveVelocity。"
     },
@@ -386,9 +485,10 @@
       "status": "active",
       "termsAll": ["motion", "axis", "stop"],
       "excludedTerms": ["motionHalt", "safety"],
-      "requiredAnyDataTypes": ["AXIS_REF", "AXIS_REF_SM3"],
+      "requiredTypeCapabilities": ["MOTION_AXIS_REFERENCE"],
       "candidateNames": ["MC_Stop"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "outputFunctionBlock"],
+      "priority": 80,
       "baseScore": 102,
       "reason": "存在明确轴引用和停止意图时推荐 MC_Stop。"
     },
@@ -397,9 +497,10 @@
       "status": "active",
       "termsAll": ["motion", "axis", "motionHalt"],
       "excludedTerms": ["safety"],
-      "requiredAnyDataTypes": ["AXIS_REF", "AXIS_REF_SM3"],
+      "requiredTypeCapabilities": ["MOTION_AXIS_REFERENCE"],
       "candidateNames": ["MC_Halt"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "outputFunctionBlock"],
+      "priority": 80,
       "baseScore": 102,
       "reason": "存在明确轴引用和受控暂停意图时推荐 MC_Halt。"
     }
@@ -411,16 +512,18 @@
       "termsAny": ["start", "run", "enable", "ready"],
       "candidateNodeTypes": ["contact", "risingContact"],
       "positions": ["front", "outsideFront"],
+      "priority": 40,
       "baseScore": 5,
       "termMultiplier": 1
     },
     {
       "id": "R02-permissive-negated-contact",
       "status": "active",
-      "termsAny": ["stop", "fault", "alarm", "interlock"],
+      "termsAny": ["stop", "fault", "alarm", "negated"],
       "termsAll": ["permissive"],
       "excludedTerms": ["safety"],
       "candidateNodeTypes": ["negatedContact"],
+      "priority": 80,
       "baseScore": 9,
       "termMultiplier": 1
     },
@@ -429,6 +532,7 @@
       "status": "active",
       "termsAll": ["reset"],
       "candidateNodeTypes": ["resetCoil"],
+      "priority": 80,
       "baseScore": 7,
       "termMultiplier": 1
     },
@@ -437,6 +541,7 @@
       "status": "active",
       "termsAll": ["latch", "set"],
       "candidateNodeTypes": ["setCoil"],
+      "priority": 80,
       "baseScore": 6,
       "termMultiplier": 1
     },
@@ -445,6 +550,7 @@
       "status": "active",
       "termsAny": ["healthy", "ready"],
       "candidateNodeTypes": ["contact"],
+      "priority": 90,
       "baseScore": 9,
       "termMultiplier": 1
     }
@@ -479,6 +585,18 @@
       "status": "planned",
       "capabilityNeeded": ["engineeringUnits", "range", "sampleTime", "tuningParameters", "modeModel"],
       "fallback": "活动规则最多推荐 PID 节点，不自动整定或证明回路正确。"
+    },
+    {
+      "id": "V2-project-library-availability",
+      "status": "planned",
+      "capabilityNeeded": ["projectLibraryMetadata", "runtimeLibraryResolver", "missingLibraryAction"],
+      "fallback": "当前只返回存在于 st-library-info-data.json 的元素，不声称目标 PLC 工程已经加载对应外部库。"
+    },
+    {
+      "id": "V2-rule-diagnostics",
+      "status": "planned",
+      "capabilityNeeded": ["ruleTraceSchema", "rejectedCandidateTrace", "scoreBreakdown"],
+      "fallback": "当前仅规则配置保留 id 和 reason，不输出未命中规则的拒绝链与完整评分明细。"
     }
   ]
 }

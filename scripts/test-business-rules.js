@@ -44,6 +44,58 @@ async function main() {
 function assertActiveRuleCandidatesExistInLibrary() {
   const rules = JSON.parse(fs.readFileSync(rulesPath, "utf8"));
   assert.equal(rules.schemaVersion, "ide-agent.business-rules.v3");
+  assert.ok(rules.dataTypeGroups.NUMERIC.includes("LREAL"));
+  assert.ok(rules.dataTypeGroups.INTEGER.includes("UDINT"));
+  assert.ok(
+    rules.typeCapabilities.MOTION_AXIS_REFERENCE.includes("AXIS_REF"),
+  );
+  assert.ok(
+    rules.derivedTerms.some(
+      (rule) =>
+        rule.term === "numeric" &&
+        rule.whenDataTypesAny.includes("NUMERIC"),
+    ),
+  );
+  assert.ok(
+    rules.termImplications.some(
+      (rule) =>
+        rule.ifMatched === "onDelay" &&
+        rule.alsoMatch.includes("timer"),
+    ),
+  );
+  const definedTerms = new Set([
+    ...rules.termPatterns.map((entry) => entry.term),
+    ...rules.derivedTerms.map((entry) => entry.term),
+  ]);
+  for (const implication of rules.termImplications) {
+    assert.ok(
+      definedTerms.has(implication.ifMatched),
+      `term implication source is undefined: ${implication.ifMatched}`,
+    );
+    for (const impliedTerm of implication.alsoMatch) {
+      assert.ok(
+        definedTerms.has(impliedTerm),
+        `term implication target is undefined: ${impliedTerm}`,
+      );
+    }
+  }
+  for (const rule of [
+    ...(rules.contactPolarityRules ?? []),
+    ...(rules.libraryRules ?? []),
+    ...(rules.rankingRules ?? []),
+  ]) {
+    for (const term of [
+      ...(rule.termsAny ?? []),
+      ...(rule.termsAll ?? []),
+      ...(rule.excludedTerms ?? []),
+      ...(rule.excludedAnchorTerms ?? []),
+    ]) {
+      assert.ok(
+        definedTerms.has(term),
+        `${rule.id} references undefined term: ${term}`,
+      );
+    }
+  }
 
   assert.ok(rules.termPatterns.length > 0, "termPatterns must not be empty");
   for (const entry of rules.termPatterns) {
@@ -68,19 +120,72 @@ function assertActiveRuleCandidatesExistInLibrary() {
     (rule) => rule.id === "P01-permissive-inhibit-negated",
   );
   assert.equal(negatedPolarityRule?.polarity, "negated");
+  assert.equal(negatedPolarityRule?.priority, 80);
+  assert.equal(
+    negatedPolarityRule?.anchorTermScope,
+    "selectedNodeOrDirectNeighbors",
+  );
   assert.ok(negatedPolarityRule?.excludedTerms?.includes("safety"));
   assert.ok(negatedPolarityRule?.excludedAnchorTerms?.includes("healthy"));
+  assert.ok(
+    rules.contactPolarityRules.some(
+      (rule) =>
+        rule.id === "P02-healthy-permissive-normal" &&
+        rule.priority > negatedPolarityRule.priority,
+    ),
+  );
 
   for (const rule of rules.libraryRules ?? []) {
     if (String(rule.status).toLowerCase() !== "active") {
       continue;
     }
+    assert.ok(
+      Number.isFinite(rule.priority),
+      `${rule.id} must define a rule priority`,
+    );
+    if (rule.id.startsWith("MC")) {
+      assert.deepStrictEqual(rule.requiredTypeCapabilities, [
+        "MOTION_AXIS_REFERENCE",
+      ]);
+      assert.equal(rule.requiredAnyDataTypes, undefined);
+    }
     for (const candidateName of rule.candidateNames ?? []) {
+      const libraryElement = libraryElements.get(
+        String(candidateName).toUpperCase(),
+      );
       assert.ok(
-        libraryElements.has(String(candidateName).toUpperCase()),
+        libraryElement,
         `${rule.id} references missing st-library-info element: ${candidateName}`,
       );
+      for (const portRequirement of rule.portRequirements ?? []) {
+        if (portRequirement.required) {
+          assert.ok(
+            portRequirement.acceptedDataTypes?.length > 0,
+            `${rule.id}/${portRequirement.port} must define accepted data types`,
+          );
+        }
+        const libraryPort = (libraryElement.inputs ?? []).find(
+          ([name]) =>
+            String(name).toUpperCase() ===
+            String(portRequirement.port).toUpperCase(),
+        );
+        if (portRequirement.required) {
+          assert.ok(
+            libraryPort,
+            `${rule.id}/${candidateName} requires missing input port ${portRequirement.port}`,
+          );
+        }
+      }
     }
+  }
+  for (const rule of rules.rankingRules ?? []) {
+    if (String(rule.status).toLowerCase() !== "active") {
+      continue;
+    }
+    assert.ok(
+      Number.isFinite(rule.priority),
+      `${rule.id} must define a ranking rule priority`,
+    );
   }
 }
 
@@ -102,7 +207,7 @@ async function assertStableBusinessCases() {
   assert.deepStrictEqual(
     [...new Set(functionBlockTypes(regexTonSuggestions))],
     ["TON"],
-    "separator-tolerant on-delay regex should match without treating TP inside Stop as a pulse",
+    "onDelay should imply timer without treating TP inside Stop as a pulse",
   );
 
   const ordinaryResetSuggestions = await suggestionsFor(
@@ -149,6 +254,17 @@ async function assertStableBusinessCases() {
   assert.ok(
     functionBlockTypes(limitSuggestions).includes("LIMIT"),
     "numeric limit case should return LIMIT function",
+  );
+
+  const stringLeftSuggestions = await suggestionsFor(
+    fixturePath,
+    "segment-string-left",
+    "string-left-contact",
+  );
+  assert.deepStrictEqual(
+    [...new Set(functionBlockTypes(stringLeftSuggestions))],
+    ["LEFT"],
+    "STRING data type should derive the string term without a text keyword dependency",
   );
 
   const duplicateStopSuggestions = await suggestionsFor(
@@ -257,6 +373,17 @@ async function assertStableBusinessCases() {
     "positive-logic EStop_OK must not be inverted just because its name contains stop",
   );
 
+  const guardClosedSuggestions = await suggestionsFor(
+    fixturePath,
+    "segment-guard-closed-permissive",
+    "guard-closed-contact",
+  );
+  assert.ok(suggestedNodeTypes(guardClosedSuggestions).includes("contact"));
+  assert.ok(
+    !suggestedNodeTypes(guardClosedSuggestions).includes("negatedContact"),
+    "CamelCase GuardInterlockClosed must be recognized as a positive-logic permissive",
+  );
+
   const faultOnlyCoilSuggestions = await suggestionsFor(
     fixturePath,
     "segment-fault-only-coil",
@@ -319,6 +446,7 @@ async function assertStableBusinessCases() {
     ...ordinaryResetSuggestions,
     ...axisResetSuggestions,
     ...limitSuggestions,
+    ...stringLeftSuggestions,
     ...bidirectionalCounterSuggestions,
     ...genericLatchSuggestions,
     ...setDominantSuggestions,
@@ -327,6 +455,7 @@ async function assertStableBusinessCases() {
     ...motionHaltSuggestions,
     ...faultPermissiveSuggestions,
     ...estopOkSuggestions,
+    ...guardClosedSuggestions,
     ...crossSegmentStopSuggestions,
     ...otherAxisStopSuggestions,
     ...unrelatedAdjacentSuggestions,
