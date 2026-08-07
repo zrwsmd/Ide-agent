@@ -43,7 +43,27 @@ async function main() {
 
 function assertActiveRuleCandidatesExistInLibrary() {
   const rules = JSON.parse(fs.readFileSync(rulesPath, "utf8"));
-  assert.equal(rules.schemaVersion, "ide-agent.business-rules.v2");
+  assert.equal(rules.schemaVersion, "ide-agent.business-rules.v3");
+
+  assert.ok(rules.termPatterns.length > 0, "termPatterns must not be empty");
+  for (const entry of rules.termPatterns) {
+    assert.ok(
+      !Object.hasOwn(entry, "patterns"),
+      `${entry.term} must use literalPatterns/regexPatterns instead of patterns`,
+    );
+    assert.ok(Array.isArray(entry.literalPatterns));
+    assert.ok(Array.isArray(entry.regexPatterns));
+    assert.ok(
+      entry.literalPatterns.length > 0 || entry.regexPatterns.length > 0,
+      `${entry.term} must define at least one matcher`,
+    );
+    for (const pattern of entry.regexPatterns) {
+      assert.doesNotThrow(
+        () => new RegExp(pattern, "iu"),
+        `${entry.term} has invalid regex: ${pattern}`,
+      );
+    }
+  }
 
   for (const rule of rules.libraryRules ?? []) {
     if (String(rule.status).toLowerCase() !== "active") {
@@ -67,6 +87,17 @@ async function assertStableBusinessCases() {
   const tonBlocks = functionBlockTypes(tonSuggestions);
   assert.ok(tonBlocks.length > 0, "TON case should return a function block");
   assert.deepStrictEqual([...new Set(tonBlocks)], ["TON"]);
+
+  const regexTonSuggestions = await suggestionsFor(
+    fixturePath,
+    "segment-ton-regex",
+    "ton-regex-contact",
+  );
+  assert.deepStrictEqual(
+    [...new Set(functionBlockTypes(regexTonSuggestions))],
+    ["TON"],
+    "separator-tolerant on-delay regex should match without treating TP inside Stop as a pulse",
+  );
 
   const ordinaryResetSuggestions = await suggestionsFor(
     fixturePath,
@@ -239,6 +270,7 @@ async function assertStableBusinessCases() {
 
   for (const suggestion of [
     ...tonSuggestions,
+    ...regexTonSuggestions,
     ...ordinaryResetSuggestions,
     ...axisResetSuggestions,
     ...limitSuggestions,

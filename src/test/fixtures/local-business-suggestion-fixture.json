@@ -4,6 +4,7 @@
     "pouType": "PROGRAM",
     "variableList": [
       { "name": "Enable", "type": "BOOL", "scope": "VAR" },
+      { "name": "Stop_On_Delay_Timer", "type": "BOOL", "scope": "VAR" },
       { "name": "ResetButton", "type": "BOOL", "scope": "VAR" },
       { "name": "AxisResetButton", "type": "BOOL", "scope": "VAR" },
       { "name": "Axis1", "type": "AXIS_REF", "scope": "VAR" },
@@ -50,6 +51,32 @@
             "id": "ton-end",
             "type": "endLine",
             "sourceIds": ["ton-contact"],
+            "targetIds": []
+          }
+        }
+      },
+      {
+        "id": "segment-ton-regex",
+        "label": "Conveyor timing",
+        "note": "",
+        "nodesObj": {
+          "ton-regex-start": {
+            "id": "ton-regex-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["ton-regex-contact"]
+          },
+          "ton-regex-contact": {
+            "id": "ton-regex-contact",
+            "type": "contact",
+            "sourceIds": ["ton-regex-start"],
+            "targetIds": ["ton-regex-end"],
+            "varName": { "value": "Stop_On_Delay_Timer", "type": "BOOL", "scope": "VAR" }
+          },
+          "ton-regex-end": {
+            "id": "ton-regex-end",
+            "type": "endLine",
+            "sourceIds": ["ton-regex-contact"],
             "targetIds": []
           }
         }

@@ -210,7 +210,14 @@ interface BusinessRulesConfig {
 
 interface BusinessTermPatternConfig {
   term: BusinessTerm;
-  patterns: string[];
+  literalPatterns: string[];
+  regexPatterns: string[];
+}
+
+interface BusinessTermMatcher {
+  term: BusinessTerm;
+  literalPatterns: string[];
+  regexPatterns: RegExp[];
 }
 
 interface BusinessLibraryRuleConfig {
@@ -280,32 +287,32 @@ const FALLBACK_COMMON_FUNCTION_BLOCK_TYPES = [
 ];
 
 const FALLBACK_BUSINESS_RULES_CONFIG: BusinessRulesConfig = {
-  schemaVersion: "ide-agent.business-rules.v2",
+  schemaVersion: "ide-agent.business-rules.v3",
   enabled: true,
   defaultBlocks: FALLBACK_COMMON_FUNCTION_BLOCK_TYPES,
   termPatterns: [
-    { term: "alarm", patterns: ["alarm", "warning", "报警", "告警"] },
-    { term: "axis", patterns: ["axis", "axis_ref", "轴"] },
-    { term: "busy", patterns: ["busy", "忙"] },
-    { term: "counter", patterns: ["counter", "count", "ctu", "ctd", "计数", "计件", "批次"] },
-    { term: "done", patterns: ["done", "complete", "完成", "到位"] },
-    { term: "edge", patterns: ["edge", "trigger", "触发", "边沿"] },
-    { term: "enable", patterns: ["enable", "enabled", "使能", "允许"] },
-    { term: "falling", patterns: ["falling", "f_trig", "下降沿"] },
-    { term: "fault", patterns: ["fault", "error", "fail", "故障", "错误", "异常"] },
-    { term: "interlock", patterns: ["interlock", "lock", "互锁", "联锁"] },
-    { term: "left", patterns: ["left", "左取", "左侧", "左边"] },
-    { term: "motion", patterns: ["mc_", "smc_", "motion", "运动", "伺服", "驱动"] },
-    { term: "numeric", patterns: ["real", "lreal", "int", "dint", "数值", "温度", "压力", "流量"] },
-    { term: "pid", patterns: ["pid", "闭环", "调节", "控温", "控压", "控流"] },
-    { term: "ready", patterns: ["ready", "就绪", "准备"] },
-    { term: "reset", patterns: ["reset", "复位", "清除"] },
-    { term: "rising", patterns: ["rising", "r_trig", "上升沿"] },
-    { term: "run", patterns: ["run", "running", "运行"] },
-    { term: "start", patterns: ["start", "启动", "开始"] },
-    { term: "stop", patterns: ["stop", "停止", "停机", "急停"] },
-    { term: "string", patterns: ["string", "wstring", "字符串", "字符"] },
-    { term: "timer", patterns: ["timer", "time", "ton", "tof", "tp", "定时", "延时", "计时", "时间", "超时"] },
+    { term: "alarm", literalPatterns: ["alarm", "warning", "报警", "告警"], regexPatterns: [] },
+    { term: "axis", literalPatterns: ["axis", "轴"], regexPatterns: ["(?:^|[^a-z0-9])axis[-_.\\s]*ref(?:$|[^a-z0-9])"] },
+    { term: "busy", literalPatterns: ["忙"], regexPatterns: ["(?:^|[^a-z0-9])busy(?:$|[^a-z0-9])"] },
+    { term: "counter", literalPatterns: ["计数", "计件", "批次"], regexPatterns: ["(?:^|[^a-z0-9])(?:counter|count|ctu|ctd)(?:$|[^a-z0-9])"] },
+    { term: "done", literalPatterns: ["完成", "到位"], regexPatterns: ["(?:^|[^a-z0-9])(?:done|complete)(?:$|[^a-z0-9])"] },
+    { term: "edge", literalPatterns: ["触发", "边沿"], regexPatterns: ["(?:^|[^a-z0-9])(?:edge|trigger)(?:$|[^a-z0-9])"] },
+    { term: "enable", literalPatterns: ["使能", "允许"], regexPatterns: ["(?:^|[^a-z0-9])enabled?(?:$|[^a-z0-9])"] },
+    { term: "falling", literalPatterns: ["下降沿"], regexPatterns: ["(?:^|[^a-z0-9])(?:falling|f[-_.\\s]*trig)(?:$|[^a-z0-9])"] },
+    { term: "fault", literalPatterns: ["故障", "错误", "异常"], regexPatterns: ["(?:^|[^a-z0-9])(?:fault|error|fail)(?:$|[^a-z0-9])"] },
+    { term: "interlock", literalPatterns: ["互锁", "联锁"], regexPatterns: ["(?:^|[^a-z0-9])(?:interlock|lock)(?:$|[^a-z0-9])"] },
+    { term: "left", literalPatterns: ["左取", "左侧", "左边"], regexPatterns: ["(?:^|[^a-z0-9])left(?:$|[^a-z0-9])"] },
+    { term: "motion", literalPatterns: ["运动", "伺服", "驱动"], regexPatterns: ["(?:^|[^a-z0-9])(?:motion|s?mc[-_.])"] },
+    { term: "numeric", literalPatterns: ["数值", "温度", "压力", "流量"], regexPatterns: ["(?:^|[^a-z0-9])(?:real|lreal|int|dint)(?:$|[^a-z0-9])"] },
+    { term: "pid", literalPatterns: ["闭环", "调节", "控温", "控压", "控流"], regexPatterns: ["(?:^|[^a-z0-9])pid(?:$|[^a-z0-9])"] },
+    { term: "ready", literalPatterns: ["就绪", "准备"], regexPatterns: ["(?:^|[^a-z0-9])ready(?:$|[^a-z0-9])"] },
+    { term: "reset", literalPatterns: ["复位", "清除"], regexPatterns: ["(?:^|[^a-z0-9])reset(?:$|[^a-z0-9])"] },
+    { term: "rising", literalPatterns: ["上升沿"], regexPatterns: ["(?:^|[^a-z0-9])(?:rising|r[-_.\\s]*trig)(?:$|[^a-z0-9])"] },
+    { term: "run", literalPatterns: ["running", "运行"], regexPatterns: ["(?:^|[^a-z0-9])run(?:$|[^a-z0-9])"] },
+    { term: "start", literalPatterns: ["启动", "开始"], regexPatterns: ["(?:^|[^a-z0-9])start(?:$|[^a-z0-9])"] },
+    { term: "stop", literalPatterns: ["停止", "停机", "急停"], regexPatterns: ["(?:^|[^a-z0-9])stop(?:$|[^a-z0-9])"] },
+    { term: "string", literalPatterns: ["字符串", "字符"], regexPatterns: ["(?:^|[^a-z0-9])w?string(?:$|[^a-z0-9])"] },
+    { term: "timer", literalPatterns: ["定时", "延时", "计时", "时间", "超时"], regexPatterns: ["(?:^|[^a-z0-9])(?:timer|time|ton|tof|tp)(?:$|[^a-z0-9])"] },
   ],
   libraryRules: [],
   rankingRules: [],
@@ -316,7 +323,9 @@ const COMMON_FUNCTION_BLOCK_TYPES =
   BUSINESS_RULES_CONFIG.defaultBlocks.length > 0
     ? BUSINESS_RULES_CONFIG.defaultBlocks
     : FALLBACK_COMMON_FUNCTION_BLOCK_TYPES;
-const BUSINESS_TERM_PATTERNS = BUSINESS_RULES_CONFIG.termPatterns;
+const BUSINESS_TERM_MATCHERS = compileBusinessTermMatchers(
+  BUSINESS_RULES_CONFIG.termPatterns,
+);
 
 function loadBusinessRulesConfig(): BusinessRulesConfig {
   const configPath = path.join(__dirname, "businessRules.json");
@@ -342,11 +351,37 @@ function parseTermPatterns(value: unknown): BusinessTermPatternConfig[] {
   const parsed = asArrayRecord(value)
     .map((item) => ({
       term: asStringConfig(item.term),
-      patterns: stringList(item.patterns),
+      literalPatterns: stringList(item.literalPatterns),
+      regexPatterns: stringList(item.regexPatterns),
     }))
-    .filter((item) => item.term && item.patterns.length > 0);
+    .filter(
+      (item) =>
+        item.term &&
+        (item.literalPatterns.length > 0 || item.regexPatterns.length > 0),
+    );
 
   return parsed.length > 0 ? parsed : FALLBACK_BUSINESS_RULES_CONFIG.termPatterns;
+}
+
+function compileBusinessTermMatchers(
+  entries: BusinessTermPatternConfig[],
+): BusinessTermMatcher[] {
+  return entries.map((entry) => ({
+    term: entry.term,
+    literalPatterns: entry.literalPatterns.map((pattern) =>
+      pattern.trim().toLowerCase(),
+    ),
+    regexPatterns: entry.regexPatterns.flatMap((pattern) => {
+      try {
+        return [new RegExp(pattern, "iu")];
+      } catch (error) {
+        console.warn(
+          `[IdeAgent:BusinessRules] ignored invalid regex term=${entry.term} pattern=${JSON.stringify(pattern)} error=${formatUnknownError(error)}`,
+        );
+        return [];
+      }
+    }),
+  }));
 }
 
 function parseBusinessRules(value: unknown): BusinessLibraryRuleConfig[] {
@@ -651,6 +686,7 @@ function rankBusinessSuggestions(
   const enhancedSuggestions = applyBusinessLibraryEnhancements(
     suggestions,
     context,
+    focus,
   );
   const applicableSuggestions = enhancedSuggestions.filter(
     (suggestion) =>
@@ -675,6 +711,7 @@ function rankBusinessSuggestions(
 function applyBusinessLibraryEnhancements(
   suggestions: LocalSuggestionDraft[],
   context: BusinessSuggestionContext,
+  focus: FocusContext,
 ): LocalSuggestionDraft[] {
   if (!BUSINESS_RULES_CONFIG.enabled) {
     return suggestions;
@@ -691,9 +728,26 @@ function applyBusinessLibraryEnhancements(
       return [];
     }
 
-    const candidate = candidates[candidateIndex % candidates.length];
+    const offset = candidateIndex % candidates.length;
     candidateIndex += 1;
-    return [replaceFunctionBlockDraft(suggestion, candidate)];
+    for (let index = 0; index < candidates.length; index += 1) {
+      const candidate = candidates[(offset + index) % candidates.length];
+      const replacement = replaceFunctionBlockDraft(suggestion, candidate);
+      if (
+        !hasExistingFunctionBlockAtInsertionBoundary(
+          replacement,
+          focus.segment,
+        ) &&
+        !hasExistingFunctionBlockInRelatedSegment(
+          replacement,
+          context,
+          focus,
+        )
+      ) {
+        return [replacement];
+      }
+    }
+    return [];
   });
 }
 
@@ -709,7 +763,6 @@ function resolveBusinessLibraryCandidates(
   if (!ruleMatches.length) {
     return [];
   }
-
   const deduped = new Map<string, BusinessElementCandidate>();
   for (const candidate of ruleMatches) {
     const current = deduped.get(candidate.name);
@@ -1436,27 +1489,16 @@ function collectBusinessTerms(values: Array<string | undefined>): Set<BusinessTe
     return terms;
   }
 
-  for (const entry of BUSINESS_TERM_PATTERNS) {
-    if (entry.patterns.some((pattern) => matchesBusinessPattern(haystack, pattern))) {
+  for (const entry of BUSINESS_TERM_MATCHERS) {
+    if (
+      entry.literalPatterns.some((pattern) => haystack.includes(pattern)) ||
+      entry.regexPatterns.some((pattern) => pattern.test(haystack))
+    ) {
       terms.add(entry.term);
     }
   }
 
   return terms;
-}
-
-function matchesBusinessPattern(haystack: string, pattern: string): boolean {
-  const normalizedPattern = pattern.trim().toLowerCase();
-  if (!normalizedPattern) {
-    return false;
-  }
-
-  if (/^[a-z0-9_]+$/.test(normalizedPattern) && normalizedPattern.length <= 3) {
-    const escaped = normalizedPattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`).test(haystack);
-  }
-
-  return haystack.includes(normalizedPattern);
 }
 
 function nodeBusinessTexts(node: DiagramNodeSummary): string[] {
