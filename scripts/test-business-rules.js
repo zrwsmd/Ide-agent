@@ -16,6 +16,13 @@ const fixturePath = path.join(
   "fixtures",
   "local-business-suggestion-fixture.json",
 );
+const loopSignatureFixturePath = path.join(
+  rootDir,
+  "src",
+  "test",
+  "fixtures",
+  "loop-signature-business-suggestion-fixture.json",
+);
 const rulesPath = path.join(
   rootDir,
   "packages",
@@ -37,13 +44,14 @@ const libraryElements = new Map(
 async function main() {
   assertActiveRuleCandidatesExistInLibrary();
   await assertStableBusinessCases();
+  await assertLoopSignatureCases();
   await assertTimestampDiagramWhenAvailable();
   console.log("[test-business-rules] passed");
 }
 
 function assertActiveRuleCandidatesExistInLibrary() {
   const rules = JSON.parse(fs.readFileSync(rulesPath, "utf8"));
-  assert.equal(rules.schemaVersion, "ide-agent.business-rules.v3");
+  assert.equal(rules.schemaVersion, "ide-agent.business-rules.v4");
   assert.ok(rules.dataTypeGroups.NUMERIC.includes("LREAL"));
   assert.ok(rules.dataTypeGroups.INTEGER.includes("UDINT"));
   assert.ok(
@@ -63,6 +71,29 @@ function assertActiveRuleCandidatesExistInLibrary() {
         rule.alsoMatch.includes("timer"),
     ),
   );
+  const definedRoles = new Set([
+    ...(rules.variablePatterns?.prefixRoles ?? []).map((entry) => entry.role),
+    ...(rules.variablePatterns?.suffixRoles ?? []).map((entry) => entry.role),
+  ]);
+  const signatureIds = new Set(
+    (rules.loopSignatures ?? []).map((signature) => signature.id),
+  );
+  assert.ok(definedRoles.has("processValue"));
+  assert.ok(definedRoles.has("setpoint"));
+  assert.ok(definedRoles.has("manipulatedValue"));
+  assert.ok(signatureIds.has("LS01-temperature-pid"));
+  for (const signature of rules.loopSignatures ?? []) {
+    for (const role of [
+      ...(signature.requiredRolesAll ?? []),
+      ...(signature.evidenceRolesAny ?? []),
+      ...Object.keys(signature.requiredRoleTypes ?? {}),
+    ]) {
+      assert.ok(
+        definedRoles.has(role),
+        `${signature.id} references undefined variable role: ${role}`,
+      );
+    }
+  }
   const definedTerms = new Set([
     ...rules.termPatterns.map((entry) => entry.term),
     ...rules.derivedTerms.map((entry) => entry.term),
@@ -143,6 +174,12 @@ function assertActiveRuleCandidatesExistInLibrary() {
       Number.isFinite(rule.priority),
       `${rule.id} must define a rule priority`,
     );
+    for (const signatureId of rule.signatureRefsAny ?? []) {
+      assert.ok(
+        signatureIds.has(signatureId),
+        `${rule.id} references undefined loop signature: ${signatureId}`,
+      );
+    }
     if (rule.id.startsWith("MC")) {
       assert.deepStrictEqual(rule.requiredTypeCapabilities, [
         "MOTION_AXIS_REFERENCE",
@@ -186,6 +223,82 @@ function assertActiveRuleCandidatesExistInLibrary() {
       Number.isFinite(rule.priority),
       `${rule.id} must define a ranking rule priority`,
     );
+  }
+}
+
+async function assertLoopSignatureCases() {
+  const completeSuggestions = await suggestionsFor(
+    loopSignatureFixturePath,
+    "segment-temperature-pid-complete",
+    "temperature-pid-contact",
+  );
+  assert.ok(
+    functionBlockTypes(completeSuggestions).includes("PID"),
+    "complete temperature PID signature should recommend PID",
+  );
+
+  const unrelatedSegmentSuggestions = await suggestionsFor(
+    loopSignatureFixturePath,
+    "segment-temperature-pid-unrelated",
+    "temperature-pid-unrelated-contact",
+  );
+  assert.ok(
+    !functionBlockTypes(unrelatedSegmentSuggestions).includes("PID"),
+    "complete POU-level PID variables must not trigger PID in an unrelated segment",
+  );
+
+  const missingRoleSuggestions = await suggestionsFor(
+    loopSignatureFixturePath,
+    "segment-temperature-pid-missing-sp",
+    "temperature-pid-missing-contact",
+  );
+  assert.ok(
+    !functionBlockTypes(missingRoleSuggestions).includes("PID"),
+    "temperature PID signature without SP must not recommend PID",
+  );
+
+  const crossGroupSuggestions = await suggestionsFor(
+    loopSignatureFixturePath,
+    "segment-temperature-pid-cross-group",
+    "temperature-pid-cross-contact",
+  );
+  assert.ok(
+    !functionBlockTypes(crossGroupSuggestions).includes("PID"),
+    "PV/SP/MV from different inferred groups must not recommend PID",
+  );
+
+  const wrongTypeSuggestions = await suggestionsFor(
+    loopSignatureFixturePath,
+    "segment-temperature-pid-wrong-output",
+    "temperature-pid-wrong-contact",
+  );
+  assert.ok(
+    !functionBlockTypes(wrongTypeSuggestions).includes("PID"),
+    "temperature PID signature with a BOOL manipulated value must not recommend PID",
+  );
+
+  const falsePhysicalSuggestions = await suggestionsFor(
+    loopSignatureFixturePath,
+    "segment-temperature-pid-false-physical",
+    "temperature-pid-false-contact",
+  );
+  assert.ok(
+    !functionBlockTypes(falsePhysicalSuggestions).includes("PID"),
+    "temp must use an identifier boundary and must not match Attempt",
+  );
+
+  const legacySuggestions = await suggestionsFor(
+    loopSignatureFixturePath,
+    "segment-legacy-pid-terms",
+    "legacy-pid-contact",
+  );
+  assert.ok(
+    functionBlockTypes(legacySuggestions).includes("PID"),
+    "legacy term-based PID rule must remain available",
+  );
+
+  for (const suggestion of [...completeSuggestions, ...legacySuggestions]) {
+    assertSuggestionUsesLibraryElement(suggestion);
   }
 }
 

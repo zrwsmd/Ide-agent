@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "ide-agent.business-rules.v3",
+  "schemaVersion": "ide-agent.business-rules.v4",
   "enabled": true,
   "defaultBlocks": ["TON", "TOF", "TP", "R_TRIG", "F_TRIG", "CTU", "CTD", "CTUD", "SR", "RS"],
   "dataTypeGroups": {
@@ -84,6 +84,38 @@
     { "term": "timer", "literalPatterns": ["timer", "定时", "延时", "计时", "时间", "超时"], "regexPatterns": ["(?:^|[^a-z0-9])(?:ton|tof|tp)(?:$|[^a-z0-9])"] },
     { "term": "safety", "literalPatterns": ["safety", "safe", "emergency stop", "急停", "安全门", "光栅"], "regexPatterns": ["(?:^|[^a-z0-9])sto(?:$|[^a-z0-9])"] },
     { "term": "stateMachine", "literalPatterns": ["state machine", "状态机", "步序"], "regexPatterns": ["(?:^|[^a-z0-9])(?:state[_\\-.\\s]*machine|sfc)(?:$|[^a-z0-9])"] }
+  ],
+  "variablePatterns": {
+    "prefixRoles": [
+      { "prefix": "Pid_", "role": "pidController", "controller": "PID", "acceptedDataTypes": ["REAL", "LREAL"] }
+    ],
+    "suffixRoles": [
+      { "suffix": "_PV", "role": "processValue", "acceptedDataTypes": ["REAL", "LREAL"] },
+      { "suffix": "_SP", "role": "setpoint", "acceptedDataTypes": ["REAL", "LREAL"] },
+      { "suffix": "_MV", "role": "manipulatedValue", "acceptedDataTypes": ["REAL", "LREAL"] },
+      { "suffix": "_Output", "role": "manipulatedValue", "acceptedDataTypes": ["REAL", "LREAL"] },
+      { "suffix": "_Kp", "role": "pidParameter", "acceptedDataTypes": ["REAL", "LREAL"] },
+      { "suffix": "_Ti", "role": "pidParameter", "acceptedDataTypes": ["REAL", "LREAL"] },
+      { "suffix": "_Td", "role": "pidParameter", "acceptedDataTypes": ["REAL", "LREAL"] }
+    ],
+    "physicalTerms": [
+      { "physical": "temperature", "literalPatterns": ["temperature", "\u6e29\u5ea6"], "regexPatterns": ["(?:^|[^a-z0-9])temp(?:$|[^a-z0-9])"] }
+    ]
+  },
+  "loopSignatures": [
+    {
+      "id": "LS01-temperature-pid",
+      "status": "active",
+      "requiredRolesAll": ["processValue", "setpoint", "manipulatedValue"],
+      "requiredRoleTypes": {
+        "processValue": ["REAL", "LREAL"],
+        "setpoint": ["REAL", "LREAL"],
+        "manipulatedValue": ["REAL", "LREAL"]
+      },
+      "requiredPhysicalTerms": ["temperature"],
+      "evidenceRolesAny": ["pidController", "pidParameter"],
+      "evidenceTermsAny": ["pid"]
+    }
   ],
   "contactPolarityRules": [
     {
@@ -352,6 +384,18 @@
       "baseScore": 110,
       "reason": "只有 SP、PV、MV 角色及浮点类型齐全时才推荐 PID。",
       "fallback": "角色、单位、量程或采样周期不明时不推荐 PID。"
+    },
+    {
+      "id": "P02-temperature-pid-signature",
+      "status": "active",
+      "signatureRefsAny": ["LS01-temperature-pid"],
+      "excludedTerms": ["safety"],
+      "candidateNames": ["PID"],
+      "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
+      "priority": 90,
+      "baseScore": 115,
+      "reason": "A complete temperature PID loop signature is required before recommending PID.",
+      "fallback": "Do not recommend PID when the loop signature is incomplete."
     },
     {
       "id": "STR01-left",

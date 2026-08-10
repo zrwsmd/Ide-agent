@@ -1,0 +1,258 @@
+[
+  {
+    "pouName": "TEMP_PID_COMPLETE",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Tank01_Temp_PV", "type": "REAL", "scope": "VAR" },
+      { "name": "Tank01_Temp_SP", "type": "REAL", "scope": "VAR" },
+      { "name": "Tank01_Valve_Output", "type": "REAL", "scope": "VAR" },
+      { "name": "Tank01_Pid_Kp", "type": "REAL", "scope": "VAR" },
+      { "name": "Temp_Enable", "type": "BOOL", "scope": "VAR" },
+      { "name": "Maintenance_Reset", "type": "BOOL", "scope": "VAR" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-temperature-pid-complete",
+        "label": "Tank01 temperature PID control",
+        "note": "Enable the temperature loop",
+        "nodesObj": {
+          "temperature-pid-start": {
+            "id": "temperature-pid-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["temperature-pid-contact"]
+          },
+          "temperature-pid-contact": {
+            "id": "temperature-pid-contact",
+            "type": "contact",
+            "sourceIds": ["temperature-pid-start"],
+            "targetIds": ["temperature-pid-end"],
+            "varName": { "value": "Temp_Enable", "type": "BOOL", "scope": "VAR" }
+          },
+          "temperature-pid-end": {
+            "id": "temperature-pid-end",
+            "type": "endLine",
+            "sourceIds": ["temperature-pid-contact"],
+            "targetIds": []
+          }
+        }
+      },
+      {
+        "id": "segment-temperature-pid-unrelated",
+        "label": "Maintenance reset",
+        "note": "Unrelated segment in the same POU",
+        "nodesObj": {
+          "temperature-pid-unrelated-start": {
+            "id": "temperature-pid-unrelated-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["temperature-pid-unrelated-contact"]
+          },
+          "temperature-pid-unrelated-contact": {
+            "id": "temperature-pid-unrelated-contact",
+            "type": "contact",
+            "sourceIds": ["temperature-pid-unrelated-start"],
+            "targetIds": ["temperature-pid-unrelated-end"],
+            "varName": { "value": "Maintenance_Reset", "type": "BOOL", "scope": "VAR" }
+          },
+          "temperature-pid-unrelated-end": {
+            "id": "temperature-pid-unrelated-end",
+            "type": "endLine",
+            "sourceIds": ["temperature-pid-unrelated-contact"],
+            "targetIds": []
+          }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "TEMP_PID_MISSING_SP",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Tank01_Temp_PV", "type": "REAL", "scope": "VAR" },
+      { "name": "Tank01_Valve_Output", "type": "REAL", "scope": "VAR" },
+      { "name": "Tank01_Pid_Kp", "type": "REAL", "scope": "VAR" },
+      { "name": "Temp_Enable", "type": "BOOL", "scope": "VAR" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-temperature-pid-missing-sp",
+        "label": "Tank01 temperature PID control",
+        "note": "Enable the temperature loop",
+        "nodesObj": {
+          "temperature-pid-missing-start": {
+            "id": "temperature-pid-missing-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["temperature-pid-missing-contact"]
+          },
+          "temperature-pid-missing-contact": {
+            "id": "temperature-pid-missing-contact",
+            "type": "contact",
+            "sourceIds": ["temperature-pid-missing-start"],
+            "targetIds": ["temperature-pid-missing-end"],
+            "varName": { "value": "Temp_Enable", "type": "BOOL", "scope": "VAR" }
+          },
+          "temperature-pid-missing-end": {
+            "id": "temperature-pid-missing-end",
+            "type": "endLine",
+            "sourceIds": ["temperature-pid-missing-contact"],
+            "targetIds": []
+          }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "TEMP_PID_CROSS_GROUP",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Tank01_Temp_PV", "type": "REAL", "scope": "VAR" },
+      { "name": "Tank02_Temp_SP", "type": "REAL", "scope": "VAR" },
+      { "name": "Tank01_Valve_Output", "type": "REAL", "scope": "VAR" },
+      { "name": "Tank01_Pid_Kp", "type": "REAL", "scope": "VAR" },
+      { "name": "Temp_Enable", "type": "BOOL", "scope": "VAR" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-temperature-pid-cross-group",
+        "label": "Tank temperature PID control",
+        "note": "Enable the temperature loop",
+        "nodesObj": {
+          "temperature-pid-cross-start": {
+            "id": "temperature-pid-cross-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["temperature-pid-cross-contact"]
+          },
+          "temperature-pid-cross-contact": {
+            "id": "temperature-pid-cross-contact",
+            "type": "contact",
+            "sourceIds": ["temperature-pid-cross-start"],
+            "targetIds": ["temperature-pid-cross-end"],
+            "varName": { "value": "Temp_Enable", "type": "BOOL", "scope": "VAR" }
+          },
+          "temperature-pid-cross-end": {
+            "id": "temperature-pid-cross-end",
+            "type": "endLine",
+            "sourceIds": ["temperature-pid-cross-contact"],
+            "targetIds": []
+          }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "TEMP_PID_WRONG_OUTPUT_TYPE",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Tank01_Temp_PV", "type": "REAL", "scope": "VAR" },
+      { "name": "Tank01_Temp_SP", "type": "REAL", "scope": "VAR" },
+      { "name": "Tank01_Valve_Output", "type": "BOOL", "scope": "VAR" },
+      { "name": "Tank01_Pid_Kp", "type": "REAL", "scope": "VAR" },
+      { "name": "Temp_Enable", "type": "BOOL", "scope": "VAR" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-temperature-pid-wrong-output",
+        "label": "Tank01 temperature PID control",
+        "note": "Enable the temperature loop",
+        "nodesObj": {
+          "temperature-pid-wrong-start": {
+            "id": "temperature-pid-wrong-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["temperature-pid-wrong-contact"]
+          },
+          "temperature-pid-wrong-contact": {
+            "id": "temperature-pid-wrong-contact",
+            "type": "contact",
+            "sourceIds": ["temperature-pid-wrong-start"],
+            "targetIds": ["temperature-pid-wrong-end"],
+            "varName": { "value": "Temp_Enable", "type": "BOOL", "scope": "VAR" }
+          },
+          "temperature-pid-wrong-end": {
+            "id": "temperature-pid-wrong-end",
+            "type": "endLine",
+            "sourceIds": ["temperature-pid-wrong-contact"],
+            "targetIds": []
+          }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "TEMP_PID_FALSE_PHYSICAL",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Attempt_PV", "type": "REAL", "scope": "VAR" },
+      { "name": "Attempt_SP", "type": "REAL", "scope": "VAR" },
+      { "name": "Attempt_Output", "type": "REAL", "scope": "VAR" },
+      { "name": "Attempt_Pid_Kp", "type": "REAL", "scope": "VAR" },
+      { "name": "Attempt_Enable", "type": "BOOL", "scope": "VAR" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-temperature-pid-false-physical",
+        "label": "Attempt PID control",
+        "note": "The identifier must remain generic",
+        "nodesObj": {
+          "temperature-pid-false-start": {
+            "id": "temperature-pid-false-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["temperature-pid-false-contact"]
+          },
+          "temperature-pid-false-contact": {
+            "id": "temperature-pid-false-contact",
+            "type": "contact",
+            "sourceIds": ["temperature-pid-false-start"],
+            "targetIds": ["temperature-pid-false-end"],
+            "varName": { "value": "Attempt_Enable", "type": "BOOL", "scope": "VAR" }
+          },
+          "temperature-pid-false-end": {
+            "id": "temperature-pid-false-end",
+            "type": "endLine",
+            "sourceIds": ["temperature-pid-false-contact"],
+            "targetIds": []
+          }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "LEGACY_PID_TERMS",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Legacy_Real", "type": "REAL", "scope": "VAR" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-legacy-pid-terms",
+        "label": "PID numeric setpoint process value manipulated value",
+        "note": "Legacy rule path",
+        "nodesObj": {
+          "legacy-pid-start": {
+            "id": "legacy-pid-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["legacy-pid-contact"]
+          },
+          "legacy-pid-contact": {
+            "id": "legacy-pid-contact",
+            "type": "contact",
+            "sourceIds": ["legacy-pid-start"],
+            "targetIds": ["legacy-pid-end"],
+            "varName": { "value": "Legacy_Real", "type": "REAL", "scope": "VAR" }
+          },
+          "legacy-pid-end": {
+            "id": "legacy-pid-end",
+            "type": "endLine",
+            "sourceIds": ["legacy-pid-contact"],
+            "targetIds": []
+          }
+        }
+      }
+    ]
+  }
+]

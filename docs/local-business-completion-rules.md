@@ -127,7 +127,17 @@
 - `typeCapabilities`：把厂商数据类型映射为稳定能力，例如 `MOTION_AXIS_REFERENCE`。
 - `derivedTerms`：依据局部数据类型或类型能力派生 `numeric`、`string`、`axis`、`motion`。
 
-### 7.2 `contactPolarityRules`
+### 7.2 `variablePatterns`
+
+用于从 POU 变量表中提取可配置的变量角色和物理量证据。第一版支持前缀、后缀、变量数据类型以及物理量字面/正则模式。角色只表示单个变量的可能职责，不等同于完整业务回路。
+
+### 7.3 `loopSignatures`
+
+用于把多个变量角色组合为业务回路证据。第一版要求 `requiredRolesAll` 中的角色具有共同的、从规范变量名前缀推导出的分组键，并逐角色检查 `requiredRoleTypes`。没有可靠公共前缀时不确认同一回路，也不把同一 POU 直接视为同一设备。
+
+`requiredPhysicalTerms` 校验物理量证据，`evidenceRolesAny` 校验 POU 变量中的控制器证据，`evidenceTermsAny` 必须由当前焦点、邻居或 segment 满足，防止同一 POU 的完整变量集合污染无关区段。签名不直接生成建议，只由 `libraryRules.signatureRefsAny` 引用。
+
+### 7.4 `contactPolarityRules`
 
 用于判断拓扑合法的普通触点是否需要扩展常闭候选。常闭规则必须同时具备明确的抑制信号和许可/联锁语义；`excludedAnchorTerms` 用于阻止把 `EStop_OK`、`Drive_Ready` 等正逻辑健康信号反相。
 
@@ -139,20 +149,20 @@
 4. 同时命中多个极性规则时先按 `priority` 选择；`P02-healthy-permissive-normal` 的正逻辑健康许可高于负向抑制规则。
 5. 仅对最终选中的极性进入候选扩展和评分。
 
-### 7.3 `libraryRules`
+### 7.5 `libraryRules`
 
 用于把通用功能块候选替换为具体 IEC/PLCopen/运行时库元素。活动规则支持术语、数据类型、类型能力、端口约束、位置、优先级和评分条件。
 
-### 7.4 `rankingRules`
+### 7.6 `rankingRules`
 
 用于对已经拓扑合法的触点、线圈、函数和功能块候选进行软排序，不直接改变连接边界。
 `rankingRules` 也必须声明 `priority`。多个规则同时命中同一候选时，只计算最高优先级层；同层规则再累计 `baseScore` 和术语加分。这样通用启动 fallback 不会仅靠分数累加压过更具体的健康许可、复位或锁存规则。
 
-### 7.5 `plannedRules`
+### 7.7 `plannedRules`
 
 记录重要但当前证据或输出能力不足的业务需求。`plannedRules` 不参与运行时匹配，必须写明缺少的能力和当前降级行为。
 
-### 7.6 活动规则字段语义
+### 7.8 活动规则字段语义
 
 | 字段 | 类型 | 执行语义 |
 | --- | --- | --- |
@@ -169,6 +179,9 @@
 | `requiredAllDataTypes` | string[] | 当前 segment 必须同时具有全部指定数据类型。 |
 | `excludedDataTypes` | string[] | 出现任一类型时规则失败。 |
 | `requiredTypeCapabilities` | string[] | 当前局部类型必须满足全部能力；Motion 规则使用 `MOTION_AXIS_REFERENCE`，不直接重复厂商轴类型。 |
+| `signatureRefsAny` | string[] | 至少命中一个引用的活动回路签名；没有该字段的旧库规则继续按原术语和类型条件执行。 |
+| `requiredRolesAll` | string[] | 回路签名在同一推断分组中必须具备的全部变量角色。 |
+| `requiredRoleTypes` | object | 按变量角色校验允许的数据类型，不能用 POU 中无关变量的类型代替。 |
 | `portRequirements` | object[] | 校验候选库元素存在指定输入端口、端口声明类型兼容，并检查必需端口是否有局部可绑定类型或允许创建参数。 |
 | `candidateNames` | string[] | 候选名称；必须能在运行时复制的 `st-library-info-data.json` 中精确查到。 |
 | `allowedModes/Positions` | string[] | 硬约束；当前拓扑候选不在集合中时规则失败。 |
@@ -313,6 +326,8 @@
 - 必须：局部同时存在数值类型以及 SP、PV、MV/输出角色证据，目标库存在 `PID`。
 - 排除：缺少任一角色、单位未知且存在明显混用风险、仅出现 `PID` 名称但无回路变量。
 - 说明：当前只能推荐一个 PID 节点，不能证明参数整定、采样周期或无扰切换正确。
+- 增强路径：`LS01-temperature-pid` 识别同一公共前缀下的 `PV + SP + MV`、逐角色 `REAL/LREAL` 类型、温度证据和 PID 参数/控制器证据；`P02-temperature-pid-signature` 引用该签名推荐库中的 `PID`。
+- 兼容路径：原 `P01-pid-loop` 术语规则暂时保留，确保现有明确的 PID 业务文本不因第一版签名接入而失效。
 
 #### STR01-STR05
 
@@ -380,7 +395,7 @@
 5. 当前 POU 只作为局部证据的增强项。
 6. 拓扑完成度，例如半成品回路优先补输出。
 
-拓扑排序不依赖变量名或业务关键词。选中节点位于并联分支内部且下游存在明确汇合边界时，保留“当前分支内后串联”，同时生成“外侧后串联”；后者在无业务或弱业务上下文中获得额外拓扑分，以便用户退出并联结构。位于并联分支共同前缀、能够同时到达多个分支尾部的节点不应用该提权。
+拓扑排序不依赖变量名或业务关键词。只有选中节点本身是并联分支尾节点，且直接面向多个分支共同的明确汇合边界时，才在保留“当前分支内后串联”的同时生成“外侧后串联”；后者在无业务或弱业务上下文中获得额外拓扑分，以便用户退出并联结构。并联分支的前部、中间节点以及共同前缀节点均不得生成“外侧后串联”。
 
 触点极性遵循以下附加原则：
 

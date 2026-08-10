@@ -9,6 +9,15 @@ import {
   DiagramVariableSummary,
   loadDiagramSummary,
 } from "../diagram/DiagramSummary";
+import {
+  BusinessLoopSignatureConfig,
+  BusinessVariablePatternsConfig,
+  EMPTY_LOOP_SIGNATURES,
+  EMPTY_VARIABLE_PATTERNS,
+  evaluateLoopSignatures,
+  parseLoopSignatures,
+  parseVariablePatterns,
+} from "./BusinessLoopSignatures";
 
 export interface LocalGraphSuggestionOptions {
   segmentId?: string;
@@ -203,6 +212,7 @@ interface BusinessSuggestionContext {
   relatedTerms: Set<BusinessTerm>;
   relatedDataTypes: Set<string>;
   relatedBlockTypes: Set<string>;
+  matchedLoopSignatures: Set<string>;
 }
 
 interface BusinessRulesConfig {
@@ -214,6 +224,8 @@ interface BusinessRulesConfig {
   derivedTerms: BusinessDerivedTermConfig[];
   termImplications: BusinessTermImplicationConfig[];
   termPatterns: BusinessTermPatternConfig[];
+  variablePatterns: BusinessVariablePatternsConfig;
+  loopSignatures: BusinessLoopSignatureConfig[];
   contactPolarityRules: BusinessContactPolarityRuleConfig[];
   libraryRules: BusinessLibraryRuleConfig[];
   rankingRules: BusinessRankingRuleConfig[];
@@ -273,6 +285,7 @@ interface BusinessLibraryRuleConfig {
   requiredAllDataTypes?: string[];
   excludedDataTypes?: string[];
   requiredTypeCapabilities?: string[];
+  signatureRefsAny?: string[];
   portRequirements?: BusinessPortRequirementConfig[];
   candidateNames: string[];
   priority: number;
@@ -399,7 +412,7 @@ const FALLBACK_TERM_IMPLICATIONS: BusinessTermImplicationConfig[] = [
 ];
 
 const FALLBACK_BUSINESS_RULES_CONFIG: BusinessRulesConfig = {
-  schemaVersion: "ide-agent.business-rules.v3",
+  schemaVersion: "ide-agent.business-rules.v4",
   enabled: true,
   defaultBlocks: FALLBACK_COMMON_FUNCTION_BLOCK_TYPES,
   dataTypeGroups: FALLBACK_DATA_TYPE_GROUPS,
@@ -430,6 +443,8 @@ const FALLBACK_BUSINESS_RULES_CONFIG: BusinessRulesConfig = {
     { term: "string", literalPatterns: ["字符串", "字符"], regexPatterns: ["(?:^|[^a-z0-9])w?string(?:$|[^a-z0-9])"] },
     { term: "timer", literalPatterns: ["定时", "延时", "计时", "时间", "超时"], regexPatterns: ["(?:^|[^a-z0-9])(?:timer|time|ton|tof|tp)(?:$|[^a-z0-9])"] },
   ],
+  variablePatterns: EMPTY_VARIABLE_PATTERNS,
+  loopSignatures: EMPTY_LOOP_SIGNATURES,
   contactPolarityRules: [],
   libraryRules: [],
   rankingRules: [],
@@ -469,6 +484,8 @@ function loadBusinessRulesConfig(): BusinessRulesConfig {
     derivedTerms: parseDerivedTerms(record.derivedTerms),
     termImplications: parseTermImplications(record.termImplications),
     termPatterns: parseTermPatterns(record.termPatterns),
+    variablePatterns: parseVariablePatterns(record.variablePatterns),
+    loopSignatures: parseLoopSignatures(record.loopSignatures),
     contactPolarityRules: parseContactPolarityRules(
       record.contactPolarityRules,
     ),
@@ -607,6 +624,7 @@ function parseBusinessRules(value: unknown): BusinessLibraryRuleConfig[] {
       requiredAllDataTypes: stringList(item.requiredAllDataTypes),
       excludedDataTypes: stringList(item.excludedDataTypes),
       requiredTypeCapabilities: stringList(item.requiredTypeCapabilities),
+      signatureRefsAny: stringList(item.signatureRefsAny),
       portRequirements: parsePortRequirements(item.portRequirements),
       candidateNames: stringList(item.candidateNames),
       priority: asOptionalNumberConfig(item.priority) ?? 0,
@@ -1164,6 +1182,15 @@ function matchBusinessRule(
     return [];
   }
 
+  if (
+    rule.signatureRefsAny?.length &&
+    !rule.signatureRefsAny.some((signatureId) =>
+      context.matchedLoopSignatures.has(signatureId),
+    )
+  ) {
+    return [];
+  }
+
   if (rule.termsAny && rule.termsAny.length > 0) {
     const hasAny = rule.termsAny.some((term) => localBusinessTermWeight(context, term) > 0);
     if (!hasAny) {
@@ -1305,6 +1332,11 @@ function buildBusinessSuggestionContext(
         ]
       : [];
   const nearbyTexts = surroundingNodes.flatMap((node) => nodeBusinessTexts(node));
+  const signatureContextTexts = [
+    focus.segment.label,
+    focus.segment.note,
+    ...focus.segment.nodes.flatMap((node) => nodeBusinessTexts(node)),
+  ];
   const segmentTexts = [
     focus.segment.label,
     focus.segment.note,
@@ -1344,9 +1376,20 @@ function buildBusinessSuggestionContext(
   const nearbyTerms = collectBusinessTerms(nearbyTexts);
   const segmentTerms = collectBusinessTerms(segmentTexts);
   const pouTerms = collectBusinessTerms(pouTexts);
+  const signatureContextTerms = collectBusinessTerms(signatureContextTexts);
   addDerivedTerms(focusTerms, focusDataTypes);
   addDerivedTerms(nearbyTerms, nearbyDataTypes);
   addDerivedTerms(segmentTerms, segmentDataTypes);
+  addDerivedTerms(signatureContextTerms, segmentDataTypes);
+  const matchedLoopSignatures = new Set(
+    evaluateLoopSignatures(
+      BUSINESS_RULES_CONFIG.variablePatterns,
+      BUSINESS_RULES_CONFIG.loopSignatures,
+      pouVariables,
+      signatureContextTexts,
+      signatureContextTerms,
+    ).map((match) => match.id),
+  );
   const relatedSegments = findRelatedSegments(
     summary,
     focus.segment,
@@ -1369,6 +1412,7 @@ function buildBusinessSuggestionContext(
   return {
     hasBusinessContext:
       hasLocalBusinessContext ||
+      matchedLoopSignatures.size > 0 ||
       isBusinessBlockType(focusBlockType) ||
       [...segmentBlockTypes].some((value) => isBusinessBlockType(value)),
     hasLocalBusinessContext,
@@ -1387,6 +1431,7 @@ function buildBusinessSuggestionContext(
     relatedTerms,
     relatedDataTypes,
     relatedBlockTypes,
+    matchedLoopSignatures,
   };
 }
 
@@ -3986,10 +4031,10 @@ function findOutsideBehindPlan(
     const branchTailNodes = orderBoundaryDisplayNodes(
       collectNearestDisplayNodes(segment, current.from, "backward"),
     );
-    const reachableBranchTails = branchTailNodes.filter((tailNode) =>
-      canReachNode(segment, anchorNode.id, tailNode.id),
+    const anchorIsBranchTail = branchTailNodes.some(
+      (tailNode) => tailNode.id === anchorNode.id,
     );
-    if (branchTailNodes.length > 1 && reachableBranchTails.length === 1) {
+    if (branchTailNodes.length > 1 && anchorIsBranchTail) {
       const endNodes =
         isRealGraphElementKind(current.kind) ||
         isBoundaryLineKind(current.kind)

@@ -179,20 +179,27 @@ async function assertParallelBranchExitSuggestions() {
     segmentId: "segment-parallel-exit",
     selectedNodeId: "parallel-lower-head",
   });
-  const internalOutsideBehind = findSuggestion(
-    internalResult?.payload?.suggestions ?? [],
-    {
-      position: "outsideBehind",
-      serialOrParallel: "serial",
-      addType: "contact",
-    },
-  );
-  assertSuggestionBoundary(internalOutsideBehind, {
-    startNodes: ["parallel-upper", "parallel-lower-tail"],
-    endNodes: ["parallel-merge"],
-    sourceIds: ["parallel-upper", "parallel-lower-tail"],
-    targetIds: ["parallel-merge"],
+  const internalSuggestions = internalResult?.payload?.suggestions ?? [];
+  const internalBehind = findSuggestion(internalSuggestions, {
+    position: "behind",
+    serialOrParallel: "serial",
+    addType: "contact",
+    startNodes: ["parallel-lower-head"],
+    endNodes: ["parallel-lower-tail"],
   });
+  assertSuggestionBoundary(internalBehind, {
+    startNodes: ["parallel-lower-head"],
+    endNodes: ["parallel-lower-tail"],
+    sourceIds: ["parallel-lower-head"],
+    targetIds: ["parallel-lower-tail"],
+  });
+  assert.equal(
+    internalSuggestions.some(
+      (suggestion) => suggestion.position === "outsideBehind",
+    ),
+    false,
+    "a branch-internal node before the tail must not create an outside-behind suggestion",
+  );
 
   const commonPrefixResult = await getLocalGraphSuggestions({
     diagramPath: fixturePath,
