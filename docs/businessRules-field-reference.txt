@@ -34,7 +34,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 
 表示规则文件的结构版本，例如：
 
-    "schemaVersion": "ide-agent.business-rules.v6"
+    "schemaVersion": "ide-agent.business-rules.v7"
 
 它用于区分配置格式版本，不是规则优先级，也不是候选分数。升级字段结构时应同步升级版本号。
 
@@ -369,7 +369,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 - `id`：签名唯一标识，例如 `LS01-temperature-pid`。
 - `status`：`active` 才参与运行时匹配；`planned` 或其他状态不参与。
 - `kind`：`completion` 表示待补全关系，`observed` 表示从已有功能块端口确认的完整关系；缺省为 `completion`。
-- `groupStrategies`：有序声明允许使用的分组证据；当前支持 `namePrefix` 和 `fbInstancePorts`。旧规则缺省使用 `namePrefix`。
+- `groupStrategies`：有序声明允许使用的分组证据；当前支持 `groupId`、`deviceId`、`namePrefix` 和 `fbInstancePorts`。旧规则缺省使用 `namePrefix`。
 - `requiredRolesAll`：同一推断分组中必须全部存在的角色。
 - `requiredRoleTypes`：按角色限制数据类型。
 - `requiredPhysicalTerms`：必须出现的物理量证据。
@@ -382,6 +382,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 
     {
       "id": "LS01-temperature-pid",
+      "groupStrategies": ["groupId", "namePrefix"],
       "requiredRolesAll": ["processValue", "setpoint", "manipulatedValue"],
       "requiredRoleTypes": {
         "processValue": ["REAL", "LREAL"],
@@ -402,6 +403,14 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 
 这四个变量的公共前缀能够组成同一组，同时具备 PV、SP、MV、温度和 PID 证据，才命中签名。
 缺少 SP、类型是 BOOL、变量属于不同前缀组，或当前区段没有 PID 语义时，都不应通过该签名。
+
+如果以后图数据的 `variableList` 提供可选的 `deviceId`、`groupId`，规则可以优先按显式标识分组。例如：
+
+    { "name": "A101", "type": "REAL", "deviceId": "Tank01", "groupId": "TempLoop", "comment": "实际温度" }
+    { "name": "B205", "type": "REAL", "deviceId": "Tank01", "groupId": "TempLoop", "comment": "目标温度" }
+    { "name": "C310", "type": "REAL", "deviceId": "Tank01", "groupId": "TempLoop", "comment": "调节输出" }
+
+三个变量名称没有公共前缀，但 `deviceId + groupId` 相同，因此可以确定属于同一回路。`groupId` 适合温度、压力等回路级规则；`deviceId` 适合水泵命令、运行反馈、故障等设备级规则。一台设备可能有多套回路，所以回路级规则不能只使用 `deviceId`。同时存在两者时，`groupId` 分组键会包含设备标识，避免不同设备中重名的 `groupId` 被合并。字段不存在或为空时，继续使用后面的分组策略。
 
 `completion` 签名可以继续从规范变量名公共前缀推断分组。`observed` 签名优先使用已有功能块实例的端口绑定，例如同一个 PID 的 PV、SP、XOUT 会得到同一个 `fbInstancePorts` 分组，即使三个变量没有公共名称前缀。
 
@@ -621,7 +630,7 @@ MC_* 的 Axis 端口则要求库定义的端口类型匹配轴引用能力。库
 
 它的意思是：未来如果有设备模型、设备 ID 和信号角色信息，才可以可靠判断“某个启动命令对应哪个运行反馈”；当前没有这些输入，所以不跨设备替用户拼接变量。
 
-plannedRules 不是要求现有 JSON 立刻增加 `groupId` 或 `deviceId`，也不是变量角色解析已经拿到了这些值。
+plannedRules 不要求现有 JSON 必须增加 `groupId` 或 `deviceId`。建议引擎现在可以读取这两个可选字段，但不会自行制造其值；输入没有提供时仍使用功能块端口、变量名称和文字证据。
 
 
 八、四类条件的区别
@@ -673,7 +682,7 @@ plannedRules 不是要求现有 JSON 立刻增加 `groupId` 或 `deviceId`，也
 
 当前文件不能单独完成：
 
-- 设备模型、deviceId、signalRole 的可靠来源。
+- 设备模型以及 deviceId、groupId、signalRole 的可靠外部来源；引擎只能使用输入已经提供的标识。
 - 跨多个节点的一次性完整模板实例化。
 - 状态机、设备 FB 与梯形图之间的所有权判断。
 - 安全功能合规性、风险评估和标准符合性证明。

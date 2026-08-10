@@ -32,6 +32,12 @@ type BusinessVariableTextEvidenceSource = Exclude<
 
 export type BusinessPortDirection = "input" | "output" | "any";
 
+export type BusinessGroupStrategy =
+  | "groupId"
+  | "deviceId"
+  | "namePrefix"
+  | "fbInstancePorts";
+
 export interface BusinessBlockPortRoleConfig {
   port: string;
   direction: BusinessPortDirection;
@@ -85,7 +91,7 @@ export interface BusinessLoopSignatureConfig {
   id: string;
   status: string;
   kind: "completion" | "observed";
-  groupStrategies: Array<"namePrefix" | "fbInstancePorts">;
+  groupStrategies: BusinessGroupStrategy[];
   requiredRolesAll: string[];
   requiredRoleTypes: Record<string, string[]>;
   requiredPhysicalTerms: string[];
@@ -99,7 +105,7 @@ export interface BusinessLoopSignatureMatch {
   id: string;
   kind: BusinessLoopSignatureConfig["kind"];
   groupKey: string;
-  groupStrategy: "namePrefix" | "fbInstancePorts";
+  groupStrategy: BusinessGroupStrategy;
   roleVariables: Record<string, string[]>;
   blockType?: string;
   blockInstance?: string;
@@ -359,7 +365,10 @@ function collectRoleEvidence(
         continue;
       }
 
-      const groupKeys = groupKeysForPattern(name, pattern);
+      const groupKeys = uniqueStrings([
+        ...explicitGroupKeysForVariable(variable),
+        ...groupKeysForPattern(name, pattern),
+      ]);
       addRoleEvidence(evidence, {
         role: pattern.role,
         variable,
@@ -379,7 +388,10 @@ function collectRoleEvidence(
       addRoleEvidence(evidence, {
         role: rule.role,
         variable,
-        groupKeys: groupKeysForVariableName(name),
+        groupKeys: uniqueStrings([
+          ...explicitGroupKeysForVariable(variable),
+          ...groupKeysForVariableName(name),
+        ]),
         physicalTerms,
         score: match.score,
         matchedSources: new Set(match.matchedSources),
@@ -457,7 +469,10 @@ function addBlockPortRoleEvidence(
             addRoleEvidence(evidence, {
               role,
               variable,
-              groupKeys: [instance.groupKey],
+              groupKeys: uniqueStrings([
+                instance.groupKey,
+                ...explicitGroupKeysForVariable(variable),
+              ]),
               physicalTerms,
               score: portRule.score,
               matchedSources: new Set(["port"]),
@@ -631,9 +646,38 @@ function findMatchingGroups(
     if (strategyMatches.length > 0) {
       return strategyMatches;
     }
+    if (
+      (strategy === "groupId" || strategy === "deviceId") &&
+      hasConflictingRequiredRoleGroups(signature, evidence, strategy)
+    ) {
+      return [];
+    }
   }
 
   return [];
+}
+
+function hasConflictingRequiredRoleGroups(
+  signature: BusinessLoopSignatureConfig,
+  evidence: RoleEvidence[],
+  strategy: "groupId" | "deviceId",
+): boolean {
+  const groupsByRole = signature.requiredRolesAll.map((role) =>
+    new Set(
+      evidence
+        .filter((item) => item.role === role)
+        .flatMap((item) => item.groupKeys)
+        .filter((groupKey) => groupStrategyForKey(groupKey) === strategy),
+    ),
+  );
+  if (groupsByRole.some((groups) => groups.size === 0)) {
+    return false;
+  }
+
+  const [firstGroups, ...remainingGroups] = groupsByRole;
+  return ![...firstGroups].some((groupKey) =>
+    remainingGroups.every((groups) => groups.has(groupKey)),
+  );
 }
 
 function hasPhysicalEvidence(
@@ -685,6 +729,26 @@ function groupKeysForPattern(
 
 function groupKeysForVariableName(name: string): string[] {
   return groupKeysForStem(name);
+}
+
+function explicitGroupKeysForVariable(
+  variable: DiagramVariableSummary,
+): string[] {
+  const deviceId = normalizeOptionalGroupComponent(variable.deviceId);
+  const groupId = normalizeOptionalGroupComponent(variable.groupId);
+  const keys: string[] = [];
+
+  if (groupId) {
+    keys.push(
+      deviceId
+        ? `group:device:${deviceId}:id:${groupId}`
+        : `group:id:${groupId}`,
+    );
+  }
+  if (deviceId) {
+    keys.push(`device:id:${deviceId}`);
+  }
+  return keys;
 }
 
 function groupKeysForStem(stem: string): string[] {
@@ -858,7 +922,18 @@ function parseGroupStrategies(
       case "fbinstanceports":
         return ["fbInstancePorts" as const];
       case "any":
-        return ["fbInstancePorts" as const, "namePrefix" as const];
+        return [
+          "fbInstancePorts" as const,
+          "groupId" as const,
+          "deviceId" as const,
+          "namePrefix" as const,
+        ];
+      case "explicitid":
+        return ["groupId" as const, "deviceId" as const];
+      case "groupid":
+        return ["groupId" as const];
+      case "deviceid":
+        return ["deviceId" as const];
       case "nameprefix":
         return ["namePrefix" as const];
       default:
@@ -940,9 +1015,22 @@ function normalizeGroupComponent(value: string): string {
     .replace(/^_+|_+$/g, "") || "unknown";
 }
 
+function normalizeOptionalGroupComponent(value: unknown): string {
+  const normalized = normalizeText(value)
+    .replace(/[^a-z0-9\u0080-\uFFFF]+/gu, "_")
+    .replace(/^_+|_+$/g, "");
+  return normalized;
+}
+
 function groupStrategyForKey(
   groupKey: string,
-): "namePrefix" | "fbInstancePorts" {
+): BusinessGroupStrategy {
+  if (groupKey.startsWith("group:")) {
+    return "groupId";
+  }
+  if (groupKey.startsWith("device:")) {
+    return "deviceId";
+  }
   return groupKey.startsWith("fb:") ? "fbInstancePorts" : "namePrefix";
 }
 

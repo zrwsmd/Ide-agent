@@ -53,6 +53,7 @@ const libraryElements = new Map(
 async function main() {
   assertActiveRuleCandidatesExistInLibrary();
   assertVariableRoleEvidenceCases();
+  assertExplicitIdGroupingCases();
   assertBlockPortRoleCases();
   await assertStableBusinessCases();
   await assertLoopSignatureCases();
@@ -62,7 +63,7 @@ async function main() {
 
 function assertActiveRuleCandidatesExistInLibrary() {
   const rules = JSON.parse(fs.readFileSync(rulesPath, "utf8"));
-  assert.equal(rules.schemaVersion, "ide-agent.business-rules.v6");
+  assert.equal(rules.schemaVersion, "ide-agent.business-rules.v7");
   assert.ok(rules.dataTypeGroups.NUMERIC.includes("LREAL"));
   assert.ok(rules.dataTypeGroups.INTEGER.includes("UDINT"));
   assert.ok(
@@ -442,6 +443,117 @@ function assertVariableRoleEvidenceCases() {
     singleSourceMatch?.score,
     5,
     "multiple synonyms in the same field must not stack evidence",
+  );
+}
+
+function assertExplicitIdGroupingCases() {
+  const rules = JSON.parse(fs.readFileSync(rulesPath, "utf8"));
+  const variablePatterns = parseVariablePatterns(rules.variablePatterns);
+  const loopSignatures = parseLoopSignatures(rules.loopSignatures);
+  const explicitVariables = [
+    {
+      name: "Actual_Reading",
+      type: "REAL",
+      scope: "VAR",
+      deviceId: "Tank-01",
+      groupId: "Temperature-Control",
+      comment: "temperature actual value",
+    },
+    {
+      name: "Target_Command",
+      type: "REAL",
+      scope: "VAR",
+      deviceId: "Tank-01",
+      groupId: "Temperature-Control",
+      comment: "temperature target value",
+    },
+    {
+      name: "Valve_Demand",
+      type: "REAL",
+      scope: "VAR",
+      deviceId: "Tank-01",
+      groupId: "Temperature-Control",
+      comment: "temperature control output",
+    },
+    {
+      name: "Controller_Kp",
+      type: "REAL",
+      scope: "VAR",
+      deviceId: "Tank-01",
+      groupId: "Temperature-Control",
+      comment: "PID gain",
+    },
+  ];
+  const summary = summarizeDiagramJson(
+    [
+      {
+        pouName: "EXPLICIT_GROUP_TEST",
+        pouType: "PROGRAM",
+        variableList: explicitVariables,
+        segmentList: [],
+      },
+    ],
+    "memory://explicit-group-test",
+  );
+  const variables = summary.variablesByPou.EXPLICIT_GROUP_TEST;
+  assert.equal(variables[0].deviceId, "Tank-01");
+  assert.equal(variables[0].groupId, "Temperature-Control");
+
+  const expectedGroupKey =
+    "group:device:tank_01:id:temperature_control";
+  const expectedDeviceKey = "device:id:tank_01";
+  const roleMatches = evaluateVariableRoles(variablePatterns, variables);
+  for (const variableName of [
+    "Actual_Reading",
+    "Target_Command",
+    "Valve_Demand",
+    "Controller_Kp",
+  ]) {
+    assert.ok(
+      roleMatches
+        .filter((match) => match.variableName === variableName)
+        .some(
+          (match) =>
+            match.groupKeys.includes(expectedGroupKey) &&
+            match.groupKeys.includes(expectedDeviceKey),
+        ),
+      `${variableName} should retain separate device and loop groups`,
+    );
+  }
+
+  const explicitMatches = evaluateLoopSignatures(
+    variablePatterns,
+    loopSignatures,
+    variables,
+    ["Tank temperature PID loop"],
+    new Set(["pid"]),
+  ).filter((match) => match.id === "LS01-temperature-pid");
+  assert.equal(explicitMatches.length, 1);
+  assert.equal(explicitMatches[0].groupStrategy, "groupId");
+  assert.equal(explicitMatches[0].groupKey, expectedGroupKey);
+
+  const sharedPrefixNames = [
+    "Shared_Loop_PV",
+    "Shared_Loop_SP",
+    "Shared_Loop_MV",
+    "Shared_Loop_Kp",
+  ];
+  const splitGroupVariables = explicitVariables.map((variable, index) => ({
+    ...variable,
+    name: sharedPrefixNames[index],
+    groupId: index === 1 ? "Temperature-Control-B" : variable.groupId,
+  }));
+  const splitGroupMatches = evaluateLoopSignatures(
+    variablePatterns,
+    loopSignatures,
+    splitGroupVariables,
+    ["Tank temperature PID loop"],
+    new Set(["pid"]),
+  ).filter((match) => match.id === "LS01-temperature-pid");
+  assert.equal(
+    splitGroupMatches.length,
+    0,
+    "conflicting groupId values must override a shared name prefix",
   );
 }
 

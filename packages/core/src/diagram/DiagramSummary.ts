@@ -7,6 +7,8 @@ export interface DiagramVariableSummary {
   name: string;
   type: string;
   scope: string;
+  deviceId?: string;
+  groupId?: string;
   label?: string;
   note?: string;
   comment?: string;
@@ -145,6 +147,8 @@ function summarizeVariables(value: unknown): DiagramVariableSummary[] {
         name: asString(item.name) || asString(item.value),
         type: asString(item.type),
         scope: asString(item.scope),
+        deviceId: asIdentifier(item.deviceId),
+        groupId: asIdentifier(item.groupId),
         label: asString(item.label),
         note: asString(item.note),
         comment: asString(item.comment),
@@ -349,6 +353,16 @@ function asArray(value: unknown): unknown[] {
 
 function asString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function asIdentifier(value: unknown): string | undefined {
+  if (typeof value === "string") {
+    return value.trim() || undefined;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+  return undefined;
 }
 
 function asBoolean(value: unknown): boolean {

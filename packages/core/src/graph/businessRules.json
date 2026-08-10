@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "ide-agent.business-rules.v6",
+  "schemaVersion": "ide-agent.business-rules.v7",
   "enabled": true,
   "defaultBlocks": ["TON", "TOF", "TP", "R_TRIG", "F_TRIG", "CTU", "CTD", "CTUD", "SR", "RS"],
   "dataTypeGroups": {
@@ -318,6 +318,7 @@
     {
       "id": "LS01-temperature-pid",
       "status": "active",
+      "groupStrategies": ["groupId", "namePrefix"],
       "requiredRolesAll": ["processValue", "setpoint", "manipulatedValue"],
       "requiredRoleTypes": {
         "processValue": ["REAL", "LREAL"],
