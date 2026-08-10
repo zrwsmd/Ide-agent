@@ -1,4 +1,8 @@
-import { DiagramVariableSummary } from "../diagram/DiagramSummary";
+import {
+  DiagramPortSummary,
+  DiagramSegmentSummary,
+  DiagramVariableSummary,
+} from "../diagram/DiagramSummary";
 
 export interface BusinessVariableRolePattern {
   prefix?: string;
@@ -18,10 +22,44 @@ export type BusinessVariableEvidenceSource =
   | "name"
   | "label"
   | "note"
-  | "comment";
+  | "comment"
+  | "port";
+
+type BusinessVariableTextEvidenceSource = Exclude<
+  BusinessVariableEvidenceSource,
+  "port"
+>;
+
+export type BusinessPortDirection = "input" | "output" | "any";
+
+export interface BusinessBlockPortRoleConfig {
+  port: string;
+  direction: BusinessPortDirection;
+  roles: string[];
+  acceptedDataTypes: string[];
+  score: number;
+}
+
+export interface BusinessBlockPortRoleRuleConfig {
+  id: string;
+  status: string;
+  blockTypes: string[];
+  ports: BusinessBlockPortRoleConfig[];
+}
+
+export interface BusinessBlockInstanceSummary {
+  groupKey: string;
+  nodeId: string;
+  segmentId: string;
+  pouName: string;
+  blockType: string;
+  instance: string;
+  isFunction: boolean;
+  ports: DiagramPortSummary[];
+}
 
 export interface BusinessVariableRoleEvidenceSourceConfig {
-  source: BusinessVariableEvidenceSource;
+  source: BusinessVariableTextEvidenceSource;
   literalPatterns: string[];
   regexPatterns: string[];
   score: number;
@@ -46,17 +84,27 @@ export interface BusinessVariablePatternsConfig {
 export interface BusinessLoopSignatureConfig {
   id: string;
   status: string;
+  kind: "completion" | "observed";
+  groupStrategies: Array<"namePrefix" | "fbInstancePorts">;
   requiredRolesAll: string[];
   requiredRoleTypes: Record<string, string[]>;
   requiredPhysicalTerms: string[];
   evidenceRolesAny: string[];
   evidenceTermsAny: string[];
+  evidenceBlockTypesAny: string[];
+  targetBlockTypes: string[];
 }
 
 export interface BusinessLoopSignatureMatch {
   id: string;
+  kind: BusinessLoopSignatureConfig["kind"];
   groupKey: string;
+  groupStrategy: "namePrefix" | "fbInstancePorts";
   roleVariables: Record<string, string[]>;
+  blockType?: string;
+  blockInstance?: string;
+  blockNodeId?: string;
+  targetBlockTypes: string[];
 }
 
 export interface BusinessVariableRoleMatch {
@@ -76,6 +124,7 @@ export const EMPTY_VARIABLE_PATTERNS: BusinessVariablePatternsConfig = {
 };
 
 export const EMPTY_LOOP_SIGNATURES: BusinessLoopSignatureConfig[] = [];
+export const EMPTY_BLOCK_PORT_ROLE_RULES: BusinessBlockPortRoleRuleConfig[] = [];
 
 export function parseVariablePatterns(
   value: unknown,
@@ -106,11 +155,17 @@ export function parseLoopSignatures(
     .map((item) => ({
       id: asString(item.id),
       status: asString(item.status) || "active",
+      kind: parseSignatureKind(item.kind),
+      groupStrategies: parseGroupStrategies(
+        item.groupStrategies ?? item.groupBy,
+      ),
       requiredRolesAll: stringList(item.requiredRolesAll),
       requiredRoleTypes: parseStringListRecord(item.requiredRoleTypes),
       requiredPhysicalTerms: stringList(item.requiredPhysicalTerms),
       evidenceRolesAny: stringList(item.evidenceRolesAny),
       evidenceTermsAny: stringList(item.evidenceTermsAny),
+      evidenceBlockTypesAny: stringList(item.evidenceBlockTypesAny),
+      targetBlockTypes: stringList(item.targetBlockTypes),
     }))
     .filter(
       (item) =>
@@ -120,14 +175,77 @@ export function parseLoopSignatures(
     );
 }
 
+export function parseBlockPortRoleRules(
+  value: unknown,
+): BusinessBlockPortRoleRuleConfig[] {
+  if (!Array.isArray(value)) {
+    return EMPTY_BLOCK_PORT_ROLE_RULES;
+  }
+
+  return value
+    .map(asRecord)
+    .filter((item): item is Record<string, unknown> => Boolean(item))
+    .map((item): BusinessBlockPortRoleRuleConfig => ({
+      id: asString(item.id),
+      status: asString(item.status) || "active",
+      blockTypes: stringList(item.blockTypes),
+      ports: parseBlockPortRoles(item.ports),
+    }))
+    .filter(
+      (item) =>
+        item.id &&
+        item.status.toLowerCase() === "active" &&
+        item.blockTypes.length > 0 &&
+        item.ports.length > 0,
+    );
+}
+
+export function collectBlockInstances(
+  segments: DiagramSegmentSummary[],
+): BusinessBlockInstanceSummary[] {
+  return segments.flatMap((segment) =>
+    segment.nodes.flatMap((node) => {
+      const blockType = String(node.blockType ?? "").trim();
+      if (node.kind !== "FBDCompartment" || !blockType) {
+        return [];
+      }
+
+      const inputPorts = node.inputPorts ?? portsFromValues(node.inputs, "input");
+      const outputPorts = node.outputPorts ?? portsFromValues(node.outputs, "output");
+      return [
+        {
+          groupKey: blockInstanceGroupKey(segment, node.id),
+          nodeId: node.id,
+          segmentId: segment.segmentId,
+          pouName: String(segment.pouName ?? ""),
+          blockType,
+          instance: String(node.instance ?? ""),
+          isFunction: Boolean(node.isFunction),
+          ports: [...inputPorts, ...outputPorts],
+        },
+      ];
+    }),
+  );
+}
+
 export function evaluateLoopSignatures(
   variablePatterns: BusinessVariablePatternsConfig,
   signatures: BusinessLoopSignatureConfig[],
   variables: DiagramVariableSummary[],
   contextTexts: Array<string | undefined>,
   contextTerms: Set<string>,
+  blockPortRoleRules: BusinessBlockPortRoleRuleConfig[] = [],
+  blockInstances: BusinessBlockInstanceSummary[] = [],
 ): BusinessLoopSignatureMatch[] {
-  const evidence = collectRoleEvidence(variablePatterns, variables);
+  const evidence = collectRoleEvidence(
+    variablePatterns,
+    variables,
+    blockPortRoleRules,
+    blockInstances,
+  );
+  const blockInstancesByGroup = new Map(
+    blockInstances.map((instance) => [instance.groupKey, instance]),
+  );
   const contextPhysicalTerms = new Set(
     variablePatterns.physicalTerms
       .filter((pattern) =>
@@ -140,27 +258,40 @@ export function evaluateLoopSignatures(
   const matches: BusinessLoopSignatureMatch[] = [];
 
   for (const signature of signatures) {
-    const groupKey = findMatchingGroup(
+    const groupKeys = findMatchingGroups(
       signature,
       evidence,
       contextPhysicalTerms,
       contextTerms,
+      blockInstancesByGroup,
     );
-    if (!groupKey) {
-      continue;
+    for (const groupKey of groupKeys) {
+      const blockInstance = blockInstancesByGroup.get(groupKey);
+      const roleVariables = Object.fromEntries(
+        signature.requiredRolesAll.map((role) => [
+          role,
+          uniqueStrings(
+            evidence
+              .filter(
+                (item) =>
+                  item.role === role && item.groupKeys.includes(groupKey),
+              )
+              .map((item) => item.variable.name),
+          ),
+        ]),
+      );
+      matches.push({
+        id: signature.id,
+        kind: signature.kind,
+        groupKey,
+        groupStrategy: groupStrategyForKey(groupKey),
+        roleVariables,
+        blockType: blockInstance?.blockType,
+        blockInstance: blockInstance?.instance,
+        blockNodeId: blockInstance?.nodeId,
+        targetBlockTypes: [...signature.targetBlockTypes],
+      });
     }
-
-    const roleVariables = Object.fromEntries(
-      signature.requiredRolesAll.map((role) => [
-        role,
-        evidence
-          .filter(
-            (item) => item.role === role && item.groupKeys.includes(groupKey),
-          )
-          .map((item) => item.variable.name),
-      ]),
-    );
-    matches.push({ id: signature.id, groupKey, roleVariables });
   }
 
   return matches;
@@ -169,8 +300,15 @@ export function evaluateLoopSignatures(
 export function evaluateVariableRoles(
   variablePatterns: BusinessVariablePatternsConfig,
   variables: DiagramVariableSummary[],
+  blockPortRoleRules: BusinessBlockPortRoleRuleConfig[] = [],
+  blockInstances: BusinessBlockInstanceSummary[] = [],
 ): BusinessVariableRoleMatch[] {
-  return collectRoleEvidence(variablePatterns, variables).map((item) => ({
+  return collectRoleEvidence(
+    variablePatterns,
+    variables,
+    blockPortRoleRules,
+    blockInstances,
+  ).map((item) => ({
     variableName: item.variable.name,
     dataType: item.variable.type,
     role: item.role,
@@ -192,6 +330,8 @@ interface RoleEvidence {
 function collectRoleEvidence(
   variablePatterns: BusinessVariablePatternsConfig,
   variables: DiagramVariableSummary[],
+  blockPortRoleRules: BusinessBlockPortRoleRuleConfig[] = [],
+  blockInstances: BusinessBlockInstanceSummary[] = [],
 ): RoleEvidence[] {
   const evidence: RoleEvidence[] = [];
 
@@ -247,7 +387,86 @@ function collectRoleEvidence(
     }
   }
 
+  addBlockPortRoleEvidence(
+    evidence,
+    variablePatterns,
+    variables,
+    blockPortRoleRules,
+    blockInstances,
+  );
+
   return evidence;
+}
+
+function addBlockPortRoleEvidence(
+  evidence: RoleEvidence[],
+  variablePatterns: BusinessVariablePatternsConfig,
+  variables: DiagramVariableSummary[],
+  rules: BusinessBlockPortRoleRuleConfig[],
+  instances: BusinessBlockInstanceSummary[],
+): void {
+  const variablesByName = new Map(
+    variables.map((variable) => [normalizeIdentifier(variable.name), variable]),
+  );
+
+  for (const instance of instances) {
+    const matchingRules = rules.filter((rule) =>
+      rule.blockTypes.some(
+        (blockType) =>
+          normalizeIdentifier(blockType) ===
+          normalizeIdentifier(instance.blockType),
+      ),
+    );
+    for (const rule of matchingRules) {
+      for (const portRule of rule.ports) {
+        const ports = instance.ports.filter(
+          (port) =>
+            normalizeIdentifier(port.name) ===
+              normalizeIdentifier(portRule.port) &&
+            (portRule.direction === "any" ||
+              port.direction === portRule.direction),
+        );
+        for (const port of ports) {
+          if (!isVariableReference(port.value)) {
+            continue;
+          }
+
+          const declaredVariable = variablesByName.get(
+            normalizeIdentifier(port.value),
+          );
+          const variable = declaredVariable
+            ? {
+                ...declaredVariable,
+                type: declaredVariable.type || port.type,
+                scope: declaredVariable.scope || port.scope || "VAR",
+              }
+            : variableFromPort(port);
+          const dataType = variable.type;
+          if (
+            portRule.acceptedDataTypes.length > 0 &&
+            !hasAcceptedDataType(dataType, portRule.acceptedDataTypes)
+          ) {
+            continue;
+          }
+
+          const physicalTerms = physicalTermsForVariable(
+            variablePatterns,
+            variable,
+          );
+          for (const role of portRule.roles) {
+            addRoleEvidence(evidence, {
+              role,
+              variable,
+              groupKeys: [instance.groupKey],
+              physicalTerms,
+              score: portRule.score,
+              matchedSources: new Set(["port"]),
+            });
+          }
+        }
+      }
+    }
+  }
 }
 
 function addRoleEvidence(
@@ -322,14 +541,19 @@ function matchRoleEvidenceRule(
   return { score, matchedSources: [...scoreBySource.keys()] };
 }
 
-function findMatchingGroup(
+function findMatchingGroups(
   signature: BusinessLoopSignatureConfig,
   evidence: RoleEvidence[],
   contextPhysicalTerms: Set<string>,
   contextTerms: Set<string>,
-): string | undefined {
+  blockInstancesByGroup: Map<string, BusinessBlockInstanceSummary>,
+): string[] {
   const candidateGroups = new Set(
-    evidence.flatMap((item) => item.groupKeys),
+    evidence
+      .flatMap((item) => item.groupKeys)
+      .filter((groupKey) =>
+        signature.groupStrategies.includes(groupStrategyForKey(groupKey)),
+      ),
   );
 
   const matchingGroups = [...candidateGroups].filter((groupKey) => {
@@ -369,7 +593,9 @@ function findMatchingGroup(
     if (
       signature.evidenceRolesAny.length > 0 &&
       !signature.evidenceRolesAny.some((role) =>
-        evidence.some((item) => item.role === role),
+        evidence.some(
+          (item) => item.role === role && item.groupKeys.includes(groupKey),
+        ),
       )
     ) {
       return false;
@@ -382,10 +608,32 @@ function findMatchingGroup(
       return false;
     }
 
+    if (signature.evidenceBlockTypesAny.length > 0) {
+      const blockType = blockInstancesByGroup.get(groupKey)?.blockType;
+      if (
+        !blockType ||
+        !signature.evidenceBlockTypesAny.some(
+          (candidate) =>
+            normalizeIdentifier(candidate) === normalizeIdentifier(blockType),
+        )
+      ) {
+        return false;
+      }
+    }
+
     return true;
   });
 
-  return matchingGroups.sort((left, right) => right.length - left.length)[0];
+  for (const strategy of signature.groupStrategies) {
+    const strategyMatches = matchingGroups
+      .filter((groupKey) => groupStrategyForKey(groupKey) === strategy)
+      .sort((left, right) => left.localeCompare(right));
+    if (strategyMatches.length > 0) {
+      return strategyMatches;
+    }
+  }
+
+  return [];
 }
 
 function hasPhysicalEvidence(
@@ -555,8 +803,69 @@ function parseRoleEvidenceSources(
 
 function isVariableEvidenceSource(
   value: string,
-): value is BusinessVariableEvidenceSource {
+): value is BusinessVariableTextEvidenceSource {
   return ["name", "label", "note", "comment"].includes(value);
+}
+
+function parseBlockPortRoles(value: unknown): BusinessBlockPortRoleConfig[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map(asRecord)
+    .filter((item): item is Record<string, unknown> => Boolean(item))
+    .map((item): BusinessBlockPortRoleConfig => ({
+      port: asString(item.port),
+      direction: parsePortDirection(item.direction),
+      roles: uniqueStrings([
+        ...stringList(item.roles),
+        ...stringList(
+          typeof item.role === "string" ? [item.role] : undefined,
+        ),
+      ]),
+      acceptedDataTypes: stringList(item.acceptedDataTypes),
+      score: asPositiveNumber(item.score, 100),
+    }))
+    .filter((item) => item.port && item.roles.length > 0);
+}
+
+function parsePortDirection(value: unknown): BusinessPortDirection {
+  const normalized = asString(value).toLowerCase();
+  return normalized === "input" || normalized === "output"
+    ? normalized
+    : "any";
+}
+
+function parseSignatureKind(
+  value: unknown,
+): BusinessLoopSignatureConfig["kind"] {
+  return asString(value).toLowerCase() === "observed"
+    ? "observed"
+    : "completion";
+}
+
+function parseGroupStrategies(
+  value: unknown,
+): BusinessLoopSignatureConfig["groupStrategies"] {
+  const rawValues = Array.isArray(value)
+    ? stringList(value)
+    : typeof value === "string"
+      ? [value.trim()]
+      : [];
+  const parsed = rawValues.flatMap((item) => {
+    switch (item.trim().toLowerCase()) {
+      case "fbinstanceports":
+        return ["fbInstancePorts" as const];
+      case "any":
+        return ["fbInstancePorts" as const, "namePrefix" as const];
+      case "nameprefix":
+        return ["namePrefix" as const];
+      default:
+        return [];
+    }
+  });
+  return parsed.length > 0 ? [...new Set(parsed)] : ["namePrefix"];
 }
 
 function parsePhysicalPatterns(value: unknown): BusinessPhysicalPattern[] {
@@ -597,6 +906,84 @@ function hasAcceptedDataType(type: string, acceptedTypes: string[]): boolean {
   return acceptedTypes.some(
     (acceptedType) =>
       normalizeText(acceptedType).toUpperCase() === normalizedType,
+  );
+}
+
+function portsFromValues(
+  values: Record<string, string> | undefined,
+  direction: DiagramPortSummary["direction"],
+): DiagramPortSummary[] {
+  return Object.entries(values ?? {}).map(([name, value]) => ({
+    name,
+    value,
+    type: "",
+    scope: "",
+    direction,
+  }));
+}
+
+function blockInstanceGroupKey(
+  segment: DiagramSegmentSummary,
+  nodeId: string,
+): string {
+  return [
+    "fb",
+    normalizeGroupComponent(segment.pouName || "pou"),
+    normalizeGroupComponent(segment.segmentId),
+    normalizeGroupComponent(nodeId),
+  ].join(":");
+}
+
+function normalizeGroupComponent(value: string): string {
+  return normalizeText(value)
+    .replace(/[^a-z0-9\u0080-\uFFFF]+/gu, "_")
+    .replace(/^_+|_+$/g, "") || "unknown";
+}
+
+function groupStrategyForKey(
+  groupKey: string,
+): "namePrefix" | "fbInstancePorts" {
+  return groupKey.startsWith("fb:") ? "fbInstancePorts" : "namePrefix";
+}
+
+function normalizeIdentifier(value: unknown): string {
+  return String(value ?? "").trim().toUpperCase();
+}
+
+function isVariableReference(value: string): boolean {
+  const trimmed = value.trim();
+  return (
+    Boolean(trimmed) &&
+    trimmed !== "???" &&
+    /^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$/.test(trimmed) &&
+    !["TRUE", "FALSE", "NULL"].includes(trimmed.toUpperCase())
+  );
+}
+
+function variableFromPort(port: DiagramPortSummary): DiagramVariableSummary {
+  return {
+    name: port.value.trim(),
+    type: port.type,
+    scope: port.scope || "VAR",
+  };
+}
+
+function physicalTermsForVariable(
+  variablePatterns: BusinessVariablePatternsConfig,
+  variable: DiagramVariableSummary,
+): Set<string> {
+  const texts = [
+    variable.name,
+    variable.label,
+    variable.note,
+    variable.comment,
+  ].map((value) => String(value ?? ""));
+  return new Set(
+    variablePatterns.physicalTerms
+      .filter((pattern) =>
+        texts.some((text) => matchesPhysicalPattern(text, pattern)),
+      )
+      .map((pattern) => pattern.physical),
   );
 }
 

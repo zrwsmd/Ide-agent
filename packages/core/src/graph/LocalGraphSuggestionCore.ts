@@ -10,11 +10,15 @@ import {
   loadDiagramSummary,
 } from "../diagram/DiagramSummary";
 import {
+  BusinessBlockPortRoleRuleConfig,
   BusinessLoopSignatureConfig,
   BusinessVariablePatternsConfig,
+  EMPTY_BLOCK_PORT_ROLE_RULES,
   EMPTY_LOOP_SIGNATURES,
   EMPTY_VARIABLE_PATTERNS,
+  collectBlockInstances,
   evaluateLoopSignatures,
+  parseBlockPortRoleRules,
   parseLoopSignatures,
   parseVariablePatterns,
 } from "./BusinessLoopSignatures";
@@ -213,6 +217,7 @@ interface BusinessSuggestionContext {
   relatedDataTypes: Set<string>;
   relatedBlockTypes: Set<string>;
   matchedLoopSignatures: Set<string>;
+  observedLoopBlockTypes: Set<string>;
 }
 
 interface BusinessRulesConfig {
@@ -225,6 +230,7 @@ interface BusinessRulesConfig {
   termImplications: BusinessTermImplicationConfig[];
   termPatterns: BusinessTermPatternConfig[];
   variablePatterns: BusinessVariablePatternsConfig;
+  blockPortRoleRules: BusinessBlockPortRoleRuleConfig[];
   loopSignatures: BusinessLoopSignatureConfig[];
   contactPolarityRules: BusinessContactPolarityRuleConfig[];
   libraryRules: BusinessLibraryRuleConfig[];
@@ -286,6 +292,7 @@ interface BusinessLibraryRuleConfig {
   excludedDataTypes?: string[];
   requiredTypeCapabilities?: string[];
   signatureRefsAny?: string[];
+  excludedExistingBlockTypes?: string[];
   portRequirements?: BusinessPortRequirementConfig[];
   candidateNames: string[];
   priority: number;
@@ -412,7 +419,7 @@ const FALLBACK_TERM_IMPLICATIONS: BusinessTermImplicationConfig[] = [
 ];
 
 const FALLBACK_BUSINESS_RULES_CONFIG: BusinessRulesConfig = {
-  schemaVersion: "ide-agent.business-rules.v5",
+  schemaVersion: "ide-agent.business-rules.v6",
   enabled: true,
   defaultBlocks: FALLBACK_COMMON_FUNCTION_BLOCK_TYPES,
   dataTypeGroups: FALLBACK_DATA_TYPE_GROUPS,
@@ -444,6 +451,7 @@ const FALLBACK_BUSINESS_RULES_CONFIG: BusinessRulesConfig = {
     { term: "timer", literalPatterns: ["定时", "延时", "计时", "时间", "超时"], regexPatterns: ["(?:^|[^a-z0-9])(?:timer|time|ton|tof|tp)(?:$|[^a-z0-9])"] },
   ],
   variablePatterns: EMPTY_VARIABLE_PATTERNS,
+  blockPortRoleRules: EMPTY_BLOCK_PORT_ROLE_RULES,
   loopSignatures: EMPTY_LOOP_SIGNATURES,
   contactPolarityRules: [],
   libraryRules: [],
@@ -485,6 +493,7 @@ function loadBusinessRulesConfig(): BusinessRulesConfig {
     termImplications: parseTermImplications(record.termImplications),
     termPatterns: parseTermPatterns(record.termPatterns),
     variablePatterns: parseVariablePatterns(record.variablePatterns),
+    blockPortRoleRules: parseBlockPortRoleRules(record.blockPortRoleRules),
     loopSignatures: parseLoopSignatures(record.loopSignatures),
     contactPolarityRules: parseContactPolarityRules(
       record.contactPolarityRules,
@@ -625,6 +634,9 @@ function parseBusinessRules(value: unknown): BusinessLibraryRuleConfig[] {
       excludedDataTypes: stringList(item.excludedDataTypes),
       requiredTypeCapabilities: stringList(item.requiredTypeCapabilities),
       signatureRefsAny: stringList(item.signatureRefsAny),
+      excludedExistingBlockTypes: stringList(
+        item.excludedExistingBlockTypes,
+      ),
       portRequirements: parsePortRequirements(item.portRequirements),
       candidateNames: stringList(item.candidateNames),
       priority: asOptionalNumberConfig(item.priority) ?? 0,
@@ -1191,6 +1203,15 @@ function matchBusinessRule(
     return [];
   }
 
+  if (
+    rule.excludedExistingBlockTypes?.some(
+      (blockType) =>
+        context.segmentBlockTypes.has(normalizeBlockType(blockType)),
+    )
+  ) {
+    return [];
+  }
+
   if (rule.termsAny && rule.termsAny.length > 0) {
     const hasAny = rule.termsAny.some((term) => localBusinessTermWeight(context, term) > 0);
     if (!hasAny) {
@@ -1248,6 +1269,9 @@ function matchBusinessRule(
     const libraryElement = getLibraryElement(candidateName);
     if (
       !libraryElement ||
+      context.observedLoopBlockTypes.has(
+        normalizeBlockType(libraryElement.name),
+      ) ||
       !matchesPortRequirements(
         rule.portRequirements ?? [],
         libraryElement,
@@ -1332,11 +1356,6 @@ function buildBusinessSuggestionContext(
         ]
       : [];
   const nearbyTexts = surroundingNodes.flatMap((node) => nodeBusinessTexts(node));
-  const signatureContextTexts = [
-    focus.segment.label,
-    focus.segment.note,
-    ...focus.segment.nodes.flatMap((node) => nodeBusinessTexts(node)),
-  ];
   const segmentTexts = [
     focus.segment.label,
     focus.segment.note,
@@ -1376,20 +1395,9 @@ function buildBusinessSuggestionContext(
   const nearbyTerms = collectBusinessTerms(nearbyTexts);
   const segmentTerms = collectBusinessTerms(segmentTexts);
   const pouTerms = collectBusinessTerms(pouTexts);
-  const signatureContextTerms = collectBusinessTerms(signatureContextTexts);
   addDerivedTerms(focusTerms, focusDataTypes);
   addDerivedTerms(nearbyTerms, nearbyDataTypes);
   addDerivedTerms(segmentTerms, segmentDataTypes);
-  addDerivedTerms(signatureContextTerms, segmentDataTypes);
-  const matchedLoopSignatures = new Set(
-    evaluateLoopSignatures(
-      BUSINESS_RULES_CONFIG.variablePatterns,
-      BUSINESS_RULES_CONFIG.loopSignatures,
-      pouVariables,
-      signatureContextTexts,
-      signatureContextTerms,
-    ).map((match) => match.id),
-  );
   const relatedSegments = findRelatedSegments(
     summary,
     focus.segment,
@@ -1404,6 +1412,38 @@ function buildBusinessSuggestionContext(
   const relatedBlockTypes = new Set(
     relatedSegments.flatMap((item) => [...item.blockTypes]),
   );
+  const signatureContextTexts = [
+    focus.segment.label,
+    focus.segment.note,
+    ...focus.segment.nodes.flatMap((node) => nodeBusinessTexts(node)),
+  ];
+  const signatureContextTerms = collectBusinessTerms(signatureContextTexts);
+  addDerivedTerms(signatureContextTerms, segmentDataTypes);
+  const signatureMatches = evaluateLoopSignatures(
+    BUSINESS_RULES_CONFIG.variablePatterns,
+    BUSINESS_RULES_CONFIG.loopSignatures,
+    pouVariables,
+    signatureContextTexts,
+    signatureContextTerms,
+    BUSINESS_RULES_CONFIG.blockPortRoleRules,
+    collectBlockInstances([focus.segment]),
+  );
+  const matchedLoopSignatures = new Set(
+    signatureMatches
+      .filter((match) => match.kind === "completion")
+      .map((match) => match.id),
+  );
+  const observedLoopSignatures = new Set(
+    signatureMatches
+      .filter((match) => match.kind === "observed")
+      .map((match) => match.id),
+  );
+  const observedLoopBlockTypes = new Set(
+    signatureMatches
+      .filter((match) => match.kind === "observed")
+      .map((match) => normalizeBlockType(match.blockType))
+      .filter(Boolean),
+  );
   const hasLocalBusinessContext =
     focusTerms.size > 0 ||
     nearbyTerms.size > 0 ||
@@ -1413,6 +1453,7 @@ function buildBusinessSuggestionContext(
     hasBusinessContext:
       hasLocalBusinessContext ||
       matchedLoopSignatures.size > 0 ||
+      observedLoopSignatures.size > 0 ||
       isBusinessBlockType(focusBlockType) ||
       [...segmentBlockTypes].some((value) => isBusinessBlockType(value)),
     hasLocalBusinessContext,
@@ -1432,6 +1473,7 @@ function buildBusinessSuggestionContext(
     relatedDataTypes,
     relatedBlockTypes,
     matchedLoopSignatures,
+    observedLoopBlockTypes,
   };
 }
 

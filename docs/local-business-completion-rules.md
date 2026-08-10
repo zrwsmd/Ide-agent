@@ -131,11 +131,13 @@
 
 用于从 POU 变量表中提取可配置的变量角色和物理量证据。保留 `prefixRoles`、`suffixRoles` 的规范命名识别，同时支持 `roleEvidenceRules` 从变量的 `name`、`label`、`note`、`comment` 汇总角色证据；`acceptedDataTypes` 是硬约束，同一来源多个模式只取最高分，累计分达到 `minScore` 才确认角色。角色只表示单个变量的可能职责，不等同于完整业务回路，也不直接改变 suggestion 排序分。
 
+`blockPortRoleRules` 提供更强的结构证据：按照库元素类型、端口方向和端口名，把端口绑定变量映射为通用角色。同一功能块实例的端口变量共享一个实例分组；规则适用于功能块和函数，端口名称与类型必须能在 `st-library-info-data.json` 中验证。
+
 ### 7.3 `loopSignatures`
 
-用于把多个变量角色组合为业务回路证据。第一版要求 `requiredRolesAll` 中的角色具有共同的、从规范变量名前缀推导出的分组键，并逐角色检查 `requiredRoleTypes`。没有可靠公共前缀时不确认同一回路，也不把同一 POU 直接视为同一设备。
+用于把多个变量角色组合为业务回路证据。`completion` 签名用于待补全关系，缺省按规范变量名前缀分组；`observed` 签名用于已有功能块/函数，按同一实例端口分组。两种方式都逐角色检查 `requiredRoleTypes`，不会把同一 POU 直接视为同一设备。
 
-`requiredPhysicalTerms` 校验物理量证据，`evidenceRolesAny` 校验 POU 变量中的控制器证据，`evidenceTermsAny` 必须由当前焦点、邻居或 segment 满足，防止同一 POU 的完整变量集合污染无关区段。签名不直接生成建议，只由 `libraryRules.signatureRefsAny` 引用。
+`requiredPhysicalTerms` 校验物理量证据，`evidenceRolesAny` 在同一分组内校验辅助角色，`evidenceTermsAny` 必须由当前焦点、邻居或 segment 满足。`evidenceBlockTypesAny` 可限制端口分组必须来自指定库元素。只有 `completion` 签名交给 `libraryRules.signatureRefsAny`；`observed` 签名用于确认已有关系，不能反过来触发同类块重复推荐。
 
 ### 7.4 `contactPolarityRules`
 

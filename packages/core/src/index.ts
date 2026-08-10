@@ -7,6 +7,7 @@ export type {
   DiagramEdgeSummary,
   DiagramInsertionPointSummary,
   DiagramNodeSummary,
+  DiagramPortSummary,
   DiagramSegmentSummary,
   DiagramSummary,
   DiagramVariableSummary,

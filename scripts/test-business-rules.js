@@ -6,9 +6,14 @@ const path = require("path");
 const {
   getLocalGraphSuggestions,
   loadDiagramSummary,
+  summarizeDiagramJson,
 } = require("../dist/node_modules/@ide-agent/core");
 const {
+  collectBlockInstances,
+  evaluateLoopSignatures,
   evaluateVariableRoles,
+  parseBlockPortRoleRules,
+  parseLoopSignatures,
   parseVariablePatterns,
 } = require("../packages/core/dist/graph/BusinessLoopSignatures");
 
@@ -48,6 +53,7 @@ const libraryElements = new Map(
 async function main() {
   assertActiveRuleCandidatesExistInLibrary();
   assertVariableRoleEvidenceCases();
+  assertBlockPortRoleCases();
   await assertStableBusinessCases();
   await assertLoopSignatureCases();
   await assertTimestampDiagramWhenAvailable();
@@ -56,7 +62,7 @@ async function main() {
 
 function assertActiveRuleCandidatesExistInLibrary() {
   const rules = JSON.parse(fs.readFileSync(rulesPath, "utf8"));
-  assert.equal(rules.schemaVersion, "ide-agent.business-rules.v5");
+  assert.equal(rules.schemaVersion, "ide-agent.business-rules.v6");
   assert.ok(rules.dataTypeGroups.NUMERIC.includes("LREAL"));
   assert.ok(rules.dataTypeGroups.INTEGER.includes("UDINT"));
   assert.ok(
@@ -82,10 +88,52 @@ function assertActiveRuleCandidatesExistInLibrary() {
     ...(rules.variablePatterns?.roleEvidenceRules ?? []).map(
       (entry) => entry.role,
     ),
+    ...(rules.blockPortRoleRules ?? []).flatMap((rule) =>
+      (rule.ports ?? []).flatMap((port) => [
+        ...(port.role ? [port.role] : []),
+        ...(port.roles ?? []),
+      ]),
+    ),
   ]);
   const signatureIds = new Set(
     (rules.loopSignatures ?? []).map((signature) => signature.id),
   );
+  for (const rule of rules.blockPortRoleRules ?? []) {
+    assert.ok(rule.id, "block port role rule must define id");
+    assert.ok(rule.blockTypes?.length > 0, `${rule.id} must define blockTypes`);
+    assert.ok(rule.ports?.length > 0, `${rule.id} must define ports`);
+    const ruleLibraryElements = rule.blockTypes.map((blockType) => {
+      const element = libraryElements.get(
+        String(blockType).toUpperCase(),
+      );
+      assert.ok(
+        element,
+        `${rule.id} references missing st-library-info element: ${blockType}`,
+      );
+      return element;
+    });
+    for (const portRule of rule.ports) {
+      const direction = String(portRule.direction ?? "any").toLowerCase();
+      assert.ok(
+        ruleLibraryElements.some((libraryElement) => {
+          const candidatePorts = [
+            ...(direction === "output" ? [] : libraryElement.inputs ?? []),
+            ...(direction === "input" ? [] : libraryElement.outputs ?? []),
+          ];
+          return candidatePorts.some(
+            ([name]) =>
+              String(name).toUpperCase() ===
+              String(portRule.port).toUpperCase(),
+          );
+        }),
+        `${rule.id} references missing ${direction} port ${portRule.port}`,
+      );
+      assert.ok(
+        portRule.role || portRule.roles?.length > 0,
+        `${rule.id}/${portRule.port} must define a role`,
+      );
+    }
+  }
   assert.ok(definedRoles.has("processValue"));
   assert.ok(definedRoles.has("setpoint"));
   assert.ok(definedRoles.has("manipulatedValue"));
@@ -230,6 +278,12 @@ function assertActiveRuleCandidatesExistInLibrary() {
       assert.ok(
         signatureIds.has(signatureId),
         `${rule.id} references undefined loop signature: ${signatureId}`,
+      );
+    }
+    for (const blockType of rule.excludedExistingBlockTypes ?? []) {
+      assert.ok(
+        libraryElements.has(String(blockType).toUpperCase()),
+        `${rule.id} excludes missing st-library-info element: ${blockType}`,
       );
     }
     if (rule.id.startsWith("MC")) {
@@ -391,6 +445,231 @@ function assertVariableRoleEvidenceCases() {
   );
 }
 
+function assertBlockPortRoleCases() {
+  const rules = JSON.parse(fs.readFileSync(rulesPath, "utf8"));
+  const variablePatterns = parseVariablePatterns(rules.variablePatterns);
+  const blockPortRoleRules = parseBlockPortRoleRules(
+    rules.blockPortRoleRules,
+  );
+  const loopSignatures = parseLoopSignatures(rules.loopSignatures);
+  const summary = summarizeDiagramJson(
+    [
+      {
+        pouName: "PORT_ROLE_TEST",
+        pouType: "PROGRAM",
+        variableList: [
+          { name: "Pid_Tank_Temp", type: "PID", scope: "VAR" },
+          { name: "Tank_Temp_PV", type: "REAL", scope: "VAR", comment: "实际温度" },
+          { name: "Temp_SP", type: "REAL", scope: "VAR", comment: "温度设定值" },
+          { name: "Pid_Xout", type: "REAL", scope: "VAR", comment: "PID输出" },
+          { name: "Pid_Kp", type: "REAL", scope: "VAR" },
+          { name: "Axis_1", type: "AXIS_REF", scope: "VAR" },
+          { name: "Stop_Request_1", type: "BOOL", scope: "VAR" },
+          { name: "Stop_Done_1", type: "BOOL", scope: "VAR" },
+          { name: "Axis_2", type: "AXIS_REF", scope: "VAR" },
+          { name: "Stop_Request_2", type: "BOOL", scope: "VAR" },
+          { name: "Stop_Done_2", type: "BOOL", scope: "VAR" },
+          { name: "Delay_Enable", type: "BOOL", scope: "VAR" },
+          { name: "Delay_Time", type: "TIME", scope: "VAR" },
+          { name: "Delay_Done", type: "BOOL", scope: "VAR" },
+          { name: "Raw_Value", type: "REAL", scope: "VAR" },
+          { name: "Low_Limit", type: "REAL", scope: "VAR" },
+          { name: "High_Limit", type: "REAL", scope: "VAR" },
+          { name: "Limited_Value", type: "REAL", scope: "VAR" },
+        ],
+        segmentList: [
+          blockRoleTestSegment(
+            "segment-port-role-pid",
+            "Temperature PID control",
+            "pid-node",
+            "PID",
+            "Pid_Tank_Temp",
+            [
+              testPort("PV", "Tank_Temp_PV", "REAL", "VAR_INPUT"),
+              testPort("SP", "Temp_SP", "REAL", "VAR_INPUT"),
+              testPort("KP", "Pid_Kp", "REAL", "VAR_INPUT"),
+            ],
+            [testPort("XOUT", "Pid_Xout", "REAL", "VAR_OUTPUT")],
+          ),
+          blockRoleTestSegment(
+            "segment-port-role-stop-1",
+            "Axis 1 controlled stop",
+            "stop-node-1",
+            "MC_Stop",
+            "Stop_Axis_1",
+            [
+              testPort("Axis", "Axis_1", "AXIS_REF", "VAR_IN_OUT"),
+              testPort("Execute", "Stop_Request_1", "BOOL", "VAR_INPUT"),
+            ],
+            [
+              testPort("Axis", "Axis_1", "AXIS_REF", "VAR_IN_OUT"),
+              testPort("Done", "Stop_Done_1", "BOOL", "VAR_OUTPUT"),
+            ],
+          ),
+          blockRoleTestSegment(
+            "segment-port-role-stop-2",
+            "Axis 2 controlled stop",
+            "stop-node-2",
+            "MC_Stop",
+            "Stop_Axis_2",
+            [
+              testPort("Axis", "Axis_2", "AXIS_REF", "VAR_IN_OUT"),
+              testPort("Execute", "Stop_Request_2", "BOOL", "VAR_INPUT"),
+            ],
+            [
+              testPort("Axis", "Axis_2", "AXIS_REF", "VAR_IN_OUT"),
+              testPort("Done", "Stop_Done_2", "BOOL", "VAR_OUTPUT"),
+            ],
+          ),
+          blockRoleTestSegment(
+            "segment-port-role-ton",
+            "Start delay",
+            "ton-node",
+            "TON",
+            "Delay_Timer",
+            [
+              testPort("IN", "Delay_Enable", "BOOL", "VAR_INPUT"),
+              testPort("PT", "Delay_Time", "TIME", "VAR_INPUT"),
+            ],
+            [testPort("Q", "Delay_Done", "BOOL", "VAR_OUTPUT")],
+          ),
+          blockRoleTestSegment(
+            "segment-port-role-limit",
+            "Limit process value",
+            "limit-node",
+            "LIMIT",
+            "",
+            [
+              testPort("MN", "Low_Limit", "REAL", "VAR_INPUT"),
+              testPort("IN", "Raw_Value", "REAL", "VAR_INPUT"),
+              testPort("MX", "High_Limit", "REAL", "VAR_INPUT"),
+            ],
+            [testPort("OUT", "Limited_Value", "REAL", "VAR_OUTPUT")],
+            true,
+          ),
+        ],
+      },
+    ],
+    "memory://port-role-test",
+  );
+  const instances = collectBlockInstances(summary.segments);
+  const matches = evaluateVariableRoles(
+    variablePatterns,
+    summary.variablesByPou.PORT_ROLE_TEST,
+    blockPortRoleRules,
+    instances,
+  );
+  const roleMatch = (variableName, role) =>
+    matches.find(
+      (match) =>
+        match.variableName === variableName && match.role === role,
+    );
+
+  const pidOutput = roleMatch("Pid_Xout", "controllerOutput");
+  assert.ok(pidOutput, "PID.XOUT must provide controllerOutput role evidence");
+  assert.ok(pidOutput.matchedSources.includes("port"));
+  assert.ok(roleMatch("Pid_Kp", "controllerParameter"));
+  assert.ok(
+    !roleMatch("Pid_Kp", "pidController"),
+    "REAL PID parameters must not be classified as PID block instances",
+  );
+  assert.ok(roleMatch("Axis_1", "axisReference")?.matchedSources.includes("port"));
+  assert.ok(roleMatch("Stop_Request_1", "commandSignal")?.matchedSources.includes("port"));
+  assert.ok(roleMatch("Stop_Done_1", "completionSignal")?.matchedSources.includes("port"));
+  assert.ok(roleMatch("Delay_Time", "presetDuration"));
+  assert.ok(roleMatch("Limited_Value", "resultValue"));
+
+  const stop1Group = roleMatch("Stop_Request_1", "commandSignal")?.groupKeys.find(
+    (groupKey) => groupKey.startsWith("fb:"),
+  );
+  const stop2Group = roleMatch("Stop_Request_2", "commandSignal")?.groupKeys.find(
+    (groupKey) => groupKey.startsWith("fb:"),
+  );
+  assert.ok(stop1Group && stop2Group && stop1Group !== stop2Group);
+  assert.ok(
+    roleMatch("Stop_Done_1", "completionSignal")?.groupKeys.includes(stop1Group),
+  );
+  assert.ok(
+    !roleMatch("Stop_Done_2", "completionSignal")?.groupKeys.includes(stop1Group),
+    "two MC_Stop instances must not share a port-derived business group",
+  );
+
+  const signatureMatches = evaluateLoopSignatures(
+    variablePatterns,
+    loopSignatures,
+    summary.variablesByPou.PORT_ROLE_TEST,
+    summary.segments.flatMap((segment) => [segment.label, segment.note]),
+    new Set(["pid", "timer", "motion", "motionStop"]),
+    blockPortRoleRules,
+    instances,
+  );
+  const observedPid = signatureMatches.find(
+    (match) => match.id === "LS02-observed-temperature-controller",
+  );
+  assert.ok(observedPid, "PID port bindings must match the observed controller signature");
+  assert.deepStrictEqual(observedPid.roleVariables.processValue, ["Tank_Temp_PV"]);
+  assert.deepStrictEqual(observedPid.roleVariables.setpoint, ["Temp_SP"]);
+  assert.deepStrictEqual(observedPid.roleVariables.controllerOutput, ["Pid_Xout"]);
+
+  const observedTimers = signatureMatches.filter(
+    (match) => match.id === "LS03-observed-timer",
+  );
+  assert.equal(observedTimers.length, 1);
+  const observedStops = signatureMatches.filter(
+    (match) => match.id === "LS04-observed-motion-command",
+  );
+  assert.equal(observedStops.length, 2);
+  for (const match of observedStops) {
+    const axes = match.roleVariables.axisReference;
+    const commands = match.roleVariables.commandSignal;
+    const completions = match.roleVariables.completionSignal;
+    assert.equal(axes.length, 1);
+    assert.equal(commands.length, 1);
+    assert.equal(completions.length, 1);
+    assert.equal(axes[0].slice(-1), commands[0].slice(-1));
+    assert.equal(axes[0].slice(-1), completions[0].slice(-1));
+  }
+}
+
+function blockRoleTestSegment(
+  id,
+  label,
+  nodeId,
+  blockType,
+  instanceName,
+  portInputs,
+  portOutputs,
+  isFunction = false,
+) {
+  return {
+    id,
+    label,
+    nodesObj: {
+      [nodeId]: {
+        id: nodeId,
+        type: "FBDCompartment",
+        sourceIds: [],
+        targetIds: [],
+        childrenNode: {
+          type: blockType,
+          isFunction,
+          varName: {
+            value: instanceName,
+            type: blockType,
+            scope: "VAR",
+          },
+          portInputs,
+          portOutputs,
+        },
+      },
+    },
+  };
+}
+
+function testPort(name, value, type, scope) {
+  return { name, value, type, scope };
+}
+
 async function assertLoopSignatureCases() {
   const completeSuggestions = await suggestionsFor(
     loopSignatureFixturePath,
@@ -472,10 +751,21 @@ async function assertLoopSignatureCases() {
     "legacy term-based PID rule must remain available",
   );
 
+  const existingPidSuggestions = await suggestionsFor(
+    loopSignatureFixturePath,
+    "segment-temperature-pid-existing",
+    "temperature-existing-contact",
+  );
+  assert.ok(
+    !functionBlockTypes(existingPidSuggestions).includes("PID"),
+    "an existing PID in the same business segment must suppress another PID even when it is not the insertion boundary",
+  );
+
   for (const suggestion of [
     ...completeSuggestions,
     ...commentRoleSuggestions,
     ...legacySuggestions,
+    ...existingPidSuggestions,
   ]) {
     assertSuggestionUsesLibraryElement(suggestion);
   }

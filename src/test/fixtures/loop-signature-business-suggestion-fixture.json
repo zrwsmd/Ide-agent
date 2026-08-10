@@ -293,5 +293,83 @@
         }
       }
     ]
+  },
+  {
+    "pouName": "TEMP_PID_ALREADY_PRESENT",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Tank_Temp_PV", "type": "REAL", "scope": "VAR" },
+      { "name": "Tank_Temp_SP", "type": "REAL", "scope": "VAR" },
+      { "name": "Tank_Temp_MV", "type": "REAL", "scope": "VAR" },
+      { "name": "Tank_Temp_Kp", "type": "REAL", "scope": "VAR" },
+      { "name": "Auto_Mode", "type": "BOOL", "scope": "VAR" },
+      { "name": "Temperature_Enable", "type": "BOOL", "scope": "VAR" },
+      { "name": "Temperature_Permissive", "type": "BOOL", "scope": "VAR" },
+      { "name": "Pid_Tank_Temp", "type": "PID", "scope": "VAR" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-temperature-pid-existing",
+        "label": "Tank temperature PID control",
+        "note": "The PID block already exists after the selected permissive chain",
+        "nodesObj": {
+          "temperature-existing-start": {
+            "id": "temperature-existing-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["temperature-existing-contact"]
+          },
+          "temperature-existing-contact": {
+            "id": "temperature-existing-contact",
+            "type": "contact",
+            "sourceIds": ["temperature-existing-start"],
+            "targetIds": ["temperature-existing-middle"],
+            "varName": { "value": "Temperature_Enable", "type": "BOOL", "scope": "VAR" }
+          },
+          "temperature-existing-middle": {
+            "id": "temperature-existing-middle",
+            "type": "contact",
+            "sourceIds": ["temperature-existing-contact"],
+            "targetIds": ["temperature-existing-permissive"],
+            "varName": { "value": "Temperature_Enable", "type": "BOOL", "scope": "VAR" }
+          },
+          "temperature-existing-permissive": {
+            "id": "temperature-existing-permissive",
+            "type": "contact",
+            "sourceIds": ["temperature-existing-middle"],
+            "targetIds": ["temperature-existing-pid"],
+            "varName": { "value": "Temperature_Permissive", "type": "BOOL", "scope": "VAR" }
+          },
+          "temperature-existing-pid": {
+            "id": "temperature-existing-pid",
+            "type": "FBDCompartment",
+            "sourceIds": ["temperature-existing-permissive"],
+            "targetIds": ["temperature-existing-end"],
+            "childrenNode": {
+              "type": "PID",
+              "isFunction": false,
+              "varName": { "value": "Pid_Tank_Temp", "type": "PID", "scope": "VAR" },
+              "portInputs": [
+                { "name": "EN", "value": "", "type": "", "scope": "" },
+                { "name": "AUTO", "value": "Auto_Mode", "type": "BOOL", "scope": "VAR_INPUT" },
+                { "name": "PV", "value": "Tank_Temp_PV", "type": "REAL", "scope": "VAR_INPUT" },
+                { "name": "SP", "value": "Tank_Temp_SP", "type": "REAL", "scope": "VAR_INPUT" },
+                { "name": "KP", "value": "Tank_Temp_Kp", "type": "REAL", "scope": "VAR_INPUT" }
+              ],
+              "portOutputs": [
+                { "name": "ENO", "value": "", "type": "", "scope": "" },
+                { "name": "XOUT", "value": "Tank_Temp_MV", "type": "REAL", "scope": "VAR_OUTPUT" }
+              ]
+            }
+          },
+          "temperature-existing-end": {
+            "id": "temperature-existing-end",
+            "type": "endLine",
+            "sourceIds": ["temperature-existing-pid"],
+            "targetIds": []
+          }
+        }
+      }
+    ]
   }
 ]

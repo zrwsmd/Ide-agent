@@ -12,6 +12,14 @@ export interface DiagramVariableSummary {
   comment?: string;
 }
 
+export interface DiagramPortSummary {
+  name: string;
+  value: string;
+  type: string;
+  scope: string;
+  direction: "input" | "output";
+}
+
 export interface DiagramNodeSummary {
   id: string;
   kind: string;
@@ -26,6 +34,8 @@ export interface DiagramNodeSummary {
   instance?: string;
   inputs?: Record<string, string>;
   outputs?: Record<string, string>;
+  inputPorts?: DiagramPortSummary[];
+  outputPorts?: DiagramPortSummary[];
   from: string[];
   to: string[];
 }
@@ -247,21 +257,37 @@ function summarizeNode(
 
   if (child) {
     const childVarName = asRecord(child.varName);
+    const inputPorts = summarizePortDetails(
+      child.portInputs,
+      ["EN"],
+      "input",
+    );
+    const outputPorts = summarizePortDetails(
+      child.portOutputs,
+      ["ENO"],
+      "output",
+    );
     summary.blockType = asString(child.type);
     summary.isFunction = asBoolean(child.isFunction);
     summary.instance = childVarName ? asString(childVarName.value) : undefined;
-    summary.inputs = summarizePorts(child.portInputs, ["EN"]);
-    summary.outputs = summarizePorts(child.portOutputs, ["ENO"]);
+    summary.inputs = summarizePortValues(inputPorts);
+    summary.outputs = summarizePortValues(outputPorts);
+    summary.inputPorts = inputPorts;
+    summary.outputPorts = outputPorts;
   }
 
   return summary;
 }
 
-function summarizePorts(
+function summarizePortDetails(
   value: unknown,
   ignoredNames: string[],
-): Record<string, string> {
-  const result: Record<string, string> = {};
+  direction: DiagramPortSummary["direction"],
+): DiagramPortSummary[] {
+  const result: DiagramPortSummary[] = [];
+  const normalizedIgnoredNames = new Set(
+    ignoredNames.map((name) => name.trim().toUpperCase()),
+  );
 
   for (const port of asArray(value)) {
     const record = asRecord(port);
@@ -270,14 +296,26 @@ function summarizePorts(
     }
 
     const name = asString(record.name);
-    if (!name || ignoredNames.includes(name)) {
+    if (!name || normalizedIgnoredNames.has(name.toUpperCase())) {
       continue;
     }
 
-    result[name] = asString(record.value);
+    result.push({
+      name,
+      value: asString(record.value),
+      type: asString(record.type),
+      scope: asString(record.scope),
+      direction,
+    });
   }
 
   return result;
+}
+
+function summarizePortValues(
+  ports: DiagramPortSummary[],
+): Record<string, string> {
+  return Object.fromEntries(ports.map((port) => [port.name, port.value]));
 }
 
 function labelNode(node: DiagramNodeSummary): string {

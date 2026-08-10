@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "ide-agent.business-rules.v5",
+  "schemaVersion": "ide-agent.business-rules.v6",
   "enabled": true,
   "defaultBlocks": ["TON", "TOF", "TP", "R_TRIG", "F_TRIG", "CTU", "CTD", "CTUD", "SR", "RS"],
   "dataTypeGroups": {
@@ -87,16 +87,16 @@
   ],
   "variablePatterns": {
     "prefixRoles": [
-      { "prefix": "Pid_", "role": "pidController", "controller": "PID", "acceptedDataTypes": ["REAL", "LREAL"] }
+      { "prefix": "Pid_", "role": "pidController", "controller": "PID", "acceptedDataTypes": ["PID"] }
     ],
     "suffixRoles": [
       { "suffix": "_PV", "role": "processValue", "acceptedDataTypes": ["REAL", "LREAL"] },
       { "suffix": "_SP", "role": "setpoint", "acceptedDataTypes": ["REAL", "LREAL"] },
       { "suffix": "_MV", "role": "manipulatedValue", "acceptedDataTypes": ["REAL", "LREAL"] },
       { "suffix": "_Output", "role": "manipulatedValue", "acceptedDataTypes": ["REAL", "LREAL"] },
-      { "suffix": "_Kp", "role": "pidParameter", "acceptedDataTypes": ["REAL", "LREAL"] },
-      { "suffix": "_Ti", "role": "pidParameter", "acceptedDataTypes": ["REAL", "LREAL"] },
-      { "suffix": "_Td", "role": "pidParameter", "acceptedDataTypes": ["REAL", "LREAL"] }
+      { "suffix": "_Kp", "role": "controllerParameter", "acceptedDataTypes": ["REAL", "LREAL"] },
+      { "suffix": "_Ti", "role": "controllerParameter", "acceptedDataTypes": ["REAL", "LREAL"] },
+      { "suffix": "_Td", "role": "controllerParameter", "acceptedDataTypes": ["REAL", "LREAL"] }
     ],
     "roleEvidenceRules": [
       {
@@ -208,6 +208,112 @@
       { "physical": "temperature", "literalPatterns": ["temperature", "\u6e29\u5ea6"], "regexPatterns": ["(?:^|[^a-z0-9])temp(?:$|[^a-z0-9])"] }
     ]
   },
+  "blockPortRoleRules": [
+    {
+      "id": "BPR01-controller",
+      "status": "active",
+      "blockTypes": ["PID"],
+      "ports": [
+        { "port": "AUTO", "direction": "input", "role": "automaticMode", "acceptedDataTypes": ["BOOL"] },
+        { "port": "PV", "direction": "input", "role": "processValue", "acceptedDataTypes": ["REAL", "LREAL"] },
+        { "port": "SP", "direction": "input", "role": "setpoint", "acceptedDataTypes": ["REAL", "LREAL"] },
+        { "port": "X0", "direction": "input", "role": "initialOutput", "acceptedDataTypes": ["REAL", "LREAL"] },
+        { "port": "KP", "direction": "input", "role": "controllerParameter", "acceptedDataTypes": ["REAL", "LREAL"] },
+        { "port": "TR", "direction": "input", "role": "controllerParameter", "acceptedDataTypes": ["REAL", "LREAL"] },
+        { "port": "TD", "direction": "input", "role": "controllerParameter", "acceptedDataTypes": ["REAL", "LREAL"] },
+        { "port": "CYCLE", "direction": "input", "role": "sampleTime", "acceptedDataTypes": ["TIME"] },
+        { "port": "XOUT", "direction": "output", "role": "controllerOutput", "acceptedDataTypes": ["REAL", "LREAL"] }
+      ]
+    },
+    {
+      "id": "BPR02-timers",
+      "status": "active",
+      "blockTypes": ["TON", "TOF", "TP"],
+      "ports": [
+        { "port": "IN", "direction": "input", "role": "conditionSignal", "acceptedDataTypes": ["BOOL"] },
+        { "port": "PT", "direction": "input", "role": "presetDuration", "acceptedDataTypes": ["TIME"] },
+        { "port": "Q", "direction": "output", "role": "completionSignal", "acceptedDataTypes": ["BOOL"] },
+        { "port": "ET", "direction": "output", "role": "elapsedDuration", "acceptedDataTypes": ["TIME"] }
+      ]
+    },
+    {
+      "id": "BPR03-counters",
+      "status": "active",
+      "blockTypes": ["CTU", "CTD", "CTUD"],
+      "ports": [
+        { "port": "CU", "direction": "input", "role": "countTrigger", "acceptedDataTypes": ["BOOL"] },
+        { "port": "CD", "direction": "input", "role": "countTrigger", "acceptedDataTypes": ["BOOL"] },
+        { "port": "R", "direction": "input", "role": "resetCommand", "acceptedDataTypes": ["BOOL"] },
+        { "port": "LD", "direction": "input", "role": "loadCommand", "acceptedDataTypes": ["BOOL"] },
+        { "port": "PV", "direction": "input", "role": "presetValue" },
+        { "port": "Q", "direction": "output", "role": "completionSignal", "acceptedDataTypes": ["BOOL"] },
+        { "port": "QU", "direction": "output", "role": "completionSignal", "acceptedDataTypes": ["BOOL"] },
+        { "port": "QD", "direction": "output", "role": "completionSignal", "acceptedDataTypes": ["BOOL"] },
+        { "port": "CV", "direction": "output", "role": "currentValue" }
+      ]
+    },
+    {
+      "id": "BPR04-latches",
+      "status": "active",
+      "blockTypes": ["SR", "RS"],
+      "ports": [
+        { "port": "S", "direction": "input", "role": "setCommand", "acceptedDataTypes": ["BOOL"] },
+        { "port": "S1", "direction": "input", "role": "setCommand", "acceptedDataTypes": ["BOOL"] },
+        { "port": "R", "direction": "input", "role": "resetCommand", "acceptedDataTypes": ["BOOL"] },
+        { "port": "R1", "direction": "input", "role": "resetCommand", "acceptedDataTypes": ["BOOL"] },
+        { "port": "Q1", "direction": "output", "role": "stateOutput", "acceptedDataTypes": ["BOOL"] }
+      ]
+    },
+    {
+      "id": "BPR05-motion",
+      "status": "active",
+      "blockTypes": ["MC_Power", "MC_Reset", "MC_Home", "MC_MoveAbsolute", "MC_MoveRelative", "MC_MoveVelocity", "MC_Stop", "MC_Halt"],
+      "ports": [
+        { "port": "Axis", "direction": "any", "role": "axisReference", "acceptedDataTypes": ["AXIS_REF", "AXIS_REF_SM3"] },
+        { "port": "Enable", "direction": "input", "role": "enableSignal", "acceptedDataTypes": ["BOOL"] },
+        { "port": "Execute", "direction": "input", "role": "commandSignal", "acceptedDataTypes": ["BOOL"] },
+        { "port": "Done", "direction": "output", "role": "completionSignal", "acceptedDataTypes": ["BOOL"] },
+        { "port": "InVelocity", "direction": "output", "role": "completionSignal", "acceptedDataTypes": ["BOOL"] },
+        { "port": "Status", "direction": "output", "role": "runFeedback", "acceptedDataTypes": ["BOOL"] },
+        { "port": "Active", "direction": "output", "role": "runFeedback", "acceptedDataTypes": ["BOOL"] },
+        { "port": "Busy", "direction": "output", "role": "busySignal", "acceptedDataTypes": ["BOOL"] },
+        { "port": "Error", "direction": "output", "role": "faultSignal", "acceptedDataTypes": ["BOOL"] },
+        { "port": "ErrorID", "direction": "output", "role": "faultCode" }
+      ]
+    },
+    {
+      "id": "BPR06-numeric-functions",
+      "status": "active",
+      "blockTypes": ["LIMIT", "MIN", "MAX"],
+      "ports": [
+        { "port": "MN", "direction": "input", "role": "lowerBound" },
+        { "port": "MX", "direction": "input", "role": "upperBound" },
+        { "port": "IN", "direction": "input", "role": "processValue" },
+        { "port": "IN1", "direction": "input", "role": "operand" },
+        { "port": "IN2", "direction": "input", "role": "operand" },
+        { "port": "OUT", "direction": "output", "role": "resultValue" }
+      ]
+    },
+    {
+      "id": "BPR07-comparison-functions",
+      "status": "active",
+      "blockTypes": ["GT", "GE", "LT", "LE", "EQ", "NE"],
+      "ports": [
+        { "port": "IN1", "direction": "input", "role": "operand" },
+        { "port": "IN2", "direction": "input", "role": "operand" },
+        { "port": "OUT", "direction": "output", "role": "comparisonResult", "acceptedDataTypes": ["BOOL"] }
+      ]
+    },
+    {
+      "id": "BPR08-edge-detection",
+      "status": "active",
+      "blockTypes": ["R_TRIG", "F_TRIG"],
+      "ports": [
+        { "port": "CLK", "direction": "input", "role": "triggerSignal", "acceptedDataTypes": ["BOOL"] },
+        { "port": "Q", "direction": "output", "role": "pulseSignal", "acceptedDataTypes": ["BOOL"] }
+      ]
+    }
+  ],
   "loopSignatures": [
     {
       "id": "LS01-temperature-pid",
@@ -219,8 +325,51 @@
         "manipulatedValue": ["REAL", "LREAL"]
       },
       "requiredPhysicalTerms": ["temperature"],
-      "evidenceRolesAny": ["pidController", "pidParameter"],
+      "evidenceRolesAny": ["pidController", "controllerParameter"],
       "evidenceTermsAny": ["pid"]
+    },
+    {
+      "id": "LS02-observed-temperature-controller",
+      "status": "active",
+      "kind": "observed",
+      "groupStrategies": ["fbInstancePorts"],
+      "requiredRolesAll": ["processValue", "setpoint", "controllerOutput"],
+      "requiredRoleTypes": {
+        "processValue": ["REAL", "LREAL"],
+        "setpoint": ["REAL", "LREAL"],
+        "controllerOutput": ["REAL", "LREAL"]
+      },
+      "requiredPhysicalTerms": ["temperature"],
+      "evidenceBlockTypesAny": ["PID"],
+      "targetBlockTypes": ["PID"]
+    },
+    {
+      "id": "LS03-observed-timer",
+      "status": "active",
+      "kind": "observed",
+      "groupStrategies": ["fbInstancePorts"],
+      "requiredRolesAll": ["conditionSignal", "presetDuration", "completionSignal"],
+      "requiredRoleTypes": {
+        "conditionSignal": ["BOOL"],
+        "presetDuration": ["TIME"],
+        "completionSignal": ["BOOL"]
+      },
+      "evidenceBlockTypesAny": ["TON", "TOF", "TP"],
+      "targetBlockTypes": ["TON", "TOF", "TP"]
+    },
+    {
+      "id": "LS04-observed-motion-command",
+      "status": "active",
+      "kind": "observed",
+      "groupStrategies": ["fbInstancePorts"],
+      "requiredRolesAll": ["axisReference", "commandSignal", "completionSignal"],
+      "requiredRoleTypes": {
+        "axisReference": ["AXIS_REF", "AXIS_REF_SM3"],
+        "commandSignal": ["BOOL"],
+        "completionSignal": ["BOOL"]
+      },
+      "evidenceBlockTypesAny": ["MC_Reset", "MC_Home", "MC_MoveAbsolute", "MC_MoveRelative", "MC_Stop", "MC_Halt"],
+      "targetBlockTypes": ["MC_Reset", "MC_Home", "MC_MoveAbsolute", "MC_MoveRelative", "MC_Stop", "MC_Halt"]
     }
   ],
   "contactPolarityRules": [

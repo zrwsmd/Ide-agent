@@ -15,7 +15,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
     原始文字/变量/节点
         -> termPatterns 识别内部业务术语
         -> derivedTerms / termImplications 补充推导术语
-        -> variablePatterns / loopSignatures 识别变量角色和业务回路
+        -> variablePatterns / blockPortRoleRules / loopSignatures 识别变量角色和业务回路
         -> contactPolarityRules 判断常开/常闭触点极性
         -> libraryRules 筛选可以推荐的库功能块或函数
         -> rankingRules 给拓扑候选加业务排序分
@@ -34,7 +34,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 
 表示规则文件的结构版本，例如：
 
-    "schemaVersion": "ide-agent.business-rules.v5"
+    "schemaVersion": "ide-agent.business-rules.v6"
 
 它用于区分配置格式版本，不是规则优先级，也不是候选分数。升级字段结构时应同步升级版本号。
 
@@ -214,7 +214,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
       "prefix": "Pid_",
       "role": "pidController",
       "controller": "PID",
-      "acceptedDataTypes": ["REAL", "LREAL"]
+      "acceptedDataTypes": ["PID"]
     }
 
 `Pid_Tank_Temp: PID` 本身不会因为前缀规则直接生成 PID；它只提供“这里存在 PID 控制器证据”。
@@ -244,7 +244,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 - `_PV` -> processValue，过程实际值/反馈值。
 - `_SP` -> setpoint，设定值/目标值。
 - `_MV`、`_Output` -> manipulatedValue，控制输出。
-- `_Kp`、`_Ti`、`_Td` -> pidParameter，PID 参数。
+- `_Kp`、`_Ti`、`_Td` -> controllerParameter，控制器参数。
 
 #### 9.3 roleEvidenceRules
 
@@ -324,8 +324,39 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 
 #### 9.5 variablePatterns 的限制
 
-当前版本不再只依赖规范前后缀，可以使用变量名、标签、备注、注释和类型。但如果客户既没有规范命名，也没有有效注释，系统仍无法可靠判断变量用途。
-因此变量角色是“证据”，不是绝对事实；功能块端口连接、图上的读写位置和可靠设备标识仍属于后续证据来源。
+当前版本不再只依赖规范前后缀，可以使用变量名、标签、备注、注释、类型和功能块端口绑定。但如果既没有规范命名、有效注释，也没有可识别的端口绑定，系统仍无法可靠判断变量用途。
+因此变量角色是“证据”，不是绝对事实；可靠设备标识和项目设备模型仍属于后续证据来源。
+
+#### 9.6 blockPortRoleRules
+
+类型：对象数组。作用是把“功能块/函数类型 + 端口方向 + 端口名”映射为通用业务角色。
+
+字段：
+
+- `id`：规则唯一标识。
+- `status`：只有 `active` 规则参与识别。
+- `blockTypes`：使用同一套端口语义的库元素名称；名称必须存在于 `st-library-info-data.json`。
+- `ports`：端口角色映射。
+- `ports.port`：端口名，按大小写不敏感方式匹配。
+- `ports.direction`：`input`、`output` 或 `any`；`any` 适用于 `VAR_IN_OUT` 等双向端口。
+- `ports.role` / `ports.roles`：该端口绑定变量承担的业务角色。
+- `ports.acceptedDataTypes`：可选的实际变量类型硬约束。
+- `ports.score`：可选的端口证据分，默认 100；端口绑定属于强结构证据。
+
+示例：
+
+    {
+      "id": "BPR05-motion",
+      "status": "active",
+      "blockTypes": ["MC_Stop", "MC_Halt"],
+      "ports": [
+        { "port": "Axis", "direction": "any", "role": "axisReference" },
+        { "port": "Execute", "direction": "input", "role": "commandSignal" },
+        { "port": "Done", "direction": "output", "role": "completionSignal" }
+      ]
+    }
+
+例如同一个 `MC_Stop` 实例绑定 `Axis=Feed_Axis`、`Execute=Stop_Request`、`Done=Axis_Stopped` 时，三个变量会获得不同角色，但共享同一个功能块实例分组。端口不存在时只跳过对应映射，不会伪造端口；端口真实名称和类型仍以库文件为准。
 
 ### 10. `loopSignatures`
 
@@ -337,11 +368,15 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 
 - `id`：签名唯一标识，例如 `LS01-temperature-pid`。
 - `status`：`active` 才参与运行时匹配；`planned` 或其他状态不参与。
+- `kind`：`completion` 表示待补全关系，`observed` 表示从已有功能块端口确认的完整关系；缺省为 `completion`。
+- `groupStrategies`：有序声明允许使用的分组证据；当前支持 `namePrefix` 和 `fbInstancePorts`。旧规则缺省使用 `namePrefix`。
 - `requiredRolesAll`：同一推断分组中必须全部存在的角色。
 - `requiredRoleTypes`：按角色限制数据类型。
 - `requiredPhysicalTerms`：必须出现的物理量证据。
 - `evidenceRolesAny`：辅助角色，命中任意一个即可，例如 PID 控制器或 PID 参数。
 - `evidenceTermsAny`：辅助业务术语，当前焦点区段上下文命中任意一个即可。
+- `evidenceBlockTypesAny`：端口实例分组必须来自其中一种功能块/函数类型。
+- `targetBlockTypes`：该签名对应的目标库元素类型，用于解释和后续补全约束。
 
 当前温度 PID 示例：
 
@@ -354,7 +389,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
         "manipulatedValue": ["REAL", "LREAL"]
       },
       "requiredPhysicalTerms": ["temperature"],
-      "evidenceRolesAny": ["pidController", "pidParameter"],
+      "evidenceRolesAny": ["pidController", "controllerParameter"],
       "evidenceTermsAny": ["pid"]
     }
 
@@ -368,7 +403,11 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 这四个变量的公共前缀能够组成同一组，同时具备 PV、SP、MV、温度和 PID 证据，才命中签名。
 缺少 SP、类型是 BOOL、变量属于不同前缀组，或当前区段没有 PID 语义时，都不应通过该签名。
 
-当前实现不会要求原始 JSON 有 groupId/deviceId；它会从规范变量名的公共前缀推断分组。没有可靠公共前缀时，会保守地不确认同一回路。
+`completion` 签名可以继续从规范变量名公共前缀推断分组。`observed` 签名优先使用已有功能块实例的端口绑定，例如同一个 PID 的 PV、SP、XOUT 会得到同一个 `fbInstancePorts` 分组，即使三个变量没有公共名称前缀。
+
+`observed` 只说明“程序里已经存在并接出了这组关系”，不能直接作为再次推荐同类功能块的理由。当前建议引擎只把 `completion` 签名交给 `libraryRules.signatureRefsAny`，从而避免“发现已有 PID，又推荐一个 PID”。
+
+此外，`observed` 匹配会记录当前区段实际存在的块类型；候选生成时自动排除同类型候选。例如已识别到完整 TON 时只排除重复 TON，不会笼统排除 TOF、TP 或其他功能块。
 
 
 四、触点极性层
@@ -448,6 +487,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 - `excludedDataTypes`：局部上下文出现任一指定类型就否决。
 - `requiredTypeCapabilities`：局部类型必须具备全部指定能力，例如 `MOTION_AXIS_REFERENCE`。
 - `signatureRefsAny`：至少命中一个指定 `loopSignatures`，用于完整业务关系，而不是单个关键词。
+- `excludedExistingBlockTypes`：当前区段已经存在其中任一块类型时否决候选，用于显式阻止重复功能块建议。跨区段重复仍使用共享变量和焦点引用的严格判断，避免只因共享 `Auto_Mode` 等通用变量就误伤另一回路。
 
 示例：
 
@@ -600,7 +640,8 @@ plannedRules 不是要求现有 JSON 立刻增加 `groupId` 或 `deviceId`，也
 以“Tank_Temp_PV、Tank_Temp_SP、Tank_Temp_MV、Pid_Tank_Temp”为例：
 
 - variablePatterns 给变量贴上 processValue、setpoint、manipulatedValue、pidController 角色。
-- loopSignatures 确认这些角色属于同一公共前缀组，并满足温度、类型和 PID 证据。
+- blockPortRoleRules 从已有功能块端口获得更强的结构角色，例如 PID.PV、PID.SP、PID.XOUT。
+- loopSignatures 可以用公共名称前缀识别待补全关系，也可以用功能块实例端口识别已经存在的完整关系。
 - libraryRules 中引用该签名的 P02 规则才允许推荐 PID。
 
 
@@ -610,7 +651,7 @@ plannedRules 不是要求现有 JSON 立刻增加 `groupId` 或 `deviceId`，也
 1. 新增业务词时，先在 termPatterns 增加内部术语，再在 libraryRules 或 rankingRules 使用该术语。
 2. 一个词有明确业务方向时，不要只写宽泛的 timer、motion、counter；应增加 onDelay、motionHalt、countUp 等更具体术语，并用 excludedTerms 防止冲突。
 3. 推荐功能块前必须确认候选名存在于 st-library-info-data.json；否则前端无法渲染真实端口。
-4. 需要证明多个变量属于同一业务关系时，用 loopSignatures，不要只靠 POU 名称或同一 POU 中“出现过这些词”。
+4. 需要证明多个变量属于同一业务关系时，用 loopSignatures；已有功能块优先用 fbInstancePorts，缺少功能块时再使用 namePrefix 和文字证据兜底。
 5. `priority` 和 `baseScore` 在不同规则组中是不同层次的排序参数，不要把 contactPolarityRules 的 priority 与 libraryRules 的 priority 当成一个全局分数。
 6. `reason` 用于说明“为什么推荐”，`fallback` 用于说明“证据不足时怎么降级”；它们不是匹配条件。
 7. 修改后至少补一条正例和一条反例：正例验证能推荐，反例验证缺条件时不推荐。
