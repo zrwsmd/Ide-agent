@@ -1,0 +1,586 @@
+businessRules.json 字段说明
+============================
+
+文档目的
+--------
+
+businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置文件。
+它的作用不是生成完整梯形图，也不是 IEC 61131-3 标准说明书，而是回答两类问题：
+
+1. 当前上下文是否足够支持某个业务判断。
+2. 如果支持，哪些本地库中的功能块、函数或触点候选应该被推荐，以及候选如何排序。
+
+当前实现的总体处理链如下：
+
+    原始文字/变量/节点
+        -> termPatterns 识别内部业务术语
+        -> derivedTerms / termImplications 补充推导术语
+        -> variablePatterns / loopSignatures 识别变量角色和业务回路
+        -> contactPolarityRules 判断常开/常闭触点极性
+        -> libraryRules 筛选可以推荐的库功能块或函数
+        -> rankingRules 给拓扑候选加业务排序分
+        -> 返回 suggestions
+
+注意：所有规则都在当前选中节点、所在区段、直接邻居和 POU 变量表等已有输入上运行。
+当前系统没有凭空理解工艺，也不会因为一个变量名就证明完整的设备业务。
+
+
+一、顶层字段
+------------
+
+### 1. `schemaVersion`
+
+类型：字符串。
+
+表示规则文件的结构版本，例如：
+
+    "schemaVersion": "ide-agent.business-rules.v4"
+
+它用于区分配置格式版本，不是规则优先级，也不是候选分数。升级字段结构时应同步升级版本号。
+
+### 2. `enabled`
+
+类型：布尔值。
+
+    "enabled": true
+
+为 true 时启用业务库功能块/函数替换增强。
+为 false 时跳过库候选替换，但当前代码中的触点极性处理和 rankingRules 排序仍可能继续执行；它不是一个完全关闭所有业务逻辑的总开关。
+基础拓扑建议在两种状态下都可以返回。
+
+### 3. `defaultBlocks`
+
+类型：字符串数组。
+
+    "defaultBlocks": ["TON", "TOF", "TP", "CTU", "CTD", "SR", "RS"]
+
+它是通用功能块建议的默认候选类型列表。当没有足够业务证据或构造通用功能块建议时，系统从这里取得默认块类型。
+
+它不是“无条件推荐这些块”，也不会绕过 libraryRules 的业务筛选。
+例如，出现“延时”且证据不足时，默认候选可能包含 TON/TOF/TP；出现明确“上计数”规则后，则由 libraryRules 选择 CTU。
+
+### 4. `dataTypeGroups`
+
+类型：对象，键是类型组名，值是类型数组。
+
+当前示例：
+
+    "dataTypeGroups": {
+      "NUMERIC": ["INT", "DINT", "REAL", "LREAL"],
+      "INTEGER": ["INT", "DINT"],
+      "FLOAT": ["REAL", "LREAL"]
+    }
+
+它把多个实际数据类型归为一个可复用的组。规则写 `"NUMERIC"` 时，可以命中 INT、DINT、REAL、LREAL 等实际类型，而不必把它们全部重复写在每条规则里。
+
+例如：
+
+    "requiredAnyDataTypes": ["NUMERIC"]
+
+表示局部上下文只要有一种数值类型即可；
+
+    "requiredAllDataTypes": ["BOOL", "TIME"]
+
+表示 BOOL 和 TIME 两类都必须出现。
+
+类型组只解决类型归类，不代表端口连接一定正确。
+
+### 5. `typeCapabilities`
+
+类型：对象，键是稳定的能力名，值是能代表该能力的实际类型数组。
+
+当前示例：
+
+    "typeCapabilities": {
+      "MOTION_AXIS_REFERENCE": ["AXIS_REF", "AXIS_REF_SM3"]
+    }
+
+规则使用 `MOTION_AXIS_REFERENCE` 时，只要局部类型中有 AXIS_REF 或 AXIS_REF_SM3，就认为具备运动轴引用能力。
+
+这样 MC_* 规则不需要把每一种厂商轴类型重复写一遍。
+能力名是内部业务抽象，不是 PLC 变量本身的类型名。
+
+
+二、术语识别层
+--------------
+
+### 6. `derivedTerms`
+
+类型：对象数组。
+
+作用：根据已经识别的数据类型或类型能力，自动补充内部业务术语。
+
+字段：
+
+- `term`：要补充的内部术语，例如 `numeric`、`axis`、`motion`。
+- `whenDataTypesAny`：出现任一指定类型或类型组时触发。
+- `whenTypeCapabilitiesAny`：具备任一指定能力时触发。
+
+示例：
+
+    {
+      "term": "motion",
+      "whenTypeCapabilitiesAny": ["MOTION_AXIS_REFERENCE"]
+    }
+
+如果当前区段有 AXIS_REF，系统自动补充 `motion` 术语。因此即使用户没有在区段标题写“运动控制”，MC_* 规则仍能获得运动能力证据。
+
+这里的术语是引擎内部标签，不会直接作为建议节点名称。
+
+### 7. `termImplications`
+
+类型：对象数组。
+
+作用：声明术语之间的业务推导关系。
+
+字段：
+
+- `ifMatched`：已命中的术语。
+- `alsoMatch`：命中后同时补充的术语数组。
+
+示例：
+
+    {
+      "ifMatched": "onDelay",
+      "alsoMatch": ["timer"]
+    }
+
+用户写“通电延时”时，先命中 `onDelay`，再自动补充 `timer`。于是 TON 规则可以要求 `timer + onDelay`，而无需在每个模式规则里重复所有“定时器”关键词。
+
+推导会反复执行直到没有新术语，所以 A -> B、B -> C 可以继续得到 C。不要配置互相循环的规则。
+
+### 8. `termPatterns`
+
+类型：对象数组。
+
+作用：把用户文字、区段标题/备注、节点变量名、变量注释等文本转换为内部术语。
+
+字段：
+
+- `term`：内部统一术语名，例如 `timer`、`fault`、`setpoint`。
+- `literalPatterns`：字面包含匹配。当前实现会忽略大小写，并判断文本是否包含该片段。
+- `regexPatterns`：正则表达式匹配。当前实现使用不区分大小写和 Unicode 的正则。
+
+示例：
+
+    {
+      "term": "timer",
+      "literalPatterns": ["timer", "定时", "延时"],
+      "regexPatterns": ["(?:^|[^a-z0-9])(?:ton|tof|tp)(?:$|[^a-z0-9])"]
+    }
+
+以下文本可以命中 timer：
+
+- “送料轴延时停止”命中字面“延时”。
+- “TON_Alarm”命中正则，因为 TON 后面是下划线边界。
+
+以下文本不一定命中：
+
+- “Attempt”不会因为包含字母序列“tp”就命中 TP，因为正则要求前后不是英数字边界。
+- “XTON”不会命中上面 TON 正则，因为 TON 前面是英文字母。
+
+建议：
+
+- 普通词语、中文业务表达放入 `literalPatterns`。
+- 需要边界、可选分隔符或多个拼写变体时放入 `regexPatterns`。
+- 不要把过短的字母片段直接当字面关键词，否则容易误报。
+
+
+三、变量角色和业务回路层
+--------------------------
+
+### 9. `variablePatterns`
+
+类型：对象。
+
+作用：从 POU 的变量表中提取“变量可能扮演什么角色”和“变量名包含什么物理量”。
+
+它只是角色证据层，不单独生成建议。
+
+#### 9.1 prefixRoles
+
+类型：对象数组，按变量名前缀匹配。
+
+字段：
+
+- `prefix`：必须出现在变量名开头，例如 `Pid_`。
+- `role`：匹配后得到的角色，例如 `pidController`。
+- `controller`：可选的控制器类型说明，例如 `PID`。当前版本保存该信息作为角色元数据，但签名匹配主要依据 `role`，不会单独因为 controller 字段就推荐 PID。
+- `acceptedDataTypes`：该角色允许的数据类型。当前是精确类型匹配，不是类型组展开。
+
+示例：
+
+    {
+      "prefix": "Pid_",
+      "role": "pidController",
+      "controller": "PID",
+      "acceptedDataTypes": ["REAL", "LREAL"]
+    }
+
+`Pid_Tank_Temp: PID` 本身不会因为前缀规则直接生成 PID；它只提供“这里存在 PID 控制器证据”。
+
+#### 9.2 suffixRoles
+
+类型：对象数组，按变量名后缀匹配。
+
+字段：
+
+- `suffix`：必须出现在变量名结尾，例如 `_PV`、`_SP`。
+- `role`：得到的变量角色。
+- `acceptedDataTypes`：该角色允许的数据类型。
+
+示例：
+
+    {
+      "suffix": "_PV",
+      "role": "processValue",
+      "acceptedDataTypes": ["REAL", "LREAL"]
+    }
+
+`Tank_Temp_PV: REAL` 得到角色 processValue；`Tank_Temp_PV: BOOL` 不会得到该角色证据。
+
+当前规则中的常见角色：
+
+- `_PV` -> processValue，过程实际值/反馈值。
+- `_SP` -> setpoint，设定值/目标值。
+- `_MV`、`_Output` -> manipulatedValue，控制输出。
+- `_Kp`、`_Ti`、`_Td` -> pidParameter，PID 参数。
+
+#### 9.3 physicalTerms
+
+类型：对象数组，识别变量名或当前区段文本中的物理量。
+
+字段：
+
+- `physical`：统一物理量名，例如 `temperature`。
+- `literalPatterns`：物理量字面包含模式。
+- `regexPatterns`：物理量正则模式。
+
+示例：
+
+    {
+      "physical": "temperature",
+      "literalPatterns": ["temperature", "温度"],
+      "regexPatterns": ["(?:^|[^a-z0-9])temp(?:$|[^a-z0-9])"]
+    }
+
+`Tank_Temp_PV`、区段标题“温度闭环控制”都可以提供 temperature 证据。
+
+#### 9.4 variablePatterns 的限制
+
+当前第一版强依赖变量命名规范。客户把实际值命名为 `A1_Value`，但没有 `_PV`、注释或其他角色线索时，系统无法可靠知道它是 processValue。
+因此变量角色是“证据”，不是绝对事实；后续可以再增加注释、端口连接和类型等证据来源。
+
+### 10. `loopSignatures`
+
+类型：对象数组。
+
+作用：把多个变量角色组合成一个可验证的业务回路签名。
+
+字段：
+
+- `id`：签名唯一标识，例如 `LS01-temperature-pid`。
+- `status`：`active` 才参与运行时匹配；`planned` 或其他状态不参与。
+- `requiredRolesAll`：同一推断分组中必须全部存在的角色。
+- `requiredRoleTypes`：按角色限制数据类型。
+- `requiredPhysicalTerms`：必须出现的物理量证据。
+- `evidenceRolesAny`：辅助角色，命中任意一个即可，例如 PID 控制器或 PID 参数。
+- `evidenceTermsAny`：辅助业务术语，当前焦点区段上下文命中任意一个即可。
+
+当前温度 PID 示例：
+
+    {
+      "id": "LS01-temperature-pid",
+      "requiredRolesAll": ["processValue", "setpoint", "manipulatedValue"],
+      "requiredRoleTypes": {
+        "processValue": ["REAL", "LREAL"],
+        "setpoint": ["REAL", "LREAL"],
+        "manipulatedValue": ["REAL", "LREAL"]
+      },
+      "requiredPhysicalTerms": ["temperature"],
+      "evidenceRolesAny": ["pidController", "pidParameter"],
+      "evidenceTermsAny": ["pid"]
+    }
+
+通俗理解：
+
+    Tank_Temp_PV: REAL
+    Tank_Temp_SP: REAL
+    Tank_Temp_MV: REAL
+    Pid_Tank_Temp: PID
+
+这四个变量的公共前缀能够组成同一组，同时具备 PV、SP、MV、温度和 PID 证据，才命中签名。
+缺少 SP、类型是 BOOL、变量属于不同前缀组，或当前区段没有 PID 语义时，都不应通过该签名。
+
+当前实现不会要求原始 JSON 有 groupId/deviceId；它会从规范变量名的公共前缀推断分组。没有可靠公共前缀时，会保守地不确认同一回路。
+
+
+四、触点极性层
+--------------
+
+### 11. `contactPolarityRules`
+
+类型：对象数组。
+
+作用：决定业务上下文下是否额外提供常闭触点候选。普通常开触点仍是基础候选，规则不是把所有触点强制改成常闭。
+
+字段：
+
+- `id`：规则唯一标识。
+- `status`：只有 `active` 规则参与匹配。
+- `polarity`：`normal` 表示常开逻辑，`negated` 表示常闭逻辑。
+- `priority`：多个极性规则同时命中时，优先级高者胜出。
+- `termsAny`：上下文至少命中一个术语。
+- `termsAll`：上下文必须命中全部术语。
+- `excludedTerms`：命中任一排除术语，规则失败。
+- `excludedAnchorTerms`：选中节点/邻居出现这些术语时，规则失败。
+- `anchorTermScope`：排除词检查范围。`selectedNode` 只看选中节点；`selectedNodeOrDirectNeighbors` 按当前实现优先看焦点术语，焦点没有术语时再看邻居术语。
+- `reason`：规则的可读业务解释。
+
+示例：
+
+    {
+      "polarity": "negated",
+      "termsAny": ["stop", "fault", "alarm"],
+      "termsAll": ["permissive"],
+      "excludedTerms": ["safety"],
+      "excludedAnchorTerms": ["healthy"]
+    }
+
+“故障作为运行许可条件”可能同时返回常开和常闭两个候选，并把常闭候选排得更靠前；“Drive_Ready”这类健康/就绪正逻辑不会因为该规则被反相。
+
+### 11.1 为什么 normal 规则也有用
+
+例如健康许可规则优先级为 90、抑制规则优先级为 80。命中健康规则后，最高优先级极性是 normal，因此不会额外生成常闭变体。
+
+
+五、库功能块/函数筛选层
+------------------------
+
+### 12. `libraryRules`
+
+类型：对象数组。
+
+作用：把业务条件映射到 `st-library-info-data.json` 中真实存在的功能块或函数。
+它是硬筛选层：规则不满足，候选不会返回；满足后才进入评分和排序。
+
+#### 12.1 基础识别字段
+
+- `id`：规则唯一标识，便于测试和问题定位。
+- `status`：只有 `active` 规则运行；`planned` 不运行。
+- `reason`：命中候选的业务解释。当前会保留在内部候选对象中，不能假定它一定已经出现在最终 suggestions 文本中。
+- `fallback`：证据不足时的人工说明。目前主要用于配置文档/解释，不能把它理解成自动执行的备用算法。
+
+#### 12.2 术语条件字段
+
+- `termsAny`：任意一个术语命中即可，逻辑是 OR。
+- `termsAll`：所有术语都命中，逻辑是 AND。
+- `excludedTerms`：命中任一术语就否决，优先级相当于 veto。
+- `focusKinds`：可选，限制选中节点类型，例如只对 `contact` 生效。
+
+示例：
+
+    "termsAll": ["timer", "onDelay"],
+    "excludedTerms": ["offDelay", "pulse", "safety"]
+
+表示：必须同时识别“定时器”和“通电延时”，但不能同时出现断电延时、脉冲或安全语义。
+
+#### 12.3 数据类型和能力条件
+
+- `requiredAnyDataTypes`：局部上下文至少有一种指定类型/类型组。
+- `requiredAllDataTypes`：局部上下文必须包含全部指定类型/类型组。
+- `excludedDataTypes`：局部上下文出现任一指定类型就否决。
+- `requiredTypeCapabilities`：局部类型必须具备全部指定能力，例如 `MOTION_AXIS_REFERENCE`。
+- `signatureRefsAny`：至少命中一个指定 `loopSignatures`，用于完整业务关系，而不是单个关键词。
+
+示例：
+
+    "requiredTypeCapabilities": ["MOTION_AXIS_REFERENCE"],
+    "candidateNames": ["MC_Power"]
+
+只有附近变量/端口类型能证明有 AXIS_REF 能力时，才考虑 MC_Power。
+
+#### 12.4 portRequirements
+
+类型：对象数组。当前实现校验库元素的输入端口。
+
+字段：
+
+- `port`：端口名，例如 `IN`、`PT`、`Axis`。
+- `required`：为 true 时库元素必须有此端口。
+- `acceptedDataTypes`：端口类型允许的类型或类型组。
+- `allowCreateParameter`：允许系统把该端口作为待创建参数，即使当前局部还没有该类型变量。
+
+示例：
+
+    {
+      "port": "PT",
+      "required": true,
+      "acceptedDataTypes": ["TIME"],
+      "allowCreateParameter": true
+    }
+
+TON 必须在库中存在 PT，且 PT 类型是 TIME；即使用户还没创建时间变量，也可以把 PT 留作待绑定参数。
+
+MC_* 的 Axis 端口则要求库定义的端口类型匹配轴引用能力。库中不存在候选或端口不匹配时，规则不会返回空壳功能块。
+
+#### 12.5 候选和位置字段
+
+- `candidateNames`：要推荐的库元素名称，如 `TON`、`MC_Stop`、`PID`。名称必须能在运行时库数据中查到。
+- `allowedModes`：硬限制，建议生成方式必须属于列表。
+- `allowedPositions`：硬限制，建议位置必须属于列表。
+- `preferredModes`：软偏好，命中时增加少量分数。
+- `preferredPositions`：软偏好，命中时增加少量分数。
+
+常见 mode：
+
+- `functionBlockAfter`：选中节点后插入功能块。
+- `functionBlockBefore`：选中节点前插入功能块。
+- `parallelBranch`：作为并联分支插入。
+- `outputFunctionBlock`：作为输出侧功能块插入。
+
+常见 position：`front`、`behind`、`outsideFront`、`outsideBehind`、`parallel`、`replace`。
+
+#### 12.6 priority 和 baseScore
+
+- `priority`：候选规则层级，先比较它。
+- `baseScore`：同优先级下的基础分。
+
+最终候选排序是：先按 priority 从高到低，再按 score 从高到低。score 大致由 baseScore、命中术语权重和 preferred 位置/模式加分组成。
+例如明确“通电延时”时，TON 专用规则的 priority 高于模糊定时器规则，因此 TON 排在 TON/TOF/TP 模糊候选之前。
+
+注意：libraryRules 只负责库候选。触点、线圈等普通拓扑候选主要由 rankingRules 和代码中的拓扑评分排序。
+
+
+六、普通拓扑候选排序层
+----------------------
+
+### 13. `rankingRules`
+
+类型：对象数组。
+
+作用：对已经通过拓扑合法性检查的候选进行软排序。它不会像 libraryRules 那样直接要求候选必须存在，也不会改变 startNodes/endNodes。
+
+字段：
+
+- `id`：排序规则唯一标识。
+- `status`：只有 `active` 参与。
+- `termsAny`：任一业务术语命中。
+- `termsAll`：全部业务术语命中。
+- `excludedTerms`：命中任一术语时不应用本排序规则。
+- `candidateNodeTypes`：限制新增节点类型，如 `contact`、`negatedContact`、`resetCoil`。
+- `candidateBlockTypes`：限制新增功能块类型。
+- `modes`：限制建议 mode。
+- `positions`：限制建议 position。
+- `priority`：多个排序规则命中时，只使用最高 priority 层的规则。
+- `baseScore`：该排序规则的基础分。
+- `termMultiplier`：命中术语权重的倍率。
+
+示例：
+
+    {
+      "id": "R03-reset-coil",
+      "termsAll": ["reset"],
+      "candidateNodeTypes": ["resetCoil"],
+      "priority": 80,
+      "baseScore": 7,
+      "termMultiplier": 1
+    }
+
+在“故障复位”区段中，resetCoil 会获得额外分数，排在普通触点或普通线圈之前。
+
+当前排序分由两部分组成：
+
+1. rankingRules 贡献的配置分。
+2. 代码中的基础拓扑和业务启发式分，例如外侧后串联的拓扑分、故障场景对常闭触点的加分。
+
+因此不能只看 businessRules.json 的 baseScore 推断全部最终分数。
+
+
+七、规划项层
+------------
+
+### 14. `plannedRules`
+
+类型：对象数组。
+
+作用：记录业务上重要、但当前还没有足够输入或输出能力实现的规则。
+它不是运行时规则，不会直接产生 suggestion。
+
+字段：
+
+- `id`：规划项唯一标识。
+- `status`：通常为 `planned`。
+- `capabilityNeeded`：未来实现需要补充的能力名称，不是当前引擎已经读取的变量字段。
+- `fallback`：当前能力不足时的降级行为。
+
+示例：
+
+    {
+      "id": "V2-device-command-feedback",
+      "status": "planned",
+      "capabilityNeeded": ["DeviceModel", "deviceId", "signalRole"],
+      "fallback": "不跨设备自动选择变量。"
+    }
+
+它的意思是：未来如果有设备模型、设备 ID 和信号角色信息，才可以可靠判断“某个启动命令对应哪个运行反馈”；当前没有这些输入，所以不跨设备替用户拼接变量。
+
+plannedRules 不是要求现有 JSON 立刻增加 `groupId` 或 `deviceId`，也不是变量角色解析已经拿到了这些值。
+
+
+八、四类条件的区别
+------------------
+
+以“用户写送料轴停止，当前有 AXIS_REF”为例：
+
+- `termPatterns`：识别“停止” -> stop、“轴” -> axis。
+- `derivedTerms`：AXIS_REF -> motion、axis。
+- `termImplications`：某些更具体术语自动补充通用术语，例如 motionHalt -> motion。
+- `libraryRules`：stop + motion + axis + AXIS_REF 能够命中 MC_Stop。
+- `portRequirements`：检查 MC_Stop 是否真的有 Axis、Execute 等合法端口及类型。
+- `rankingRules`：如果同时有多个普通拓扑候选，按“停止/故障/复位”语义调整触点、线圈等顺序。
+- `plannedRules`：不会因为“停止”就自动判断安全回路、设备 FB 所有权或 PLC 工程是否加载外部库。
+
+以“Tank_Temp_PV、Tank_Temp_SP、Tank_Temp_MV、Pid_Tank_Temp”为例：
+
+- variablePatterns 给变量贴上 processValue、setpoint、manipulatedValue、pidController 角色。
+- loopSignatures 确认这些角色属于同一公共前缀组，并满足温度、类型和 PID 证据。
+- libraryRules 中引用该签名的 P02 规则才允许推荐 PID。
+
+
+九、修改规则时的实际建议
+------------------------
+
+1. 新增业务词时，先在 termPatterns 增加内部术语，再在 libraryRules 或 rankingRules 使用该术语。
+2. 一个词有明确业务方向时，不要只写宽泛的 timer、motion、counter；应增加 onDelay、motionHalt、countUp 等更具体术语，并用 excludedTerms 防止冲突。
+3. 推荐功能块前必须确认候选名存在于 st-library-info-data.json；否则前端无法渲染真实端口。
+4. 需要证明多个变量属于同一业务关系时，用 loopSignatures，不要只靠 POU 名称或同一 POU 中“出现过这些词”。
+5. `priority` 和 `baseScore` 在不同规则组中是不同层次的排序参数，不要把 contactPolarityRules 的 priority 与 libraryRules 的 priority 当成一个全局分数。
+6. `reason` 用于说明“为什么推荐”，`fallback` 用于说明“证据不足时怎么降级”；它们不是匹配条件。
+7. 修改后至少补一条正例和一条反例：正例验证能推荐，反例验证缺条件时不推荐。
+8. 安全、急停、风险评估等场景当前属于谨慎边界，不应仅靠关键词自动生成安全逻辑。
+
+
+十、当前文件的能力边界
+----------------------
+
+当前文件可以配置：
+
+- 业务术语识别和术语推导。
+- 数据类型组和运动轴能力。
+- 常开/常闭触点业务极性。
+- IEC/PLCopen/运行时库功能块与函数候选。
+- 端口存在性、端口类型和待创建参数约束。
+- 变量角色、物理量和有限的同组回路签名。
+- 普通候选的业务排序。
+
+当前文件不能单独完成：
+
+- 设备模型、deviceId、signalRole 的可靠来源。
+- 跨多个节点的一次性完整模板实例化。
+- 状态机、设备 FB 与梯形图之间的所有权判断。
+- 安全功能合规性、风险评估和标准符合性证明。
+- PID 参数整定、采样周期验证和工程量程验证。
+- 输出完整的规则命中链、拒绝链和逐项分数明细。
+
+这些能力在 plannedRules 中登记，但在实现前不能把它们当作当前已有功能。
