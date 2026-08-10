@@ -412,7 +412,7 @@ const FALLBACK_TERM_IMPLICATIONS: BusinessTermImplicationConfig[] = [
 ];
 
 const FALLBACK_BUSINESS_RULES_CONFIG: BusinessRulesConfig = {
-  schemaVersion: "ide-agent.business-rules.v4",
+  schemaVersion: "ide-agent.business-rules.v5",
   enabled: true,
   defaultBlocks: FALLBACK_COMMON_FUNCTION_BLOCK_TYPES,
   dataTypeGroups: FALLBACK_DATA_TYPE_GROUPS,

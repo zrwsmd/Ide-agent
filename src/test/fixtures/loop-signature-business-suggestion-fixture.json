@@ -221,6 +221,45 @@
     ]
   },
   {
+    "pouName": "TEMP_PID_COMMENT_ROLES",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "TIC101_IN", "type": "REAL", "scope": "VAR", "comment": "炉温实际值" },
+      { "name": "TIC101_REF", "type": "REAL", "scope": "VAR", "label": "炉温目标值" },
+      { "name": "TIC101_OUT", "type": "REAL", "scope": "VAR", "note": "加热阀门输出" },
+      { "name": "TIC101_Pid_Kp", "type": "REAL", "scope": "VAR", "comment": "PID 比例参数" },
+      { "name": "TIC101_Enable", "type": "BOOL", "scope": "VAR" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-temperature-pid-comment-roles",
+        "label": "TIC101 temperature PID control",
+        "note": "Enable the temperature loop",
+        "nodesObj": {
+          "temperature-pid-comment-start": {
+            "id": "temperature-pid-comment-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["temperature-pid-comment-contact"]
+          },
+          "temperature-pid-comment-contact": {
+            "id": "temperature-pid-comment-contact",
+            "type": "contact",
+            "sourceIds": ["temperature-pid-comment-start"],
+            "targetIds": ["temperature-pid-comment-end"],
+            "varName": { "value": "TIC101_Enable", "type": "BOOL", "scope": "VAR" }
+          },
+          "temperature-pid-comment-end": {
+            "id": "temperature-pid-comment-end",
+            "type": "endLine",
+            "sourceIds": ["temperature-pid-comment-contact"],
+            "targetIds": []
+          }
+        }
+      }
+    ]
+  },
+  {
     "pouName": "LEGACY_PID_TERMS",
     "pouType": "PROGRAM",
     "variableList": [

@@ -7,6 +7,10 @@ const {
   getLocalGraphSuggestions,
   loadDiagramSummary,
 } = require("../dist/node_modules/@ide-agent/core");
+const {
+  evaluateVariableRoles,
+  parseVariablePatterns,
+} = require("../packages/core/dist/graph/BusinessLoopSignatures");
 
 const rootDir = path.resolve(__dirname, "..");
 const fixturePath = path.join(
@@ -43,6 +47,7 @@ const libraryElements = new Map(
 
 async function main() {
   assertActiveRuleCandidatesExistInLibrary();
+  assertVariableRoleEvidenceCases();
   await assertStableBusinessCases();
   await assertLoopSignatureCases();
   await assertTimestampDiagramWhenAvailable();
@@ -51,7 +56,7 @@ async function main() {
 
 function assertActiveRuleCandidatesExistInLibrary() {
   const rules = JSON.parse(fs.readFileSync(rulesPath, "utf8"));
-  assert.equal(rules.schemaVersion, "ide-agent.business-rules.v4");
+  assert.equal(rules.schemaVersion, "ide-agent.business-rules.v5");
   assert.ok(rules.dataTypeGroups.NUMERIC.includes("LREAL"));
   assert.ok(rules.dataTypeGroups.INTEGER.includes("UDINT"));
   assert.ok(
@@ -74,6 +79,9 @@ function assertActiveRuleCandidatesExistInLibrary() {
   const definedRoles = new Set([
     ...(rules.variablePatterns?.prefixRoles ?? []).map((entry) => entry.role),
     ...(rules.variablePatterns?.suffixRoles ?? []).map((entry) => entry.role),
+    ...(rules.variablePatterns?.roleEvidenceRules ?? []).map(
+      (entry) => entry.role,
+    ),
   ]);
   const signatureIds = new Set(
     (rules.loopSignatures ?? []).map((signature) => signature.id),
@@ -145,6 +153,50 @@ function assertActiveRuleCandidatesExistInLibrary() {
         () => new RegExp(pattern, "iu"),
         `${entry.term} has invalid regex: ${pattern}`,
       );
+    }
+  }
+  const allowedVariableSources = new Set([
+    "name",
+    "label",
+    "note",
+    "comment",
+  ]);
+  assert.ok(
+    rules.variablePatterns.roleEvidenceRules.length > 0,
+    "roleEvidenceRules must define generic variable-role evidence",
+  );
+  for (const rule of rules.variablePatterns.roleEvidenceRules) {
+    assert.ok(rule.id, "variable role evidence rule must define id");
+    assert.ok(rule.role, `${rule.id} must define role`);
+    assert.ok(
+      Number.isFinite(rule.minScore) && rule.minScore > 0,
+      `${rule.id} must define a positive minScore`,
+    );
+    assert.ok(
+      rule.acceptedDataTypes?.length > 0,
+      `${rule.id} must define acceptedDataTypes as a hard type constraint`,
+    );
+    assert.ok(rule.sources?.length > 0, `${rule.id} must define sources`);
+    for (const source of rule.sources) {
+      assert.ok(
+        allowedVariableSources.has(source.source),
+        `${rule.id} has unsupported variable source: ${source.source}`,
+      );
+      assert.ok(
+        Number.isFinite(source.score) && source.score > 0,
+        `${rule.id}/${source.source} must define a positive score`,
+      );
+      assert.ok(
+        source.literalPatterns?.length > 0 ||
+          source.regexPatterns?.length > 0,
+        `${rule.id}/${source.source} must define at least one matcher`,
+      );
+      for (const pattern of source.regexPatterns ?? []) {
+        assert.doesNotThrow(
+          () => new RegExp(pattern, "iu"),
+          `${rule.id}/${source.source} has invalid regex: ${pattern}`,
+        );
+      }
     }
   }
   const negatedPolarityRule = rules.contactPolarityRules?.find(
@@ -226,6 +278,119 @@ function assertActiveRuleCandidatesExistInLibrary() {
   }
 }
 
+function assertVariableRoleEvidenceCases() {
+  const rules = JSON.parse(fs.readFileSync(rulesPath, "utf8"));
+  const config = parseVariablePatterns(rules.variablePatterns);
+  const matches = evaluateVariableRoles(config, [
+    {
+      name: "TIC101_IN",
+      type: "REAL",
+      scope: "VAR",
+      comment: "炉温实际值",
+    },
+    {
+      name: "TIC101_REF",
+      type: "REAL",
+      scope: "VAR",
+      label: "炉温目标值",
+    },
+    {
+      name: "TIC101_OUT",
+      type: "REAL",
+      scope: "VAR",
+      note: "加热阀门输出",
+    },
+    {
+      name: "X101",
+      type: "BOOL",
+      scope: "VAR",
+      label: "1号电机启动命令",
+      comment: "设备控制命令",
+    },
+    {
+      name: "X102",
+      type: "BOOL",
+      scope: "VAR",
+      note: "1号电机运行反馈和运行状态",
+    },
+    {
+      name: "X103",
+      type: "BOOL",
+      scope: "VAR",
+      comment: "1号电机故障信号",
+    },
+    {
+      name: "AxisData",
+      type: "AXIS_REF",
+      scope: "VAR",
+      comment: "送料轴引用",
+    },
+    {
+      name: "Wrong_Run_Feedback",
+      type: "REAL",
+      scope: "VAR",
+      comment: "1号电机运行反馈",
+    },
+    {
+      name: "Wrong_PV",
+      type: "BOOL",
+      scope: "VAR",
+    },
+  ]);
+
+  const hasRole = (variableName, role) =>
+    matches.some(
+      (match) =>
+        match.variableName === variableName && match.role === role,
+    );
+  assert.ok(hasRole("TIC101_IN", "processValue"));
+  assert.ok(hasRole("TIC101_REF", "setpoint"));
+  assert.ok(hasRole("TIC101_OUT", "manipulatedValue"));
+  assert.ok(hasRole("X101", "commandSignal"));
+  assert.ok(hasRole("X102", "runFeedback"));
+  assert.ok(hasRole("X103", "faultSignal"));
+  assert.ok(hasRole("AxisData", "axisReference"));
+  assert.ok(
+    !hasRole("Wrong_Run_Feedback", "runFeedback"),
+    "REAL must not be accepted as a BOOL run-feedback signal",
+  );
+  assert.ok(
+    !hasRole("Wrong_PV", "processValue"),
+    "legacy suffix matching must keep its REAL/LREAL type constraint",
+  );
+
+  const commentMatch = matches.find(
+    (match) =>
+      match.variableName === "TIC101_IN" &&
+      match.role === "processValue",
+  );
+  assert.deepStrictEqual(commentMatch?.matchedSources, ["comment"]);
+  assert.equal(commentMatch?.score, 5);
+  assert.ok(commentMatch?.groupKeys.includes("tic101"));
+
+  const multiSourceMatch = matches.find(
+    (match) =>
+      match.variableName === "X101" && match.role === "commandSignal",
+  );
+  assert.deepStrictEqual(multiSourceMatch?.matchedSources, ["comment", "label"]);
+  assert.equal(
+    multiSourceMatch?.score,
+    10,
+    "independent variable fields should contribute separate evidence",
+  );
+
+  const singleSourceMatch = matches.find(
+    (match) =>
+      match.variableName === "X102" && match.role === "runFeedback",
+  );
+  assert.deepStrictEqual(singleSourceMatch?.matchedSources, ["note"]);
+  assert.equal(
+    singleSourceMatch?.score,
+    5,
+    "multiple synonyms in the same field must not stack evidence",
+  );
+}
+
 async function assertLoopSignatureCases() {
   const completeSuggestions = await suggestionsFor(
     loopSignatureFixturePath,
@@ -235,6 +400,16 @@ async function assertLoopSignatureCases() {
   assert.ok(
     functionBlockTypes(completeSuggestions).includes("PID"),
     "complete temperature PID signature should recommend PID",
+  );
+
+  const commentRoleSuggestions = await suggestionsFor(
+    loopSignatureFixturePath,
+    "segment-temperature-pid-comment-roles",
+    "temperature-pid-comment-contact",
+  );
+  assert.ok(
+    functionBlockTypes(commentRoleSuggestions).includes("PID"),
+    "variable comments/labels/notes should satisfy the same loop signature without PV/SP/MV suffixes",
   );
 
   const unrelatedSegmentSuggestions = await suggestionsFor(
@@ -297,7 +472,11 @@ async function assertLoopSignatureCases() {
     "legacy term-based PID rule must remain available",
   );
 
-  for (const suggestion of [...completeSuggestions, ...legacySuggestions]) {
+  for (const suggestion of [
+    ...completeSuggestions,
+    ...commentRoleSuggestions,
+    ...legacySuggestions,
+  ]) {
     assertSuggestionUsesLibraryElement(suggestion);
   }
 }

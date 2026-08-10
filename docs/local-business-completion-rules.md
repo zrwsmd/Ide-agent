@@ -129,7 +129,7 @@
 
 ### 7.2 `variablePatterns`
 
-用于从 POU 变量表中提取可配置的变量角色和物理量证据。第一版支持前缀、后缀、变量数据类型以及物理量字面/正则模式。角色只表示单个变量的可能职责，不等同于完整业务回路。
+用于从 POU 变量表中提取可配置的变量角色和物理量证据。保留 `prefixRoles`、`suffixRoles` 的规范命名识别，同时支持 `roleEvidenceRules` 从变量的 `name`、`label`、`note`、`comment` 汇总角色证据；`acceptedDataTypes` 是硬约束，同一来源多个模式只取最高分，累计分达到 `minScore` 才确认角色。角色只表示单个变量的可能职责，不等同于完整业务回路，也不直接改变 suggestion 排序分。
 
 ### 7.3 `loopSignatures`
 

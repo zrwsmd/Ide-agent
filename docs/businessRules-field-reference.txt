@@ -34,7 +34,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 
 表示规则文件的结构版本，例如：
 
-    "schemaVersion": "ide-agent.business-rules.v4"
+    "schemaVersion": "ide-agent.business-rules.v5"
 
 它用于区分配置格式版本，不是规则优先级，也不是候选分数。升级字段结构时应同步升级版本号。
 
@@ -246,7 +246,63 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 - `_MV`、`_Output` -> manipulatedValue，控制输出。
 - `_Kp`、`_Ti`、`_Td` -> pidParameter，PID 参数。
 
-#### 9.3 physicalTerms
+#### 9.3 roleEvidenceRules
+
+类型：对象数组，按变量名、标签、备注和注释综合判断变量用途。
+
+字段：
+
+- `id`：证据规则唯一标识。
+- `status`：只有 `active` 规则参与识别。
+- `role`：识别出的统一变量用途，例如 `commandSignal`、`runFeedback`、`faultSignal`。
+- `acceptedDataTypes`：允许的数据类型，是硬约束；类型不符合时，分数再高也不会确认角色。
+- `minScore`：确认该角色所需的最低证据分。
+- `sources`：可以提供证据的变量字段列表。
+
+每个 `sources` 条目的字段：
+
+- `source`：证据来源，只允许 `name`、`label`、`note`、`comment`。
+- `literalPatterns`：该字段的字面包含模式。
+- `regexPatterns`：该字段的正则模式。
+- `score`：该来源命中后提供的角色证据分。
+
+示例：
+
+    {
+      "id": "VR05-run-feedback",
+      "status": "active",
+      "role": "runFeedback",
+      "acceptedDataTypes": ["BOOL"],
+      "minScore": 4,
+      "sources": [
+        {
+          "source": "comment",
+          "literalPatterns": ["运行反馈", "运行状态"],
+          "regexPatterns": [],
+          "score": 5
+        }
+      ]
+    }
+
+变量 `X102: BOOL` 的注释是“1号电机运行反馈”时，comment 提供 5 分，达到阈值，因此确认它是运行反馈信号。
+如果 `X102` 是 REAL，类型硬约束失败，不会因为注释命中而强行确认成 BOOL 运行反馈。
+
+同一来源即使命中多个同义词也只取该来源的最高分，防止一条注释因为堆叠同义词获得不合理高分。不同来源可以累加，例如变量名和注释同时提供证据。
+
+这里的角色证据分只用于确认“变量是什么用途”，不会直接加入 suggestion 的最终排序分，也不能代替 `libraryRules.baseScore`。
+
+当前配置包含的通用角色示例：
+
+- processValue：实际值、测量值。
+- setpoint：设定值、目标值。
+- manipulatedValue：控制输出、调节输出。
+- commandSignal：启动、停止或执行命令。
+- runFeedback：设备运行状态反馈。
+- faultSignal：设备故障信号。
+- completionSignal：动作完成或到位反馈。
+- axisReference：运动轴引用。
+
+#### 9.4 physicalTerms
 
 类型：对象数组，识别变量名或当前区段文本中的物理量。
 
@@ -266,10 +322,10 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 
 `Tank_Temp_PV`、区段标题“温度闭环控制”都可以提供 temperature 证据。
 
-#### 9.4 variablePatterns 的限制
+#### 9.5 variablePatterns 的限制
 
-当前第一版强依赖变量命名规范。客户把实际值命名为 `A1_Value`，但没有 `_PV`、注释或其他角色线索时，系统无法可靠知道它是 processValue。
-因此变量角色是“证据”，不是绝对事实；后续可以再增加注释、端口连接和类型等证据来源。
+当前版本不再只依赖规范前后缀，可以使用变量名、标签、备注、注释和类型。但如果客户既没有规范命名，也没有有效注释，系统仍无法可靠判断变量用途。
+因此变量角色是“证据”，不是绝对事实；功能块端口连接、图上的读写位置和可靠设备标识仍属于后续证据来源。
 
 ### 10. `loopSignatures`
 

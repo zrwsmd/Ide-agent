@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "ide-agent.business-rules.v4",
+  "schemaVersion": "ide-agent.business-rules.v5",
   "enabled": true,
   "defaultBlocks": ["TON", "TOF", "TP", "R_TRIG", "F_TRIG", "CTU", "CTD", "CTUD", "SR", "RS"],
   "dataTypeGroups": {
@@ -97,6 +97,112 @@
       { "suffix": "_Kp", "role": "pidParameter", "acceptedDataTypes": ["REAL", "LREAL"] },
       { "suffix": "_Ti", "role": "pidParameter", "acceptedDataTypes": ["REAL", "LREAL"] },
       { "suffix": "_Td", "role": "pidParameter", "acceptedDataTypes": ["REAL", "LREAL"] }
+    ],
+    "roleEvidenceRules": [
+      {
+        "id": "VR01-process-value",
+        "status": "active",
+        "role": "processValue",
+        "acceptedDataTypes": ["REAL", "LREAL"],
+        "minScore": 4,
+        "sources": [
+          { "source": "name", "literalPatterns": ["processvalue", "process_value", "actualvalue", "actual_value", "measuredvalue", "measured_value"], "regexPatterns": ["(?:^|[^a-z0-9])(?:pv|actual|measured)(?:$|[^a-z0-9])"], "score": 4 },
+          { "source": "label", "literalPatterns": ["实际值", "测量值", "过程值", "反馈值", "actual value", "measured value", "process value"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["实际值", "测量值", "过程值", "反馈值", "actual value", "measured value", "process value"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["实际值", "测量值", "过程值", "反馈值", "actual value", "measured value", "process value"], "regexPatterns": [], "score": 5 }
+        ]
+      },
+      {
+        "id": "VR02-setpoint",
+        "status": "active",
+        "role": "setpoint",
+        "acceptedDataTypes": ["REAL", "LREAL"],
+        "minScore": 4,
+        "sources": [
+          { "source": "name", "literalPatterns": ["setpoint", "set_point", "targetvalue", "target_value", "referencevalue", "reference_value"], "regexPatterns": ["(?:^|[^a-z0-9])(?:sp|setpoint|target|reference)(?:$|[^a-z0-9])"], "score": 4 },
+          { "source": "label", "literalPatterns": ["设定值", "给定值", "目标值", "目标温度", "目标压力", "setpoint", "target value", "reference value"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["设定值", "给定值", "目标值", "目标温度", "目标压力", "setpoint", "target value", "reference value"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["设定值", "给定值", "目标值", "目标温度", "目标压力", "setpoint", "target value", "reference value"], "regexPatterns": [], "score": 5 }
+        ]
+      },
+      {
+        "id": "VR03-control-output",
+        "status": "active",
+        "role": "manipulatedValue",
+        "acceptedDataTypes": ["REAL", "LREAL"],
+        "minScore": 4,
+        "sources": [
+          { "source": "name", "literalPatterns": ["controloutput", "control_output", "manipulatedvalue", "manipulated_value", "valveoutput", "valve_output"], "regexPatterns": ["(?:^|[^a-z0-9])(?:mv|out|output)(?:$|[^a-z0-9])"], "score": 4 },
+          { "source": "label", "literalPatterns": ["控制输出", "调节输出", "执行输出", "阀门输出", "输出值", "control output", "manipulated value"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["控制输出", "调节输出", "执行输出", "阀门输出", "输出值", "control output", "manipulated value"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["控制输出", "调节输出", "执行输出", "阀门输出", "输出值", "control output", "manipulated value"], "regexPatterns": [], "score": 5 }
+        ]
+      },
+      {
+        "id": "VR04-command",
+        "status": "active",
+        "role": "commandSignal",
+        "acceptedDataTypes": ["BOOL"],
+        "minScore": 4,
+        "sources": [
+          { "source": "name", "literalPatterns": ["command", "request"], "regexPatterns": ["(?:^|[^a-z0-9])(?:cmd|req)(?:$|[^a-z0-9])"], "score": 4 },
+          { "source": "label", "literalPatterns": ["启动命令", "停止命令", "执行命令", "控制命令", "动作命令", "启动请求", "停止请求", "command signal"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["启动命令", "停止命令", "执行命令", "控制命令", "动作命令", "启动请求", "停止请求", "command signal"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["启动命令", "停止命令", "执行命令", "控制命令", "动作命令", "启动请求", "停止请求", "command signal"], "regexPatterns": [], "score": 5 }
+        ]
+      },
+      {
+        "id": "VR05-run-feedback",
+        "status": "active",
+        "role": "runFeedback",
+        "acceptedDataTypes": ["BOOL"],
+        "minScore": 4,
+        "sources": [
+          { "source": "name", "literalPatterns": ["runfeedback", "run_feedback", "runningfeedback", "running_feedback"], "regexPatterns": ["(?:^|[^a-z0-9])run[_\\-.\\s]*fb(?:$|[^a-z0-9])"], "score": 4 },
+          { "source": "label", "literalPatterns": ["运行反馈", "运行状态反馈", "运行状态", "已运行", "running feedback"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["运行反馈", "运行状态反馈", "运行状态", "已运行", "running feedback"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["运行反馈", "运行状态反馈", "运行状态", "已运行", "running feedback"], "regexPatterns": [], "score": 5 }
+        ]
+      },
+      {
+        "id": "VR06-fault-signal",
+        "status": "active",
+        "role": "faultSignal",
+        "acceptedDataTypes": ["BOOL"],
+        "minScore": 4,
+        "sources": [
+          { "source": "name", "literalPatterns": ["fault", "failure", "error"], "regexPatterns": [], "score": 4 },
+          { "source": "label", "literalPatterns": ["故障信号", "故障状态", "设备故障", "错误信号", "fault signal"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["故障信号", "故障状态", "设备故障", "错误信号", "fault signal"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["故障信号", "故障状态", "设备故障", "错误信号", "fault signal"], "regexPatterns": [], "score": 5 }
+        ]
+      },
+      {
+        "id": "VR07-completion-signal",
+        "status": "active",
+        "role": "completionSignal",
+        "acceptedDataTypes": ["BOOL"],
+        "minScore": 4,
+        "sources": [
+          { "source": "name", "literalPatterns": ["done", "complete", "completed", "inposition", "in_position"], "regexPatterns": [], "score": 4 },
+          { "source": "label", "literalPatterns": ["完成信号", "完成状态", "完成反馈", "动作完成", "到位反馈", "completion signal"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["完成信号", "完成状态", "完成反馈", "动作完成", "到位反馈", "completion signal"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["完成信号", "完成状态", "完成反馈", "动作完成", "到位反馈", "completion signal"], "regexPatterns": [], "score": 5 }
+        ]
+      },
+      {
+        "id": "VR08-axis-reference",
+        "status": "active",
+        "role": "axisReference",
+        "acceptedDataTypes": ["AXIS_REF", "AXIS_REF_SM3"],
+        "minScore": 4,
+        "sources": [
+          { "source": "name", "literalPatterns": ["axis"], "regexPatterns": [], "score": 4 },
+          { "source": "label", "literalPatterns": ["轴引用", "运动轴", "伺服轴", "axis reference"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["轴引用", "运动轴", "伺服轴", "axis reference"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["轴引用", "运动轴", "伺服轴", "axis reference"], "regexPatterns": [], "score": 5 }
+        ]
+      }
     ],
     "physicalTerms": [
       { "physical": "temperature", "literalPatterns": ["temperature", "\u6e29\u5ea6"], "regexPatterns": ["(?:^|[^a-z0-9])temp(?:$|[^a-z0-9])"] }
