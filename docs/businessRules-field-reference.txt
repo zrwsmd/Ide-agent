@@ -34,7 +34,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 
 表示规则文件的结构版本，例如：
 
-    "schemaVersion": "ide-agent.business-rules.v7"
+    "schemaVersion": "ide-agent.business-rules.v8"
 
 它用于区分配置格式版本，不是规则优先级，也不是候选分数。升级字段结构时应同步升级版本号。
 
@@ -366,7 +366,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 
 字段：
 
-- `id`：签名唯一标识，例如 `LS01-temperature-pid`。
+- `id`：签名唯一标识，例如 `LS05-temperature-pid-missing-controller`。
 - `status`：`active` 才参与运行时匹配；`planned` 或其他状态不参与。
 - `kind`：`completion` 表示待补全关系，`observed` 表示从已有功能块端口确认的完整关系；缺省为 `completion`。
 - `groupStrategies`：有序声明允许使用的分组证据；当前支持 `groupId`、`deviceId`、`namePrefix` 和 `fbInstancePorts`。旧规则缺省使用 `namePrefix`。
@@ -374,14 +374,16 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 - `requiredRoleTypes`：按角色限制数据类型。
 - `requiredPhysicalTerms`：必须出现的物理量证据。
 - `evidenceRolesAny`：辅助角色，命中任意一个即可，例如 PID 控制器或 PID 参数。
+- `missingRolesAny`：仅用于 `completion`；列出的角色至少缺少一个时才通过，用来描述当前关系还不完整，但不能代替目标功能块检查。
 - `evidenceTermsAny`：辅助业务术语，当前焦点区段上下文命中任意一个即可。
 - `evidenceBlockTypesAny`：端口实例分组必须来自其中一种功能块/函数类型。
-- `targetBlockTypes`：该签名对应的目标库元素类型，用于解释和后续补全约束。
+- `targetBlockTypes`：该签名对应的目标库元素类型。对于 `completion`，同一分组中只要已经存在其中一种目标块，签名就不再命中；对于 `observed`，用于记录已识别关系的块类型。
 
 当前温度 PID 示例：
 
     {
-      "id": "LS01-temperature-pid",
+      "id": "LS05-temperature-pid-missing-controller",
+      "kind": "completion",
       "groupStrategies": ["groupId", "namePrefix"],
       "requiredRolesAll": ["processValue", "setpoint", "manipulatedValue"],
       "requiredRoleTypes": {
@@ -390,8 +392,9 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
         "manipulatedValue": ["REAL", "LREAL"]
       },
       "requiredPhysicalTerms": ["temperature"],
-      "evidenceRolesAny": ["pidController", "controllerParameter"],
-      "evidenceTermsAny": ["pid"]
+      "missingRolesAny": ["controllerOutput", "pidController"],
+      "evidenceTermsAny": ["pid"],
+      "targetBlockTypes": ["PID"]
     }
 
 通俗理解：
@@ -399,10 +402,10 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
     Tank_Temp_PV: REAL
     Tank_Temp_SP: REAL
     Tank_Temp_MV: REAL
-    Pid_Tank_Temp: PID
+    // 当前图中还没有 PID 功能块
 
-这四个变量的公共前缀能够组成同一组，同时具备 PV、SP、MV、温度和 PID 证据，才命中签名。
-缺少 SP、类型是 BOOL、变量属于不同前缀组，或当前区段没有 PID 语义时，都不应通过该签名。
+前三个变量组成同一组，同时具备 PV、SP、MV、温度和 PID 语义，并且该组中还没有真实 PID 功能块，才命中签名。
+缺少 SP、类型是 BOOL、变量属于不同分组、当前区段没有 PID 语义，或同组 PID 已经存在时，都不应通过该签名。
 
 如果以后图数据的 `variableList` 提供可选的 `deviceId`、`groupId`，规则可以优先按显式标识分组。例如：
 
@@ -412,11 +415,11 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 
 三个变量名称没有公共前缀，但 `deviceId + groupId` 相同，因此可以确定属于同一回路。`groupId` 适合温度、压力等回路级规则；`deviceId` 适合水泵命令、运行反馈、故障等设备级规则。一台设备可能有多套回路，所以回路级规则不能只使用 `deviceId`。同时存在两者时，`groupId` 分组键会包含设备标识，避免不同设备中重名的 `groupId` 被合并。字段不存在或为空时，继续使用后面的分组策略。
 
-`completion` 签名可以继续从规范变量名公共前缀推断分组。`observed` 签名优先使用已有功能块实例的端口绑定，例如同一个 PID 的 PV、SP、XOUT 会得到同一个 `fbInstancePorts` 分组，即使三个变量没有公共名称前缀。
+`completion` 签名可以按 `groupId`、`deviceId` 或规范变量名公共前缀判断待补全关系。目标块检查是通用机制，PID、TON、TOF、TP、MC_Stop 以及后续新增的库块都使用 `targetBlockTypes`，引擎中没有 PID 专用的缺失判断。`observed` 签名使用已有功能块实例的端口绑定，例如同一个 PID 的 PV、SP、XOUT 会得到同一个 `fbInstancePorts` 分组，即使三个变量没有公共名称前缀。
 
 `observed` 只说明“程序里已经存在并接出了这组关系”，不能直接作为再次推荐同类功能块的理由。当前建议引擎只把 `completion` 签名交给 `libraryRules.signatureRefsAny`，从而避免“发现已有 PID，又推荐一个 PID”。
 
-此外，`observed` 匹配会记录当前区段实际存在的块类型；候选生成时自动排除同类型候选。例如已识别到完整 TON 时只排除重复 TON，不会笼统排除 TOF、TP 或其他功能块。
+已有功能块会通过真实端口变量反向关联到对应 `groupId`、`deviceId` 和名称分组。某组已存在 PID 只压制该组的 PID completion，不会阻止另一组补 PID。对没有 completion 签名支持的旧关键词规则，仍保留当前区段的保守同类型去重作为兜底。
 
 
 四、触点极性层

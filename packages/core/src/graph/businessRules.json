@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "ide-agent.business-rules.v7",
+  "schemaVersion": "ide-agent.business-rules.v8",
   "enabled": true,
   "defaultBlocks": ["TON", "TOF", "TP", "R_TRIG", "F_TRIG", "CTU", "CTD", "CTUD", "SR", "RS"],
   "dataTypeGroups": {
@@ -96,7 +96,10 @@
       { "suffix": "_Output", "role": "manipulatedValue", "acceptedDataTypes": ["REAL", "LREAL"] },
       { "suffix": "_Kp", "role": "controllerParameter", "acceptedDataTypes": ["REAL", "LREAL"] },
       { "suffix": "_Ti", "role": "controllerParameter", "acceptedDataTypes": ["REAL", "LREAL"] },
-      { "suffix": "_Td", "role": "controllerParameter", "acceptedDataTypes": ["REAL", "LREAL"] }
+      { "suffix": "_Td", "role": "controllerParameter", "acceptedDataTypes": ["REAL", "LREAL"] },
+      { "suffix": "_Condition", "role": "conditionSignal", "acceptedDataTypes": ["BOOL"] },
+      { "suffix": "_Delay", "role": "presetDuration", "acceptedDataTypes": ["TIME"] },
+      { "suffix": "_Deceleration", "role": "deceleration", "acceptedDataTypes": ["REAL", "LREAL"] }
     ],
     "roleEvidenceRules": [
       {
@@ -202,6 +205,45 @@
           { "source": "note", "literalPatterns": ["轴引用", "运动轴", "伺服轴", "axis reference"], "regexPatterns": [], "score": 5 },
           { "source": "comment", "literalPatterns": ["轴引用", "运动轴", "伺服轴", "axis reference"], "regexPatterns": [], "score": 5 }
         ]
+      },
+      {
+        "id": "VR09-condition-signal",
+        "status": "active",
+        "role": "conditionSignal",
+        "acceptedDataTypes": ["BOOL"],
+        "minScore": 4,
+        "sources": [
+          { "source": "name", "literalPatterns": ["condition", "timerinput", "timer_input"], "regexPatterns": ["(?:^|[^a-z0-9])(?:condition|trigger|enable)(?:$|[^a-z0-9])"], "score": 4 },
+          { "source": "label", "literalPatterns": ["启动条件", "定时条件", "触发条件", "使能条件", "condition signal", "timer input"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["启动条件", "定时条件", "触发条件", "使能条件", "condition signal", "timer input"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["启动条件", "定时条件", "触发条件", "使能条件", "condition signal", "timer input"], "regexPatterns": [], "score": 5 }
+        ]
+      },
+      {
+        "id": "VR10-preset-duration",
+        "status": "active",
+        "role": "presetDuration",
+        "acceptedDataTypes": ["TIME"],
+        "minScore": 4,
+        "sources": [
+          { "source": "name", "literalPatterns": ["presettime", "preset_time", "delaytime", "delay_time", "duration", "timeout"], "regexPatterns": ["(?:^|[^a-z0-9])(?:pt|delay|preset|duration|timeout)(?:$|[^a-z0-9])"], "score": 4 },
+          { "source": "label", "literalPatterns": ["预置时间", "设定时间", "延时时间", "超时时间", "preset duration", "delay time"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["预置时间", "设定时间", "延时时间", "超时时间", "preset duration", "delay time"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["预置时间", "设定时间", "延时时间", "超时时间", "preset duration", "delay time"], "regexPatterns": [], "score": 5 }
+        ]
+      },
+      {
+        "id": "VR11-deceleration",
+        "status": "active",
+        "role": "deceleration",
+        "acceptedDataTypes": ["REAL", "LREAL"],
+        "minScore": 4,
+        "sources": [
+          { "source": "name", "literalPatterns": ["deceleration", "decel"], "regexPatterns": [], "score": 4 },
+          { "source": "label", "literalPatterns": ["减速度", "停止减速度", "deceleration"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["减速度", "停止减速度", "deceleration"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["减速度", "停止减速度", "deceleration"], "regexPatterns": [], "score": 5 }
+        ]
       }
     ],
     "physicalTerms": [
@@ -272,6 +314,7 @@
         { "port": "Axis", "direction": "any", "role": "axisReference", "acceptedDataTypes": ["AXIS_REF", "AXIS_REF_SM3"] },
         { "port": "Enable", "direction": "input", "role": "enableSignal", "acceptedDataTypes": ["BOOL"] },
         { "port": "Execute", "direction": "input", "role": "commandSignal", "acceptedDataTypes": ["BOOL"] },
+        { "port": "Deceleration", "direction": "input", "role": "deceleration", "acceptedDataTypes": ["REAL", "LREAL"] },
         { "port": "Done", "direction": "output", "role": "completionSignal", "acceptedDataTypes": ["BOOL"] },
         { "port": "InVelocity", "direction": "output", "role": "completionSignal", "acceptedDataTypes": ["BOOL"] },
         { "port": "Status", "direction": "output", "role": "runFeedback", "acceptedDataTypes": ["BOOL"] },
@@ -316,20 +359,6 @@
   ],
   "loopSignatures": [
     {
-      "id": "LS01-temperature-pid",
-      "status": "active",
-      "groupStrategies": ["groupId", "namePrefix"],
-      "requiredRolesAll": ["processValue", "setpoint", "manipulatedValue"],
-      "requiredRoleTypes": {
-        "processValue": ["REAL", "LREAL"],
-        "setpoint": ["REAL", "LREAL"],
-        "manipulatedValue": ["REAL", "LREAL"]
-      },
-      "requiredPhysicalTerms": ["temperature"],
-      "evidenceRolesAny": ["pidController", "controllerParameter"],
-      "evidenceTermsAny": ["pid"]
-    },
-    {
       "id": "LS02-observed-temperature-controller",
       "status": "active",
       "kind": "observed",
@@ -343,6 +372,75 @@
       "requiredPhysicalTerms": ["temperature"],
       "evidenceBlockTypesAny": ["PID"],
       "targetBlockTypes": ["PID"]
+    },
+    {
+      "id": "LS05-temperature-pid-missing-controller",
+      "status": "active",
+      "kind": "completion",
+      "groupStrategies": ["groupId", "namePrefix"],
+      "requiredRolesAll": ["processValue", "setpoint", "manipulatedValue"],
+      "requiredRoleTypes": {
+        "processValue": ["REAL", "LREAL"],
+        "setpoint": ["REAL", "LREAL"],
+        "manipulatedValue": ["REAL", "LREAL"]
+      },
+      "requiredPhysicalTerms": ["temperature"],
+      "missingRolesAny": ["controllerOutput", "pidController"],
+      "evidenceTermsAny": ["pid"],
+      "targetBlockTypes": ["PID"]
+    },
+    {
+      "id": "LS06-on-delay-missing-timer",
+      "status": "active",
+      "kind": "completion",
+      "groupStrategies": ["groupId", "deviceId", "namePrefix"],
+      "requiredRolesAll": ["conditionSignal", "presetDuration"],
+      "requiredRoleTypes": {
+        "conditionSignal": ["BOOL"],
+        "presetDuration": ["TIME"]
+      },
+      "evidenceTermsAny": ["onDelay"],
+      "targetBlockTypes": ["TON"]
+    },
+    {
+      "id": "LS07-off-delay-missing-timer",
+      "status": "active",
+      "kind": "completion",
+      "groupStrategies": ["groupId", "deviceId", "namePrefix"],
+      "requiredRolesAll": ["conditionSignal", "presetDuration"],
+      "requiredRoleTypes": {
+        "conditionSignal": ["BOOL"],
+        "presetDuration": ["TIME"]
+      },
+      "evidenceTermsAny": ["offDelay"],
+      "targetBlockTypes": ["TOF"]
+    },
+    {
+      "id": "LS08-pulse-missing-timer",
+      "status": "active",
+      "kind": "completion",
+      "groupStrategies": ["groupId", "deviceId", "namePrefix"],
+      "requiredRolesAll": ["conditionSignal", "presetDuration"],
+      "requiredRoleTypes": {
+        "conditionSignal": ["BOOL"],
+        "presetDuration": ["TIME"]
+      },
+      "evidenceTermsAny": ["pulse"],
+      "targetBlockTypes": ["TP"]
+    },
+    {
+      "id": "LS09-motion-stop-missing-block",
+      "status": "active",
+      "kind": "completion",
+      "groupStrategies": ["groupId", "deviceId", "namePrefix"],
+      "requiredRolesAll": ["axisReference", "commandSignal", "deceleration"],
+      "requiredRoleTypes": {
+        "axisReference": ["AXIS_REF", "AXIS_REF_SM3"],
+        "commandSignal": ["BOOL"],
+        "deceleration": ["REAL", "LREAL"]
+      },
+      "evidenceTermsAny": ["stop"],
+      "targetBlockTypes": ["MC_Stop"]
     },
     {
       "id": "LS03-observed-timer",
@@ -448,6 +546,50 @@
       "priority": 80,
       "baseScore": 100,
       "reason": "固定宽度单次脉冲使用 TP。"
+    },
+    {
+      "id": "T04-ton-completion",
+      "status": "active",
+      "signatureRefsAny": ["LS06-on-delay-missing-timer"],
+      "portRequirements": [
+        { "port": "IN", "required": true, "acceptedDataTypes": ["BOOL"] },
+        { "port": "PT", "required": true, "acceptedDataTypes": ["TIME"], "allowCreateParameter": true }
+      ],
+      "candidateNames": ["TON"],
+      "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
+      "preferredPositions": ["behind", "outsideBehind"],
+      "priority": 90,
+      "baseScore": 112,
+      "reason": "同一定时回路的启动条件和预置时间齐全，且尚未放置 TON 时推荐 TON。"
+    },
+    {
+      "id": "T05-tof-completion",
+      "status": "active",
+      "signatureRefsAny": ["LS07-off-delay-missing-timer"],
+      "portRequirements": [
+        { "port": "IN", "required": true, "acceptedDataTypes": ["BOOL"] },
+        { "port": "PT", "required": true, "acceptedDataTypes": ["TIME"], "allowCreateParameter": true }
+      ],
+      "candidateNames": ["TOF"],
+      "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
+      "preferredPositions": ["behind", "outsideBehind"],
+      "priority": 90,
+      "baseScore": 112,
+      "reason": "同一定时回路的停止条件和预置时间齐全，且尚未放置 TOF 时推荐 TOF。"
+    },
+    {
+      "id": "T06-tp-completion",
+      "status": "active",
+      "signatureRefsAny": ["LS08-pulse-missing-timer"],
+      "portRequirements": [
+        { "port": "IN", "required": true, "acceptedDataTypes": ["BOOL"] },
+        { "port": "PT", "required": true, "acceptedDataTypes": ["TIME"], "allowCreateParameter": true }
+      ],
+      "candidateNames": ["TP"],
+      "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
+      "priority": 90,
+      "baseScore": 112,
+      "reason": "同一脉冲回路的触发条件和预置时间齐全，且尚未放置 TP 时推荐 TP。"
     },
     {
       "id": "T00-timer-ambiguous",
@@ -642,16 +784,16 @@
       "fallback": "角色、单位、量程或采样周期不明时不推荐 PID。"
     },
     {
-      "id": "P02-temperature-pid-signature",
+      "id": "P02-temperature-pid-completion",
       "status": "active",
-      "signatureRefsAny": ["LS01-temperature-pid"],
+      "signatureRefsAny": ["LS05-temperature-pid-missing-controller"],
       "excludedTerms": ["safety"],
       "candidateNames": ["PID"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
       "priority": 90,
       "baseScore": 115,
-      "reason": "A complete temperature PID loop signature is required before recommending PID.",
-      "fallback": "Do not recommend PID when the loop signature is incomplete."
+      "reason": "温度回路的实际值、设定值和控制输出齐全，且同一回路中尚未放置 PID 时推荐 PID。",
+      "fallback": "回路角色不完整、无法确认同组关系或同组 PID 已存在时不通过该规则推荐。"
     },
     {
       "id": "STR01-left",
@@ -791,6 +933,17 @@
       "priority": 80,
       "baseScore": 102,
       "reason": "存在明确轴引用和停止意图时推荐 MC_Stop。"
+    },
+    {
+      "id": "MC10-stop-completion",
+      "status": "active",
+      "signatureRefsAny": ["LS09-motion-stop-missing-block"],
+      "excludedTerms": ["motionHalt", "safety"],
+      "candidateNames": ["MC_Stop"],
+      "allowedModes": ["functionBlockAfter", "functionBlockBefore", "outputFunctionBlock"],
+      "priority": 90,
+      "baseScore": 114,
+      "reason": "同一轴停止回路的轴引用、停止请求和减速度齐全，且尚未放置 MC_Stop 时推荐 MC_Stop。"
     },
     {
       "id": "MC09-halt",

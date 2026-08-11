@@ -54,6 +54,7 @@ async function main() {
   assertActiveRuleCandidatesExistInLibrary();
   assertVariableRoleEvidenceCases();
   assertExplicitIdGroupingCases();
+  assertGenericMissingTargetCases();
   assertBlockPortRoleCases();
   await assertStableBusinessCases();
   await assertLoopSignatureCases();
@@ -63,7 +64,7 @@ async function main() {
 
 function assertActiveRuleCandidatesExistInLibrary() {
   const rules = JSON.parse(fs.readFileSync(rulesPath, "utf8"));
-  assert.equal(rules.schemaVersion, "ide-agent.business-rules.v7");
+  assert.equal(rules.schemaVersion, "ide-agent.business-rules.v8");
   assert.ok(rules.dataTypeGroups.NUMERIC.includes("LREAL"));
   assert.ok(rules.dataTypeGroups.INTEGER.includes("UDINT"));
   assert.ok(
@@ -98,6 +99,9 @@ function assertActiveRuleCandidatesExistInLibrary() {
   ]);
   const signatureIds = new Set(
     (rules.loopSignatures ?? []).map((signature) => signature.id),
+  );
+  const signaturesById = new Map(
+    (rules.loopSignatures ?? []).map((signature) => [signature.id, signature]),
   );
   for (const rule of rules.blockPortRoleRules ?? []) {
     assert.ok(rule.id, "block port role rule must define id");
@@ -138,11 +142,24 @@ function assertActiveRuleCandidatesExistInLibrary() {
   assert.ok(definedRoles.has("processValue"));
   assert.ok(definedRoles.has("setpoint"));
   assert.ok(definedRoles.has("manipulatedValue"));
-  assert.ok(signatureIds.has("LS01-temperature-pid"));
+  assert.ok(signatureIds.has("LS05-temperature-pid-missing-controller"));
   for (const signature of rules.loopSignatures ?? []) {
+    if ((signature.kind ?? "completion") === "completion") {
+      assert.ok(
+        signature.targetBlockTypes?.length > 0,
+        `${signature.id} completion signature must define targetBlockTypes`,
+      );
+    }
+    for (const targetBlockType of signature.targetBlockTypes ?? []) {
+      assert.ok(
+        libraryElements.has(String(targetBlockType).toUpperCase()),
+        `${signature.id} references missing target block: ${targetBlockType}`,
+      );
+    }
     for (const role of [
       ...(signature.requiredRolesAll ?? []),
       ...(signature.evidenceRolesAny ?? []),
+      ...(signature.missingRolesAny ?? []),
       ...Object.keys(signature.requiredRoleTypes ?? {}),
     ]) {
       assert.ok(
@@ -280,6 +297,25 @@ function assertActiveRuleCandidatesExistInLibrary() {
         signatureIds.has(signatureId),
         `${rule.id} references undefined loop signature: ${signatureId}`,
       );
+      assert.equal(
+        signaturesById.get(signatureId)?.kind ?? "completion",
+        "completion",
+        `${rule.id} must not use observed signature ${signatureId} as a recommendation gate`,
+      );
+    }
+    if (rule.signatureRefsAny?.length > 0) {
+      const referencedTargets = new Set(
+        rule.signatureRefsAny.flatMap(
+          (signatureId) =>
+            signaturesById.get(signatureId)?.targetBlockTypes ?? [],
+        ).map((target) => String(target).toUpperCase()),
+      );
+      for (const candidateName of rule.candidateNames ?? []) {
+        assert.ok(
+          referencedTargets.has(String(candidateName).toUpperCase()),
+          `${rule.id} candidate ${candidateName} is not a target of its completion signatures`,
+        );
+      }
     }
     for (const blockType of rule.excludedExistingBlockTypes ?? []) {
       assert.ok(
@@ -287,7 +323,7 @@ function assertActiveRuleCandidatesExistInLibrary() {
         `${rule.id} excludes missing st-library-info element: ${blockType}`,
       );
     }
-    if (rule.id.startsWith("MC")) {
+    if (rule.id.startsWith("MC") && !(rule.signatureRefsAny?.length > 0)) {
       assert.deepStrictEqual(rule.requiredTypeCapabilities, [
         "MOTION_AXIS_REFERENCE",
       ]);
@@ -527,7 +563,9 @@ function assertExplicitIdGroupingCases() {
     variables,
     ["Tank temperature PID loop"],
     new Set(["pid"]),
-  ).filter((match) => match.id === "LS01-temperature-pid");
+  ).filter(
+    (match) => match.id === "LS05-temperature-pid-missing-controller",
+  );
   assert.equal(explicitMatches.length, 1);
   assert.equal(explicitMatches[0].groupStrategy, "groupId");
   assert.equal(explicitMatches[0].groupKey, expectedGroupKey);
@@ -549,12 +587,212 @@ function assertExplicitIdGroupingCases() {
     splitGroupVariables,
     ["Tank temperature PID loop"],
     new Set(["pid"]),
-  ).filter((match) => match.id === "LS01-temperature-pid");
+  ).filter(
+    (match) => match.id === "LS05-temperature-pid-missing-controller",
+  );
   assert.equal(
     splitGroupMatches.length,
     0,
     "conflicting groupId values must override a shared name prefix",
   );
+}
+
+function assertGenericMissingTargetCases() {
+  const variablePatterns = parseVariablePatterns({
+    suffixRoles: [
+      {
+        suffix: "_Condition",
+        role: "conditionSignal",
+        acceptedDataTypes: ["BOOL"],
+      },
+      {
+        suffix: "_Delay",
+        role: "presetDuration",
+        acceptedDataTypes: ["TIME"],
+      },
+    ],
+  });
+  const signatures = parseLoopSignatures([
+    {
+      id: "TEST-missing-timer",
+      kind: "completion",
+      status: "active",
+      groupStrategies: ["groupId", "namePrefix"],
+      requiredRolesAll: ["conditionSignal", "presetDuration"],
+      requiredRoleTypes: {
+        conditionSignal: ["BOOL"],
+        presetDuration: ["TIME"],
+      },
+      targetBlockTypes: ["TON"],
+    },
+  ]);
+  const variables = [
+    {
+      name: "A_Start_Condition",
+      type: "BOOL",
+      scope: "VAR",
+      deviceId: "Conveyor-A",
+      groupId: "Start-Delay",
+    },
+    {
+      name: "A_Start_Delay",
+      type: "TIME",
+      scope: "VAR",
+      deviceId: "Conveyor-A",
+      groupId: "Start-Delay",
+    },
+    {
+      name: "B_Start_Condition",
+      type: "BOOL",
+      scope: "VAR",
+      deviceId: "Conveyor-B",
+      groupId: "Start-Delay",
+    },
+    {
+      name: "B_Start_Delay",
+      type: "TIME",
+      scope: "VAR",
+      deviceId: "Conveyor-B",
+      groupId: "Start-Delay",
+    },
+  ];
+  const timerInstances = collectBlockInstances([
+    summarizeDiagramJson(
+      [
+        {
+          pouName: "GENERIC_TARGET_TEST",
+          pouType: "PROGRAM",
+          variableList: variables,
+          segmentList: [
+            blockRoleTestSegment(
+              "segment-existing-ton-a",
+              "Conveyor A start delay",
+              "ton-a",
+              "TON",
+              "Timer_A",
+              [
+                testPort(
+                  "IN",
+                  "A_Start_Condition",
+                  "BOOL",
+                  "VAR_INPUT",
+                ),
+                testPort("PT", "A_Start_Delay", "TIME", "VAR_INPUT"),
+              ],
+              [],
+            ),
+          ],
+        },
+      ],
+      "memory://generic-target-test",
+    ).segments[0],
+  ]);
+
+  const matches = (focusVariableName) =>
+    evaluateLoopSignatures(
+      variablePatterns,
+      signatures,
+      variables,
+      [],
+      new Set(),
+      [],
+      timerInstances,
+      [focusVariableName],
+    );
+  assert.equal(
+    matches("A_Start_Condition").length,
+    0,
+    "an existing TON must suppress completion only for conveyor A",
+  );
+  const conveyorBMatches = matches("B_Start_Condition");
+  assert.equal(conveyorBMatches.length, 1);
+  assert.equal(conveyorBMatches[0].groupStrategy, "groupId");
+  assert.deepStrictEqual(conveyorBMatches[0].targetBlockTypes, ["TON"]);
+
+  const nameFallbackMatches = evaluateLoopSignatures(
+    variablePatterns,
+    signatures,
+    [
+      { name: "Conveyor_Condition", type: "BOOL", scope: "VAR" },
+      { name: "Conveyor_Delay", type: "TIME", scope: "VAR" },
+    ],
+    [],
+    new Set(),
+  );
+  assert.equal(nameFallbackMatches.length, 1);
+  assert.equal(nameFallbackMatches[0].groupStrategy, "namePrefix");
+
+  const partialIdMatches = evaluateLoopSignatures(
+    variablePatterns,
+    signatures,
+    [
+      {
+        name: "Conveyor_Condition",
+        type: "BOOL",
+        scope: "VAR",
+        deviceId: "Conveyor-01",
+        groupId: "Start-Delay",
+      },
+      { name: "Conveyor_Delay", type: "TIME", scope: "VAR" },
+    ],
+    [],
+    new Set(),
+    [],
+    [],
+    ["Conveyor_Condition"],
+  );
+  assert.equal(partialIdMatches.length, 1);
+  assert.equal(
+    partialIdMatches[0].groupStrategy,
+    "namePrefix",
+    "partial explicit metadata must still allow name-prefix fallback",
+  );
+
+  const rules = JSON.parse(fs.readFileSync(rulesPath, "utf8"));
+  const configuredVariablePatterns = parseVariablePatterns(
+    rules.variablePatterns,
+  );
+  const configuredSignatures = parseLoopSignatures(rules.loopSignatures);
+  const configuredPortRules = parseBlockPortRoleRules(
+    rules.blockPortRoleRules,
+  );
+  const motionVariables = [
+    {
+      name: "Feed_Axis",
+      type: "AXIS_REF",
+      scope: "VAR",
+      deviceId: "Feed-Axis-01",
+      groupId: "Controlled-Stop",
+    },
+    {
+      name: "Feed_Stop_Request",
+      type: "BOOL",
+      scope: "VAR",
+      deviceId: "Feed-Axis-01",
+      groupId: "Controlled-Stop",
+    },
+    {
+      name: "Feed_Stop_Deceleration",
+      type: "LREAL",
+      scope: "VAR",
+      deviceId: "Feed-Axis-01",
+      groupId: "Controlled-Stop",
+    },
+  ];
+  const motionCompletionMatches = evaluateLoopSignatures(
+    configuredVariablePatterns,
+    configuredSignatures,
+    motionVariables,
+    ["Feed axis controlled stop"],
+    new Set(["motion", "axis", "stop"]),
+    configuredPortRules,
+    [],
+    ["Feed_Stop_Request"],
+  ).filter((match) => match.id === "LS09-motion-stop-missing-block");
+  assert.equal(motionCompletionMatches.length, 1);
+  assert.deepStrictEqual(motionCompletionMatches[0].targetBlockTypes, [
+    "MC_Stop",
+  ]);
 }
 
 function assertBlockPortRoleCases() {
@@ -873,11 +1111,44 @@ async function assertLoopSignatureCases() {
     "an existing PID in the same business segment must suppress another PID even when it is not the insertion boundary",
   );
 
+  const existingLoopSuggestions = await suggestionsFor(
+    loopSignatureFixturePath,
+    "segment-temperature-pid-loop-a-existing",
+    "loop-a-contact",
+  );
+  assert.ok(
+    !functionBlockTypes(existingLoopSuggestions).includes("PID"),
+    "Tank A must not receive another PID when its own group already has one",
+  );
+
+  const missingLoopSuggestions = await suggestionsFor(
+    loopSignatureFixturePath,
+    "segment-temperature-pid-loop-b-missing",
+    "loop-b-contact",
+  );
+  assert.ok(
+    functionBlockTypes(missingLoopSuggestions).includes("PID"),
+    "Tank A's PID must not suppress the missing PID in Tank B's group",
+  );
+
+  const missingTimerSuggestions = await suggestionsFor(
+    loopSignatureFixturePath,
+    "segment-timer-completion-missing-ton",
+    "timer-completion-contact",
+  );
+  assert.ok(
+    functionBlockTypes(missingTimerSuggestions).includes("TON"),
+    "the generic completion mechanism must also recommend a missing TON",
+  );
+
   for (const suggestion of [
     ...completeSuggestions,
     ...commentRoleSuggestions,
     ...legacySuggestions,
     ...existingPidSuggestions,
+    ...existingLoopSuggestions,
+    ...missingLoopSuggestions,
+    ...missingTimerSuggestions,
   ]) {
     assertSuggestionUsesLibraryElement(suggestion);
   }

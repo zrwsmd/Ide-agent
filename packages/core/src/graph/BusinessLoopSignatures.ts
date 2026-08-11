@@ -96,6 +96,7 @@ export interface BusinessLoopSignatureConfig {
   requiredRoleTypes: Record<string, string[]>;
   requiredPhysicalTerms: string[];
   evidenceRolesAny: string[];
+  missingRolesAny: string[];
   evidenceTermsAny: string[];
   evidenceBlockTypesAny: string[];
   targetBlockTypes: string[];
@@ -110,7 +111,9 @@ export interface BusinessLoopSignatureMatch {
   blockType?: string;
   blockInstance?: string;
   blockNodeId?: string;
+  blockSegmentId?: string;
   targetBlockTypes: string[];
+  missingRoles: string[];
 }
 
 export interface BusinessVariableRoleMatch {
@@ -169,6 +172,7 @@ export function parseLoopSignatures(
       requiredRoleTypes: parseStringListRecord(item.requiredRoleTypes),
       requiredPhysicalTerms: stringList(item.requiredPhysicalTerms),
       evidenceRolesAny: stringList(item.evidenceRolesAny),
+      missingRolesAny: stringList(item.missingRolesAny),
       evidenceTermsAny: stringList(item.evidenceTermsAny),
       evidenceBlockTypesAny: stringList(item.evidenceBlockTypesAny),
       targetBlockTypes: stringList(item.targetBlockTypes),
@@ -242,6 +246,7 @@ export function evaluateLoopSignatures(
   contextTerms: Set<string>,
   blockPortRoleRules: BusinessBlockPortRoleRuleConfig[] = [],
   blockInstances: BusinessBlockInstanceSummary[] = [],
+  focusVariableNames: string[] = [],
 ): BusinessLoopSignatureMatch[] {
   const evidence = collectRoleEvidence(
     variablePatterns,
@@ -249,8 +254,13 @@ export function evaluateLoopSignatures(
     blockPortRoleRules,
     blockInstances,
   );
-  const blockInstancesByGroup = new Map(
-    blockInstances.map((instance) => [instance.groupKey, instance]),
+  const blockInstancesByGroup = indexBlockInstancesByGroup(
+    blockInstances,
+    variables,
+  );
+  const focusGroupKeys = collectFocusGroupKeys(
+    variables,
+    focusVariableNames,
   );
   const contextPhysicalTerms = new Set(
     variablePatterns.physicalTerms
@@ -270,9 +280,17 @@ export function evaluateLoopSignatures(
       contextPhysicalTerms,
       contextTerms,
       blockInstancesByGroup,
+      focusGroupKeys,
     );
     for (const groupKey of groupKeys) {
-      const blockInstance = blockInstancesByGroup.get(groupKey);
+      const groupBlockInstances = blockInstancesByGroup.get(groupKey) ?? [];
+      const blockInstance = groupBlockInstances.find((instance) =>
+        signature.evidenceBlockTypesAny.some(
+          (candidate) =>
+            normalizeIdentifier(candidate) ===
+            normalizeIdentifier(instance.blockType),
+        ),
+      ) ?? groupBlockInstances[0];
       const roleVariables = Object.fromEntries(
         signature.requiredRolesAll.map((role) => [
           role,
@@ -295,7 +313,15 @@ export function evaluateLoopSignatures(
         blockType: blockInstance?.blockType,
         blockInstance: blockInstance?.instance,
         blockNodeId: blockInstance?.nodeId,
+        blockSegmentId: blockInstance?.segmentId,
         targetBlockTypes: [...signature.targetBlockTypes],
+        missingRoles: signature.missingRolesAny.filter(
+          (role) =>
+            !evidence.some(
+              (item) =>
+                item.role === role && item.groupKeys.includes(groupKey),
+            ),
+        ),
       });
     }
   }
@@ -331,6 +357,61 @@ interface RoleEvidence {
   physicalTerms: Set<string>;
   score: number;
   matchedSources: Set<BusinessVariableEvidenceSource>;
+}
+
+function indexBlockInstancesByGroup(
+  instances: BusinessBlockInstanceSummary[],
+  variables: DiagramVariableSummary[],
+): Map<string, BusinessBlockInstanceSummary[]> {
+  const result = new Map<string, BusinessBlockInstanceSummary[]>();
+  const variablesByName = new Map(
+    variables.map((variable) => [normalizeIdentifier(variable.name), variable]),
+  );
+
+  for (const instance of instances) {
+    const groupKeys = new Set([instance.groupKey]);
+    for (const port of instance.ports) {
+      if (!isVariableReference(port.value)) {
+        continue;
+      }
+      const variable =
+        variablesByName.get(normalizeIdentifier(port.value)) ??
+        variableFromPort(port);
+      for (const groupKey of groupKeysForVariable(variable)) {
+        groupKeys.add(groupKey);
+      }
+    }
+    for (const groupKey of groupKeys) {
+      const current = result.get(groupKey) ?? [];
+      if (!current.some((item) => item.nodeId === instance.nodeId)) {
+        current.push(instance);
+      }
+      result.set(groupKey, current);
+    }
+  }
+
+  return result;
+}
+
+function collectFocusGroupKeys(
+  variables: DiagramVariableSummary[],
+  focusVariableNames: string[],
+): Set<string> {
+  const focusNames = new Set(
+    focusVariableNames.map(normalizeIdentifier).filter(Boolean),
+  );
+  return new Set(
+    variables
+      .filter((variable) => focusNames.has(normalizeIdentifier(variable.name)))
+      .flatMap(groupKeysForVariable),
+  );
+}
+
+function groupKeysForVariable(variable: DiagramVariableSummary): string[] {
+  return uniqueStrings([
+    ...explicitGroupKeysForVariable(variable),
+    ...groupKeysForVariableName(variable.name),
+  ]);
 }
 
 function collectRoleEvidence(
@@ -561,7 +642,8 @@ function findMatchingGroups(
   evidence: RoleEvidence[],
   contextPhysicalTerms: Set<string>,
   contextTerms: Set<string>,
-  blockInstancesByGroup: Map<string, BusinessBlockInstanceSummary>,
+  blockInstancesByGroup: Map<string, BusinessBlockInstanceSummary[]>,
+  focusGroupKeys: Set<string>,
 ): string[] {
   const candidateGroups = new Set(
     evidence
@@ -617,6 +699,20 @@ function findMatchingGroups(
     }
 
     if (
+      signature.kind === "completion" &&
+      signature.missingRolesAny.length > 0 &&
+      !signature.missingRolesAny.some(
+        (role) =>
+          !evidence.some(
+            (item) =>
+              item.role === role && item.groupKeys.includes(groupKey),
+          ),
+      )
+    ) {
+      return false;
+    }
+
+    if (
       signature.evidenceTermsAny.length > 0 &&
       !signature.evidenceTermsAny.some((term) => contextTerms.has(term))
     ) {
@@ -624,16 +720,30 @@ function findMatchingGroups(
     }
 
     if (signature.evidenceBlockTypesAny.length > 0) {
-      const blockType = blockInstancesByGroup.get(groupKey)?.blockType;
-      if (
-        !blockType ||
-        !signature.evidenceBlockTypesAny.some(
+      const blockInstances = blockInstancesByGroup.get(groupKey) ?? [];
+      if (!blockInstances.some((instance) =>
+        signature.evidenceBlockTypesAny.some(
           (candidate) =>
-            normalizeIdentifier(candidate) === normalizeIdentifier(blockType),
-        )
-      ) {
+            normalizeIdentifier(candidate) ===
+            normalizeIdentifier(instance.blockType),
+        ),
+      )) {
         return false;
       }
+    }
+
+    if (
+      signature.kind === "completion" &&
+      signature.targetBlockTypes.length > 0 &&
+      (blockInstancesByGroup.get(groupKey) ?? []).some((instance) =>
+        signature.targetBlockTypes.some(
+          (targetBlockType) =>
+            normalizeIdentifier(targetBlockType) ===
+            normalizeIdentifier(instance.blockType),
+        ),
+      )
+    ) {
+      return false;
     }
 
     return true;
@@ -643,6 +753,24 @@ function findMatchingGroups(
     const strategyMatches = matchingGroups
       .filter((groupKey) => groupStrategyForKey(groupKey) === strategy)
       .sort((left, right) => left.localeCompare(right));
+    const focusKeysForStrategy = new Set(
+      [...focusGroupKeys].filter(
+        (groupKey) => groupStrategyForKey(groupKey) === strategy,
+      ),
+    );
+    const focusedMatches = strategyMatches.filter((groupKey) =>
+      focusKeysForStrategy.has(groupKey),
+    );
+    if (focusedMatches.length > 0) {
+      return focusedMatches;
+    }
+    if (
+      focusKeysForStrategy.size > 0 &&
+      strategyMatches.length > 0 &&
+      (strategy === "groupId" || strategy === "deviceId")
+    ) {
+      return [];
+    }
     if (strategyMatches.length > 0) {
       return strategyMatches;
     }

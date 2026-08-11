@@ -328,7 +328,7 @@
 - 必须：局部同时存在数值类型以及 SP、PV、MV/输出角色证据，目标库存在 `PID`。
 - 排除：缺少任一角色、单位未知且存在明显混用风险、仅出现 `PID` 名称但无回路变量。
 - 说明：当前只能推荐一个 PID 节点，不能证明参数整定、采样周期或无扰切换正确。
-- 增强路径：`LS01-temperature-pid` 识别同一公共前缀下的 `PV + SP + MV`、逐角色 `REAL/LREAL` 类型、温度证据和 PID 参数/控制器证据；`P02-temperature-pid-signature` 引用该签名推荐库中的 `PID`。
+- 增强路径：`LS05-temperature-pid-missing-controller` 识别同一 `groupId` 或名称分组下的 `PV + SP + MV`、逐角色 `REAL/LREAL` 类型和温度证据，并确认该组尚未存在 `PID`；`P02-temperature-pid-completion` 引用该 completion 签名推荐库中的 `PID`。
 - 兼容路径：原 `P01-pid-loop` 术语规则暂时保留，确保现有明确的 PID 业务文本不因第一版签名接入而失效。
 
 #### STR01-STR05

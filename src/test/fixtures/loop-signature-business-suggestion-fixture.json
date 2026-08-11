@@ -371,5 +371,135 @@
         }
       }
     ]
+  },
+  {
+    "pouName": "TEMP_PID_TWO_EXPLICIT_LOOPS",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Tank_A_Temp_PV", "type": "REAL", "scope": "VAR", "deviceId": "Tank-A", "groupId": "Temperature-Loop" },
+      { "name": "Tank_A_Temp_SP", "type": "REAL", "scope": "VAR", "deviceId": "Tank-A", "groupId": "Temperature-Loop" },
+      { "name": "Tank_A_Valve_Output", "type": "REAL", "scope": "VAR", "deviceId": "Tank-A", "groupId": "Temperature-Loop" },
+      { "name": "Tank_A_Pid_Kp", "type": "REAL", "scope": "VAR", "deviceId": "Tank-A", "groupId": "Temperature-Loop" },
+      { "name": "Tank_A_Enable", "type": "BOOL", "scope": "VAR", "deviceId": "Tank-A", "groupId": "Temperature-Loop" },
+      { "name": "Pid_Tank_A", "type": "PID", "scope": "VAR", "deviceId": "Tank-A", "groupId": "Temperature-Loop" },
+      { "name": "Tank_B_Temp_PV", "type": "REAL", "scope": "VAR", "deviceId": "Tank-B", "groupId": "Temperature-Loop" },
+      { "name": "Tank_B_Temp_SP", "type": "REAL", "scope": "VAR", "deviceId": "Tank-B", "groupId": "Temperature-Loop" },
+      { "name": "Tank_B_Valve_Output", "type": "REAL", "scope": "VAR", "deviceId": "Tank-B", "groupId": "Temperature-Loop" },
+      { "name": "Tank_B_Pid_Kp", "type": "REAL", "scope": "VAR", "deviceId": "Tank-B", "groupId": "Temperature-Loop" },
+      { "name": "Tank_B_Enable", "type": "BOOL", "scope": "VAR", "deviceId": "Tank-B", "groupId": "Temperature-Loop" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-temperature-pid-loop-a-existing",
+        "label": "Tank A temperature PID control",
+        "note": "Tank A controller already exists",
+        "nodesObj": {
+          "loop-a-start": {
+            "id": "loop-a-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["loop-a-contact"]
+          },
+          "loop-a-contact": {
+            "id": "loop-a-contact",
+            "type": "contact",
+            "sourceIds": ["loop-a-start"],
+            "targetIds": ["loop-a-pid"],
+            "varName": { "value": "Tank_A_Enable", "type": "BOOL", "scope": "VAR" }
+          },
+          "loop-a-pid": {
+            "id": "loop-a-pid",
+            "type": "FBDCompartment",
+            "sourceIds": ["loop-a-contact"],
+            "targetIds": ["loop-a-end"],
+            "childrenNode": {
+              "type": "PID",
+              "isFunction": false,
+              "varName": { "value": "Pid_Tank_A", "type": "PID", "scope": "VAR" },
+              "portInputs": [
+                { "name": "EN", "value": "", "type": "", "scope": "" },
+                { "name": "AUTO", "value": "Tank_A_Enable", "type": "BOOL", "scope": "VAR_INPUT" },
+                { "name": "PV", "value": "Tank_A_Temp_PV", "type": "REAL", "scope": "VAR_INPUT" },
+                { "name": "SP", "value": "Tank_A_Temp_SP", "type": "REAL", "scope": "VAR_INPUT" },
+                { "name": "KP", "value": "Tank_A_Pid_Kp", "type": "REAL", "scope": "VAR_INPUT" }
+              ],
+              "portOutputs": [
+                { "name": "ENO", "value": "", "type": "", "scope": "" },
+                { "name": "XOUT", "value": "Tank_A_Valve_Output", "type": "REAL", "scope": "VAR_OUTPUT" }
+              ]
+            }
+          },
+          "loop-a-end": {
+            "id": "loop-a-end",
+            "type": "endLine",
+            "sourceIds": ["loop-a-pid"],
+            "targetIds": []
+          }
+        }
+      },
+      {
+        "id": "segment-temperature-pid-loop-b-missing",
+        "label": "Tank B temperature PID control",
+        "note": "Tank B conditions are ready but its controller is missing",
+        "nodesObj": {
+          "loop-b-start": {
+            "id": "loop-b-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["loop-b-contact"]
+          },
+          "loop-b-contact": {
+            "id": "loop-b-contact",
+            "type": "contact",
+            "sourceIds": ["loop-b-start"],
+            "targetIds": ["loop-b-end"],
+            "varName": { "value": "Tank_B_Enable", "type": "BOOL", "scope": "VAR" }
+          },
+          "loop-b-end": {
+            "id": "loop-b-end",
+            "type": "endLine",
+            "sourceIds": ["loop-b-contact"],
+            "targetIds": []
+          }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "TIMER_COMPLETION_EXPLICIT_GROUP",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Conveyor_Start_Condition", "type": "BOOL", "scope": "VAR", "deviceId": "Conveyor-01", "groupId": "Start-Delay" },
+      { "name": "Conveyor_Start_Delay", "type": "TIME", "scope": "VAR", "deviceId": "Conveyor-01", "groupId": "Start-Delay" },
+      { "name": "Conveyor_Start_Enable", "type": "BOOL", "scope": "VAR", "deviceId": "Conveyor-01", "groupId": "Start-Delay" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-timer-completion-missing-ton",
+        "label": "Conveyor on delay start",
+        "note": "Start condition and delay time are ready",
+        "nodesObj": {
+          "timer-completion-start": {
+            "id": "timer-completion-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["timer-completion-contact"]
+          },
+          "timer-completion-contact": {
+            "id": "timer-completion-contact",
+            "type": "contact",
+            "sourceIds": ["timer-completion-start"],
+            "targetIds": ["timer-completion-end"],
+            "varName": { "value": "Conveyor_Start_Enable", "type": "BOOL", "scope": "VAR" }
+          },
+          "timer-completion-end": {
+            "id": "timer-completion-end",
+            "type": "endLine",
+            "sourceIds": ["timer-completion-contact"],
+            "targetIds": []
+          }
+        }
+      }
+    ]
   }
 ]

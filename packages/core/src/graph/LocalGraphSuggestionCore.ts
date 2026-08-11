@@ -12,6 +12,7 @@ import {
 import {
   BusinessBlockPortRoleRuleConfig,
   BusinessLoopSignatureConfig,
+  BusinessLoopSignatureMatch,
   BusinessVariablePatternsConfig,
   EMPTY_BLOCK_PORT_ROLE_RULES,
   EMPTY_LOOP_SIGNATURES,
@@ -217,6 +218,8 @@ interface BusinessSuggestionContext {
   relatedDataTypes: Set<string>;
   relatedBlockTypes: Set<string>;
   matchedLoopSignatures: Set<string>;
+  completionLoopMatches: BusinessLoopSignatureMatch[];
+  observedLoopMatches: BusinessLoopSignatureMatch[];
   observedLoopBlockTypes: Set<string>;
 }
 
@@ -419,7 +422,7 @@ const FALLBACK_TERM_IMPLICATIONS: BusinessTermImplicationConfig[] = [
 ];
 
 const FALLBACK_BUSINESS_RULES_CONFIG: BusinessRulesConfig = {
-  schemaVersion: "ide-agent.business-rules.v7",
+  schemaVersion: "ide-agent.business-rules.v8",
   enabled: true,
   defaultBlocks: FALLBACK_COMMON_FUNCTION_BLOCK_TYPES,
   dataTypeGroups: FALLBACK_DATA_TYPE_GROUPS,
@@ -1197,7 +1200,7 @@ function matchBusinessRule(
   if (
     rule.signatureRefsAny?.length &&
     !rule.signatureRefsAny.some((signatureId) =>
-      context.matchedLoopSignatures.has(signatureId),
+      context.completionLoopMatches.some((match) => match.id === signatureId),
     )
   ) {
     return [];
@@ -1267,11 +1270,26 @@ function matchBusinessRule(
 
   return rule.candidateNames.flatMap((candidateName, candidateIndex) => {
     const libraryElement = getLibraryElement(candidateName);
+    const matchingCompletionMatches = context.completionLoopMatches.filter(
+      (match) =>
+        rule.signatureRefsAny?.includes(match.id) &&
+        (match.targetBlockTypes.length === 0 ||
+          match.targetBlockTypes.some(
+            (targetBlockType) =>
+              normalizeBlockType(targetBlockType) ===
+              normalizeBlockType(candidateName),
+          )),
+    );
+    const isSignatureDrivenCandidate = matchingCompletionMatches.length > 0;
+    if (rule.signatureRefsAny?.length && !isSignatureDrivenCandidate) {
+      return [];
+    }
     if (
       !libraryElement ||
-      context.observedLoopBlockTypes.has(
-        normalizeBlockType(libraryElement.name),
-      ) ||
+      (!isSignatureDrivenCandidate &&
+        context.observedLoopBlockTypes.has(
+          normalizeBlockType(libraryElement.name),
+        )) ||
       !matchesPortRequirements(
         rule.portRequirements ?? [],
         libraryElement,
@@ -1426,21 +1444,29 @@ function buildBusinessSuggestionContext(
     signatureContextTexts,
     signatureContextTerms,
     BUSINESS_RULES_CONFIG.blockPortRoleRules,
-    collectBlockInstances([focus.segment]),
+    collectBlockInstances(
+      summary.segments.filter(
+        (segment) => segment.pouName?.trim() === focus.segment.pouName?.trim(),
+      ),
+    ),
+    collectFocusVariableNames(focus, surroundingNodes),
+  );
+  const completionLoopMatches = signatureMatches.filter(
+    (match) => match.kind === "completion",
+  );
+  const observedLoopMatches = signatureMatches.filter(
+    (match) =>
+      match.kind === "observed" &&
+      match.blockSegmentId === focus.segment.segmentId,
   );
   const matchedLoopSignatures = new Set(
-    signatureMatches
-      .filter((match) => match.kind === "completion")
-      .map((match) => match.id),
+    completionLoopMatches.map((match) => match.id),
   );
   const observedLoopSignatures = new Set(
-    signatureMatches
-      .filter((match) => match.kind === "observed")
-      .map((match) => match.id),
+    observedLoopMatches.map((match) => match.id),
   );
   const observedLoopBlockTypes = new Set(
-    signatureMatches
-      .filter((match) => match.kind === "observed")
+    observedLoopMatches
       .map((match) => normalizeBlockType(match.blockType))
       .filter(Boolean),
   );
@@ -1473,8 +1499,22 @@ function buildBusinessSuggestionContext(
     relatedDataTypes,
     relatedBlockTypes,
     matchedLoopSignatures,
+    completionLoopMatches,
+    observedLoopMatches,
     observedLoopBlockTypes,
   };
+}
+
+function collectFocusVariableNames(
+  focus: FocusContext,
+  surroundingNodes: DiagramNodeSummary[],
+): string[] {
+  const focusNodes = focus.node ? [focus.node] : surroundingNodes;
+  return [
+    ...new Set(
+      focusNodes.flatMap((node) => [...collectNodeReferences(node)]),
+    ),
+  ];
 }
 
 function findRelatedSegments(
