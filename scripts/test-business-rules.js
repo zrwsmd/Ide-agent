@@ -64,7 +64,7 @@ async function main() {
 
 function assertActiveRuleCandidatesExistInLibrary() {
   const rules = JSON.parse(fs.readFileSync(rulesPath, "utf8"));
-  assert.equal(rules.schemaVersion, "ide-agent.business-rules.v8");
+  assert.equal(rules.schemaVersion, "ide-agent.business-rules.v9");
   assert.ok(rules.dataTypeGroups.NUMERIC.includes("LREAL"));
   assert.ok(rules.dataTypeGroups.INTEGER.includes("UDINT"));
   assert.ok(
@@ -186,6 +186,7 @@ function assertActiveRuleCandidatesExistInLibrary() {
   }
   for (const rule of [
     ...(rules.contactPolarityRules ?? []),
+    ...(rules.nodeIntentRules ?? []),
     ...(rules.libraryRules ?? []),
     ...(rules.rankingRules ?? []),
   ]) {
@@ -284,9 +285,64 @@ function assertActiveRuleCandidatesExistInLibrary() {
     ),
   );
 
+  const allowedNodeIntentTypes = new Set([
+    "contact",
+    "negatedContact",
+    "risingContact",
+    "fallingContact",
+    "coil",
+    "setCoil",
+    "resetCoil",
+  ]);
+  const allowedPositions = new Set([
+    "front",
+    "behind",
+    "outsideFront",
+    "outsideBehind",
+    "parallel",
+    "replace",
+  ]);
+  assert.ok(
+    rules.nodeIntentRules?.length > 0,
+    "nodeIntentRules must define business presentations for graph nodes",
+  );
+  for (const rule of rules.nodeIntentRules ?? []) {
+    assert.ok(rule.businessName, `${rule.id} must define businessName`);
+    assert.ok(
+      Number.isFinite(rule.minimumEvidenceCount) &&
+        rule.minimumEvidenceCount >= 2,
+      `${rule.id} must use the shared strict evidence threshold`,
+    );
+    for (const nodeType of rule.nodeTypes ?? []) {
+      assert.ok(
+        allowedNodeIntentTypes.has(nodeType),
+        `${rule.id} references unsupported node type: ${nodeType}`,
+      );
+    }
+    for (const position of rule.positions ?? []) {
+      assert.ok(
+        allowedPositions.has(position),
+        `${rule.id} references unsupported position: ${position}`,
+      );
+    }
+    for (const role of [
+      ...(rule.actionRolesAny ?? []),
+      ...(rule.chainRolesAny ?? []),
+    ]) {
+      assert.ok(
+        definedRoles.has(role),
+        `${rule.id} references undefined variable role: ${role}`,
+      );
+    }
+    assertBusinessPresentation(rule.id, rule.presentation);
+  }
+
   for (const rule of rules.libraryRules ?? []) {
     if (String(rule.status).toLowerCase() !== "active") {
       continue;
+    }
+    if (rule.presentation) {
+      assertBusinessPresentation(rule.id, rule.presentation);
     }
     assert.ok(
       Number.isFinite(rule.priority),
@@ -1030,6 +1086,16 @@ async function assertLoopSignatureCases() {
     functionBlockTypes(completeSuggestions).includes("PID"),
     "complete temperature PID signature should recommend PID",
   );
+  const completePidSuggestion = suggestionForBlockType(
+    completeSuggestions,
+    "PID",
+  );
+  assert.equal(completePidSuggestion?.title, "补充温度 PID 调节");
+  assert.match(completePidSuggestion?.text ?? "", /实际值、设定值和控制输出/);
+  assert.ok(
+    !completePidSuggestion?.text.includes("temperature-pid-contact"),
+    "business presentation must not expose raw node ids",
+  );
 
   const commentRoleSuggestions = await suggestionsFor(
     loopSignatureFixturePath,
@@ -1100,6 +1166,12 @@ async function assertLoopSignatureCases() {
     functionBlockTypes(legacySuggestions).includes("PID"),
     "legacy term-based PID rule must remain available",
   );
+  assert.ok(
+    !legacySuggestions.some((suggestion) =>
+      suggestion.title.includes("补充温度 PID 调节"),
+    ),
+    "term-only PID evidence must keep the structural fallback title",
+  );
 
   const existingPidSuggestions = await suggestionsFor(
     loopSignatureFixturePath,
@@ -1139,6 +1211,24 @@ async function assertLoopSignatureCases() {
   assert.ok(
     functionBlockTypes(missingTimerSuggestions).includes("TON"),
     "the generic completion mechanism must also recommend a missing TON",
+  );
+  const missingTonSuggestion = suggestionForBlockType(
+    missingTimerSuggestions,
+    "TON",
+  );
+  assert.equal(missingTonSuggestion?.title, "补充通电延时功能块");
+  assert.match(missingTonSuggestion?.text ?? "", /启动条件和预置时间齐全/);
+  assert.ok(
+    !missingTonSuggestion?.text.includes("timer-completion-contact"),
+    "completion presentation must use a human-readable placement",
+  );
+  assert.ok(missingTonSuggestion?.startNodes.length > 0);
+  assert.ok(missingTonSuggestion?.endNodes.length > 0);
+  assert.ok(
+    !missingTonSuggestion?.startNodes.some((nodeId) =>
+      missingTonSuggestion.endNodes.includes(nodeId),
+    ),
+    "business presentation must not alter valid topology boundaries",
   );
 
   for (const suggestion of [
@@ -1326,6 +1416,36 @@ async function assertStableBusinessCases() {
     faultPermissiveSuggestions.length > 6,
     "business-rich contexts should not be truncated to six suggestions before ranking",
   );
+  const serialFaultInterlock = faultPermissiveSuggestions.find(
+    (suggestion) =>
+      firstAddedNode(suggestion)?.type === "negatedContact" &&
+      suggestion.position === "front",
+  );
+  assert.equal(
+    serialFaultInterlock?.title,
+    "前串联 故障联锁常闭触点",
+  );
+  assert.match(serialFaultInterlock?.text ?? "", /切断许可/);
+  assert.ok(
+    !serialFaultInterlock?.text.includes("fault-permissive-contact"),
+    "node intent presentation must not expose raw node ids",
+  );
+  assert.deepStrictEqual(serialFaultInterlock?.startNodes, [
+    "fault-permissive-start",
+  ]);
+  assert.deepStrictEqual(serialFaultInterlock?.endNodes, [
+    "fault-permissive-contact",
+  ]);
+  const parallelFaultContact = faultPermissiveSuggestions.find(
+    (suggestion) =>
+      firstAddedNode(suggestion)?.type === "negatedContact" &&
+      suggestion.position === "parallel",
+  );
+  assert.equal(
+    parallelFaultContact?.title,
+    "并联 常闭触点",
+    "parallel fault alternatives must not claim to cut a serial permissive",
+  );
 
   const estopOkSuggestions = await suggestionsFor(
     fixturePath,
@@ -1336,6 +1456,12 @@ async function assertStableBusinessCases() {
   assert.ok(
     !suggestedNodeTypes(estopOkSuggestions).includes("negatedContact"),
     "positive-logic EStop_OK must not be inverted just because its name contains stop",
+  );
+  assert.ok(
+    estopOkSuggestions.every(
+      (suggestion) => !suggestion.title.includes("运行许可"),
+    ),
+    "safety-sensitive evidence must keep structural fallback copy",
   );
 
   const guardClosedSuggestions = await suggestionsFor(
@@ -1363,6 +1489,16 @@ async function assertStableBusinessCases() {
     !suggestedNodeTypes(faultOnlyCoilSuggestions).includes("negatedContact"),
     "fault alarm output activation is not a permissive and should keep a normal contact",
   );
+  const faultOutputCoil = faultOnlyCoilSuggestions.find(
+    (suggestion) => firstAddedNode(suggestion)?.type === "coil",
+  );
+  assert.equal(faultOutputCoil?.title, "并联 故障报警输出线圈");
+  assert.match(faultOutputCoil?.text ?? "", /Fault_Output/);
+  const faultLatchCoil = faultOnlyCoilSuggestions.find(
+    (suggestion) => firstAddedNode(suggestion)?.type === "setCoil",
+  );
+  assert.equal(faultLatchCoil?.title, "替换为 故障锁存置位线圈");
+  assert.match(faultLatchCoil?.text ?? "", /独立复位条件/);
 
   const resetCoilSuggestions = await suggestionsFor(
     fixturePath,
@@ -1374,6 +1510,8 @@ async function assertStableBusinessCases() {
     "resetCoil",
     "explicit reset intent should rank resetCoil first",
   );
+  assert.equal(resetCoilSuggestions[0]?.title, "替换为 状态复位线圈");
+  assert.match(resetCoilSuggestions[0]?.text ?? "", /清除已保持的状态/);
 
   const crossSegmentStopSuggestions = await suggestionsFor(
     fixturePath,
@@ -1473,6 +1611,40 @@ async function assertTimestampDiagramWhenAvailable() {
   }
 }
 
+function assertBusinessPresentation(ruleId, presentation) {
+  assert.ok(presentation, `${ruleId} must define presentation`);
+  assert.ok(
+    String(presentation.titleTemplate ?? "").trim(),
+    `${ruleId} must define titleTemplate`,
+  );
+  assert.ok(
+    String(presentation.textTemplate ?? "").trim(),
+    `${ruleId} must define textTemplate`,
+  );
+  const supportedPlaceholders = new Set([
+    "businessName",
+    "reason",
+    "focusVar",
+    "actionName",
+    "groupName",
+    "candidateName",
+    "placementAction",
+    "placementText",
+    "elementType",
+  ]);
+  for (const template of [
+    presentation.titleTemplate,
+    presentation.textTemplate,
+  ]) {
+    for (const match of String(template).matchAll(/\{([A-Za-z][A-Za-z0-9]*)\}/g)) {
+      assert.ok(
+        supportedPlaceholders.has(match[1]),
+        `${ruleId} uses unsupported presentation placeholder: ${match[1]}`,
+      );
+    }
+  }
+}
+
 async function suggestionsFor(diagramPath, segmentId, selectedNodeId) {
   const result = await getLocalGraphSuggestions({
     diagramPath,
@@ -1487,6 +1659,17 @@ function functionBlockTypes(suggestions) {
     .map(firstAddedNode)
     .filter((node) => node?.type === "FBDCompartment")
     .map((node) => String(node.childrenNode?.type ?? "").toUpperCase());
+}
+
+function suggestionForBlockType(suggestions, blockType) {
+  const normalized = String(blockType).toUpperCase();
+  return suggestions.find((suggestion) => {
+    const node = firstAddedNode(suggestion);
+    return (
+      node?.type === "FBDCompartment" &&
+      String(node.childrenNode?.type ?? "").toUpperCase() === normalized
+    );
+  });
 }
 
 function suggestedNodeTypes(suggestions) {

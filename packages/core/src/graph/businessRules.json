@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "ide-agent.business-rules.v8",
+  "schemaVersion": "ide-agent.business-rules.v9",
   "enabled": true,
   "defaultBlocks": ["TON", "TOF", "TP", "R_TRIG", "F_TRIG", "CTU", "CTD", "CTUD", "SR", "RS"],
   "dataTypeGroups": {
@@ -495,6 +495,142 @@
       "reason": "正逻辑健康、就绪或闭合反馈作为许可条件时优先使用常开触点。"
     }
   ],
+  "nodeIntentRules": [
+    {
+      "id": "NI01-healthy-permissive-contact",
+      "status": "active",
+      "nodeTypes": ["contact"],
+      "positions": ["front", "behind", "outsideFront", "outsideBehind"],
+      "termsAny": ["healthy", "ready"],
+      "termsAll": ["permissive"],
+      "excludedTerms": ["safety"],
+      "minimumEvidenceCount": 2,
+      "priority": 90,
+      "businessName": "运行许可",
+      "reason": "当前链路包含明确的就绪或健康许可语义",
+      "presentation": {
+        "titleTemplate": "{placementAction} {businessName}常开触点",
+        "textTemplate": "{reason}；{placementText}，用于补充运行许可条件，待绑定具体变量。"
+      }
+    },
+    {
+      "id": "NI02-permissive-inhibit-contact",
+      "status": "active",
+      "nodeTypes": ["negatedContact"],
+      "positions": ["front", "behind", "outsideFront", "outsideBehind"],
+      "termsAny": ["stop", "fault", "alarm", "interlock"],
+      "termsAll": ["permissive"],
+      "excludedTerms": ["safety", "healthy"],
+      "minimumEvidenceCount": 2,
+      "priority": 90,
+      "businessName": "故障联锁",
+      "reason": "当前链路包含运行许可以及故障、报警或停止抑制语义",
+      "presentation": {
+        "titleTemplate": "{placementAction} {businessName}常闭触点",
+        "textTemplate": "{reason}；{placementText}，使抑制条件有效时切断许可，待绑定具体变量。"
+      }
+    },
+    {
+      "id": "NI03-start-rising-edge",
+      "status": "active",
+      "nodeTypes": ["risingContact"],
+      "positions": ["front", "behind", "outsideFront", "outsideBehind"],
+      "termsAll": ["start", "rising"],
+      "excludedTerms": ["safety"],
+      "minimumEvidenceCount": 2,
+      "priority": 90,
+      "businessName": "启动脉冲",
+      "reason": "当前链路包含启动请求和上升沿单次触发语义",
+      "presentation": {
+        "titleTemplate": "{placementAction} {businessName}上升沿",
+        "textTemplate": "{reason}；{placementText}，使后续动作只在请求到来时触发一次。"
+      }
+    },
+    {
+      "id": "NI04-enable-falling-edge",
+      "status": "active",
+      "nodeTypes": ["fallingContact"],
+      "positions": ["front", "behind", "outsideFront", "outsideBehind"],
+      "termsAny": ["run", "enable", "healthy"],
+      "termsAll": ["falling"],
+      "excludedTerms": ["safety"],
+      "minimumEvidenceCount": 2,
+      "priority": 90,
+      "businessName": "运行许可丢失",
+      "reason": "当前链路包含运行、使能或健康信号失效语义",
+      "presentation": {
+        "titleTemplate": "{placementAction} {businessName}下降沿",
+        "textTemplate": "{reason}；{placementText}，在信号由 TRUE 变为 FALSE 时触发一次处理。"
+      }
+    },
+    {
+      "id": "NI05-fault-latch-set-coil",
+      "status": "active",
+      "nodeTypes": ["setCoil"],
+      "termsAny": ["fault", "alarm"],
+      "excludedTerms": ["safety", "reset"],
+      "actionRolesAny": ["faultSignal"],
+      "requireActionAnchor": true,
+      "minimumEvidenceCount": 3,
+      "priority": 90,
+      "businessName": "故障锁存",
+      "reason": "当前链路具有明确的故障输出和状态保持语义",
+      "presentation": {
+        "titleTemplate": "{placementAction} {businessName}置位线圈",
+        "textTemplate": "{reason}；{placementText}，故障发生后保持状态，并由独立复位条件清除。"
+      }
+    },
+    {
+      "id": "NI06-reset-latch-coil",
+      "status": "active",
+      "nodeTypes": ["resetCoil"],
+      "termsAll": ["reset"],
+      "excludedTerms": ["safety"],
+      "requireActionAnchor": true,
+      "minimumEvidenceCount": 2,
+      "priority": 90,
+      "businessName": "状态复位",
+      "reason": "当前链路包含明确的复位动作锚点",
+      "presentation": {
+        "titleTemplate": "{placementAction} {businessName}线圈",
+        "textTemplate": "{reason}；{placementText}，用于清除已保持的状态。"
+      }
+    },
+    {
+      "id": "NI07-command-output-coil",
+      "status": "active",
+      "nodeTypes": ["coil"],
+      "termsAny": ["start", "run", "enable"],
+      "excludedTerms": ["safety", "fault", "alarm"],
+      "actionRolesAny": ["commandSignal"],
+      "requireActionAnchor": true,
+      "minimumEvidenceCount": 3,
+      "priority": 80,
+      "businessName": "运行命令输出",
+      "reason": "当前链路具有明确的运行命令动作锚点",
+      "presentation": {
+        "titleTemplate": "{placementAction} {businessName}线圈",
+        "textTemplate": "{reason} {actionName}；{placementText}，由相同启动或许可条件驱动，新增变量待绑定。"
+      }
+    },
+    {
+      "id": "NI08-fault-output-coil",
+      "status": "active",
+      "nodeTypes": ["coil"],
+      "termsAny": ["fault", "alarm"],
+      "excludedTerms": ["safety"],
+      "actionRolesAny": ["faultSignal"],
+      "requireActionAnchor": true,
+      "minimumEvidenceCount": 3,
+      "priority": 80,
+      "businessName": "故障报警输出",
+      "reason": "当前链路具有明确的故障输出动作锚点",
+      "presentation": {
+        "titleTemplate": "{placementAction} {businessName}线圈",
+        "textTemplate": "{reason} {actionName}；{placementText}，由相同故障条件驱动，新增变量待绑定。"
+      }
+    }
+  ],
   "libraryRules": [
     {
       "id": "T01-ton-on-delay",
@@ -560,7 +696,11 @@
       "preferredPositions": ["behind", "outsideBehind"],
       "priority": 90,
       "baseScore": 112,
-      "reason": "同一定时回路的启动条件和预置时间齐全，且尚未放置 TON 时推荐 TON。"
+      "reason": "同一定时回路的启动条件和预置时间齐全，且尚未放置 TON 时推荐 TON。",
+      "presentation": {
+        "titleTemplate": "补充通电延时功能块",
+        "textTemplate": "{reason} {placementText}。"
+      }
     },
     {
       "id": "T05-tof-completion",
@@ -575,7 +715,11 @@
       "preferredPositions": ["behind", "outsideBehind"],
       "priority": 90,
       "baseScore": 112,
-      "reason": "同一定时回路的停止条件和预置时间齐全，且尚未放置 TOF 时推荐 TOF。"
+      "reason": "同一定时回路的停止条件和预置时间齐全，且尚未放置 TOF 时推荐 TOF。",
+      "presentation": {
+        "titleTemplate": "补充断电延时功能块",
+        "textTemplate": "{reason} {placementText}。"
+      }
     },
     {
       "id": "T06-tp-completion",
@@ -589,7 +733,11 @@
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
       "priority": 90,
       "baseScore": 112,
-      "reason": "同一脉冲回路的触发条件和预置时间齐全，且尚未放置 TP 时推荐 TP。"
+      "reason": "同一脉冲回路的触发条件和预置时间齐全，且尚未放置 TP 时推荐 TP。",
+      "presentation": {
+        "titleTemplate": "补充脉冲定时功能块",
+        "textTemplate": "{reason} {placementText}。"
+      }
     },
     {
       "id": "T00-timer-ambiguous",
@@ -793,7 +941,11 @@
       "priority": 90,
       "baseScore": 115,
       "reason": "温度回路的实际值、设定值和控制输出齐全，且同一回路中尚未放置 PID 时推荐 PID。",
-      "fallback": "回路角色不完整、无法确认同组关系或同组 PID 已存在时不通过该规则推荐。"
+      "fallback": "回路角色不完整、无法确认同组关系或同组 PID 已存在时不通过该规则推荐。",
+      "presentation": {
+        "titleTemplate": "补充温度 PID 调节",
+        "textTemplate": "{reason} {placementText}。"
+      }
     },
     {
       "id": "STR01-left",
@@ -943,7 +1095,11 @@
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "outputFunctionBlock"],
       "priority": 90,
       "baseScore": 114,
-      "reason": "同一轴停止回路的轴引用、停止请求和减速度齐全，且尚未放置 MC_Stop 时推荐 MC_Stop。"
+      "reason": "同一轴停止回路的轴引用、停止请求和减速度齐全，且尚未放置 MC_Stop 时推荐 MC_Stop。",
+      "presentation": {
+        "titleTemplate": "补充轴受控停止",
+        "textTemplate": "{reason} {placementText}。"
+      }
     },
     {
       "id": "MC09-halt",

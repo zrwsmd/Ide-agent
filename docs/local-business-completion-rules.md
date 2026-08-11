@@ -151,20 +151,28 @@
 4. 同时命中多个极性规则时先按 `priority` 选择；`P02-healthy-permissive-normal` 的正逻辑健康许可高于负向抑制规则。
 5. 仅对最终选中的极性进入候选扩展和评分。
 
-### 7.5 `libraryRules`
+### 7.5 `nodeIntentRules`
+
+用于给已经生成的触点、线圈和沿候选附加业务意图与 `title/text`。它不决定触点极性、不生成新候选、不改变排序和连接边界；常开/常闭仍只由 `contactPolarityRules` 决定。
+
+节点业务文案使用统一的严格证据门槛：必须存在明确动作锚点、同组至少两个一致角色，或者区段标签/备注明确提供两个以上匹配术语。只有单个关键词、未知变量且没有动作锚点时继续返回结构文案。故障联锁等带方向性的文案还必须限制 `positions`，避免把并联触点错误描述为串联切断条件。
+
+### 7.6 `libraryRules`
 
 用于把通用功能块候选替换为具体 IEC/PLCopen/运行时库元素。活动规则支持术语、数据类型、类型能力、端口约束、位置、优先级和评分条件。
 
-### 7.6 `rankingRules`
+`libraryRules.presentation` 可把命中的 `reason`、候选名称和无节点 ID 的友好位置说明写入最终 `title/text`。没有配置或模板无效时保留结构文案。
+
+### 7.7 `rankingRules`
 
 用于对已经拓扑合法的触点、线圈、函数和功能块候选进行软排序，不直接改变连接边界。
 `rankingRules` 也必须声明 `priority`。多个规则同时命中同一候选时，只计算最高优先级层；同层规则再累计 `baseScore` 和术语加分。这样通用启动 fallback 不会仅靠分数累加压过更具体的健康许可、复位或锁存规则。
 
-### 7.7 `plannedRules`
+### 7.8 `plannedRules`
 
 记录重要但当前证据或输出能力不足的业务需求。`plannedRules` 不参与运行时匹配，必须写明缺少的能力和当前降级行为。
 
-### 7.8 活动规则字段语义
+### 7.9 活动规则字段语义
 
 | 字段 | 类型 | 执行语义 |
 | --- | --- | --- |
@@ -242,7 +250,7 @@
 
 `Stop_On_Delay` 由正则识别为 `onDelay`，再由 `termImplications` 自动得到 `timer`；其中 `Stop` 末尾的 `tp` 不会误识别为脉冲术语。正则在规则加载时统一预编译；非法表达式只跳过该表达式并输出诊断，不中断本地建议。修改模式时必须同时补充正例和误命中反例。
 
-规则结构可以扩展，但破坏兼容性的字段变更必须提升 `schemaVersion`。Core 继续读取旧版顶层 `rules` 作为迁移兼容；新规则应写入职责对应的 `contactPolarityRules`、`libraryRules`、`rankingRules` 或 `plannedRules`。
+规则结构可以扩展，但破坏兼容性的字段变更必须提升 `schemaVersion`。Core 继续读取旧版顶层 `rules` 作为迁移兼容；新规则应写入职责对应的 `contactPolarityRules`、`nodeIntentRules`、`libraryRules`、`rankingRules` 或 `plannedRules`。
 
 ## 8. V1 可执行规则
 

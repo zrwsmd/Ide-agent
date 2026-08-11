@@ -17,8 +17,10 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
         -> derivedTerms / termImplications 补充推导术语
         -> variablePatterns / blockPortRoleRules / loopSignatures 识别变量角色和业务回路
         -> contactPolarityRules 判断常开/常闭触点极性
+        -> nodeIntentRules 判断触点、线圈和沿承担的业务意图
         -> libraryRules 筛选可以推荐的库功能块或函数
         -> rankingRules 给拓扑候选加业务排序分
+        -> presentation 在可靠证据下生成业务 title/text
         -> 返回 suggestions
 
 注意：所有规则都在当前选中节点、所在区段、直接邻居和 POU 变量表等已有输入上运行。
@@ -34,7 +36,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 
 表示规则文件的结构版本，例如：
 
-    "schemaVersion": "ide-agent.business-rules.v8"
+    "schemaVersion": "ide-agent.business-rules.v9"
 
 它用于区分配置格式版本，不是规则优先级，也不是候选分数。升级字段结构时应同步升级版本号。
 
@@ -45,7 +47,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
     "enabled": true
 
 为 true 时启用业务库功能块/函数替换增强。
-为 false 时跳过库候选替换，但当前代码中的触点极性处理和 rankingRules 排序仍可能继续执行；它不是一个完全关闭所有业务逻辑的总开关。
+为 false 时跳过库候选替换，但当前代码中的触点极性处理、nodeIntentRules 文案和 rankingRules 排序仍可能继续执行；它不是一个完全关闭所有业务逻辑的总开关。
 基础拓扑建议在两种状态下都可以返回。
 
 ### 3. `defaultBlocks`
@@ -460,25 +462,64 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 
 例如健康许可规则优先级为 90、抑制规则优先级为 80。命中健康规则后，最高优先级极性是 normal，因此不会额外生成常闭变体。
 
+### 12. `nodeIntentRules`
+
+类型：对象数组。
+
+作用：给已经生成的触点、线圈、上升沿或下降沿候选附加业务意图和展示文案。它不生成新拓扑、不改变候选排序，也不决定常开/常闭；触点极性仍只由 `contactPolarityRules` 决定。
+
+主要字段：
+
+- `nodeTypes`：该意图适用的候选节点类型。
+- `positions`：可选，只允许在指定位置使用业务文案。例如故障联锁文案仅用于串联位置，不对并联常闭触点声称“切断许可”。
+- `termsAny` / `termsAll` / `excludedTerms`：局部业务术语条件。
+- `actionRolesAny`：动作锚点变量至少具有其中一个角色，例如 `commandSignal` 或 `faultSignal`。
+- `chainRolesAny`：当前区段变量角色至少包含其中一个角色。
+- `requireActionAnchor`：是否必须找到明确的下游线圈、功能块或当前输出变量。
+- `minimumEvidenceCount`：统一证据门槛，活动规则不得低于 2。
+- `businessName` / `reason`：业务意图短语和解释。
+- `presentation`：业务标题和说明模板。
+
+可靠证据必须至少满足一种：存在明确动作锚点、同一分组中存在两个以上一致角色、或者区段标签/备注明确命中两个以上规则术语。只有单个关键词、全是 `???` 且没有动作锚点时，继续使用原结构文案。
+
+`presentation` 支持：`businessName`、`reason`、`focusVar`、`actionName`、`groupName`、`candidateName`、`placementAction`、`placementText`、`elementType`。不支持的占位符会使该业务文案失效并回退结构文案。
+
+示例：
+
+    {
+      "id": "NI02-permissive-inhibit-contact",
+      "nodeTypes": ["negatedContact"],
+      "positions": ["front", "behind", "outsideFront", "outsideBehind"],
+      "termsAny": ["stop", "fault", "alarm", "interlock"],
+      "termsAll": ["permissive"],
+      "minimumEvidenceCount": 2,
+      "businessName": "故障联锁",
+      "presentation": {
+        "titleTemplate": "{placementAction} {businessName}常闭触点",
+        "textTemplate": "{reason}；{placementText}，使抑制条件有效时切断许可。"
+      }
+    }
+
 
 五、库功能块/函数筛选层
 ------------------------
 
-### 12. `libraryRules`
+### 13. `libraryRules`
 
 类型：对象数组。
 
 作用：把业务条件映射到 `st-library-info-data.json` 中真实存在的功能块或函数。
 它是硬筛选层：规则不满足，候选不会返回；满足后才进入评分和排序。
 
-#### 12.1 基础识别字段
+#### 13.1 基础识别字段
 
 - `id`：规则唯一标识，便于测试和问题定位。
 - `status`：只有 `active` 规则运行；`planned` 不运行。
-- `reason`：命中候选的业务解释。当前会保留在内部候选对象中，不能假定它一定已经出现在最终 suggestions 文本中。
+- `reason`：命中候选的业务解释。规则配置 `presentation` 且证据可靠时，可通过 `{reason}` 出现在最终 suggestions 文本中。
 - `fallback`：证据不足时的人工说明。目前主要用于配置文档/解释，不能把它理解成自动执行的备用算法。
+- `presentation`：可选业务展示模板。未配置或模板无效时继续使用原结构标题和说明。
 
-#### 12.2 术语条件字段
+#### 13.2 术语条件字段
 
 - `termsAny`：任意一个术语命中即可，逻辑是 OR。
 - `termsAll`：所有术语都命中，逻辑是 AND。
@@ -492,7 +533,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 
 表示：必须同时识别“定时器”和“通电延时”，但不能同时出现断电延时、脉冲或安全语义。
 
-#### 12.3 数据类型和能力条件
+#### 13.3 数据类型和能力条件
 
 - `requiredAnyDataTypes`：局部上下文至少有一种指定类型/类型组。
 - `requiredAllDataTypes`：局部上下文必须包含全部指定类型/类型组。
@@ -508,7 +549,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 
 只有附近变量/端口类型能证明有 AXIS_REF 能力时，才考虑 MC_Power。
 
-#### 12.4 portRequirements
+#### 13.4 portRequirements
 
 类型：对象数组。当前实现校验库元素的输入端口。
 
@@ -532,7 +573,7 @@ TON 必须在库中存在 PT，且 PT 类型是 TIME；即使用户还没创建�
 
 MC_* 的 Axis 端口则要求库定义的端口类型匹配轴引用能力。库中不存在候选或端口不匹配时，规则不会返回空壳功能块。
 
-#### 12.5 候选和位置字段
+#### 13.5 候选和位置字段
 
 - `candidateNames`：要推荐的库元素名称，如 `TON`、`MC_Stop`、`PID`。名称必须能在运行时库数据中查到。
 - `allowedModes`：硬限制，建议生成方式必须属于列表。
@@ -549,7 +590,7 @@ MC_* 的 Axis 端口则要求库定义的端口类型匹配轴引用能力。库
 
 常见 position：`front`、`behind`、`outsideFront`、`outsideBehind`、`parallel`、`replace`。
 
-#### 12.6 priority 和 baseScore
+#### 13.6 priority 和 baseScore
 
 - `priority`：候选规则层级，先比较它。
 - `baseScore`：同优先级下的基础分。
@@ -563,7 +604,7 @@ MC_* 的 Axis 端口则要求库定义的端口类型匹配轴引用能力。库
 六、普通拓扑候选排序层
 ----------------------
 
-### 13. `rankingRules`
+### 14. `rankingRules`
 
 类型：对象数组。
 
@@ -608,7 +649,7 @@ MC_* 的 Axis 端口则要求库定义的端口类型匹配轴引用能力。库
 七、规划项层
 ------------
 
-### 14. `plannedRules`
+### 15. `plannedRules`
 
 类型：对象数组。
 

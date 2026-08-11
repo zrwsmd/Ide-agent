@@ -13,12 +13,14 @@ import {
   BusinessBlockPortRoleRuleConfig,
   BusinessLoopSignatureConfig,
   BusinessLoopSignatureMatch,
+  BusinessVariableRoleMatch,
   BusinessVariablePatternsConfig,
   EMPTY_BLOCK_PORT_ROLE_RULES,
   EMPTY_LOOP_SIGNATURES,
   EMPTY_VARIABLE_PATTERNS,
   collectBlockInstances,
   evaluateLoopSignatures,
+  evaluateVariableRoles,
   parseBlockPortRoleRules,
   parseLoopSignatures,
   parseVariablePatterns,
@@ -164,6 +166,14 @@ interface LocalSuggestionDraft {
   position?: LocalSuggestionPosition;
   serialOrParallel?: LocalSuggestionSerialOrParallel;
   addElement: LocalSuggestionAddElement;
+  businessPresentation?: BusinessSuggestionPresentation;
+}
+
+interface BusinessSuggestionPresentation {
+  title: string;
+  text: string;
+  ruleId: string;
+  confidence: number;
 }
 
 interface LocalSuggestionAddElement {
@@ -221,6 +231,12 @@ interface BusinessSuggestionContext {
   completionLoopMatches: BusinessLoopSignatureMatch[];
   observedLoopMatches: BusinessLoopSignatureMatch[];
   observedLoopBlockTypes: Set<string>;
+  descriptorTerms: Set<BusinessTerm>;
+  localVariableRoles: BusinessVariableRoleMatch[];
+  coherentRoleCount: number;
+  actionAnchorName: string;
+  actionAnchorTerms: Set<BusinessTerm>;
+  actionAnchorRoles: Set<string>;
 }
 
 interface BusinessRulesConfig {
@@ -236,6 +252,7 @@ interface BusinessRulesConfig {
   blockPortRoleRules: BusinessBlockPortRoleRuleConfig[];
   loopSignatures: BusinessLoopSignatureConfig[];
   contactPolarityRules: BusinessContactPolarityRuleConfig[];
+  nodeIntentRules: BusinessNodeIntentRuleConfig[];
   libraryRules: BusinessLibraryRuleConfig[];
   rankingRules: BusinessRankingRuleConfig[];
 }
@@ -263,6 +280,11 @@ interface BusinessTermMatcher {
   regexPatterns: RegExp[];
 }
 
+interface BusinessPresentationConfig {
+  titleTemplate: string;
+  textTemplate: string;
+}
+
 interface BusinessContactPolarityRuleConfig {
   id: string;
   status: string;
@@ -274,6 +296,24 @@ interface BusinessContactPolarityRuleConfig {
   anchorTermScope: "selectedNode" | "selectedNodeOrDirectNeighbors";
   priority: number;
   reason?: string;
+}
+
+interface BusinessNodeIntentRuleConfig {
+  id: string;
+  status: string;
+  nodeTypes: string[];
+  positions: LocalSuggestionPosition[];
+  termsAny: BusinessTerm[];
+  termsAll: BusinessTerm[];
+  excludedTerms: BusinessTerm[];
+  actionRolesAny: string[];
+  chainRolesAny: string[];
+  requireActionAnchor: boolean;
+  minimumEvidenceCount: number;
+  priority: number;
+  businessName: string;
+  reason: string;
+  presentation?: BusinessPresentationConfig;
 }
 
 interface BusinessPortRequirementConfig {
@@ -306,6 +346,7 @@ interface BusinessLibraryRuleConfig {
   preferredPositions?: LocalSuggestionPosition[];
   reason?: string;
   fallback?: string;
+  presentation?: BusinessPresentationConfig;
 }
 
 interface BusinessRankingRuleConfig {
@@ -344,6 +385,8 @@ interface BusinessElementCandidate {
   ruleId: string;
   reason?: string;
   libraryElement: LibraryElementInfo;
+  presentation?: BusinessPresentationConfig;
+  completionMatch?: BusinessLoopSignatureMatch;
 }
 
 const FALLBACK_COMMON_FUNCTION_BLOCK_TYPES = [
@@ -422,7 +465,7 @@ const FALLBACK_TERM_IMPLICATIONS: BusinessTermImplicationConfig[] = [
 ];
 
 const FALLBACK_BUSINESS_RULES_CONFIG: BusinessRulesConfig = {
-  schemaVersion: "ide-agent.business-rules.v8",
+  schemaVersion: "ide-agent.business-rules.v9",
   enabled: true,
   defaultBlocks: FALLBACK_COMMON_FUNCTION_BLOCK_TYPES,
   dataTypeGroups: FALLBACK_DATA_TYPE_GROUPS,
@@ -457,6 +500,7 @@ const FALLBACK_BUSINESS_RULES_CONFIG: BusinessRulesConfig = {
   blockPortRoleRules: EMPTY_BLOCK_PORT_ROLE_RULES,
   loopSignatures: EMPTY_LOOP_SIGNATURES,
   contactPolarityRules: [],
+  nodeIntentRules: [],
   libraryRules: [],
   rankingRules: [],
 };
@@ -501,6 +545,7 @@ function loadBusinessRulesConfig(): BusinessRulesConfig {
     contactPolarityRules: parseContactPolarityRules(
       record.contactPolarityRules,
     ),
+    nodeIntentRules: parseNodeIntentRules(record.nodeIntentRules),
     libraryRules: parseBusinessRules(record.libraryRules ?? record.rules),
     rankingRules: parseBusinessRankingRules(record.rankingRules),
   };
@@ -619,6 +664,51 @@ function parseContactPolarityRules(
     );
 }
 
+function parseNodeIntentRules(value: unknown): BusinessNodeIntentRuleConfig[] {
+  return asArrayRecord(value)
+    .map((item) => ({
+      id: asStringConfig(item.id),
+      status: asStringConfig(item.status) || "active",
+      nodeTypes: stringList(item.nodeTypes),
+      positions: stringList(item.positions) as LocalSuggestionPosition[],
+      termsAny: stringList(item.termsAny),
+      termsAll: stringList(item.termsAll),
+      excludedTerms: stringList(item.excludedTerms),
+      actionRolesAny: stringList(item.actionRolesAny),
+      chainRolesAny: stringList(item.chainRolesAny),
+      requireActionAnchor: asBooleanConfig(item.requireActionAnchor, false),
+      minimumEvidenceCount:
+        asOptionalNumberConfig(item.minimumEvidenceCount) ?? 2,
+      priority: asOptionalNumberConfig(item.priority) ?? 0,
+      businessName: asStringConfig(item.businessName),
+      reason: asStringConfig(item.reason),
+      presentation: parseBusinessPresentation(item.presentation),
+    }))
+    .filter(
+      (item) =>
+        item.status.toLowerCase() === "active" &&
+        Boolean(item.id) &&
+        item.nodeTypes.length > 0 &&
+        Boolean(item.businessName) &&
+        Boolean(item.presentation),
+    );
+}
+
+function parseBusinessPresentation(
+  value: unknown,
+): BusinessPresentationConfig | undefined {
+  const record = asPlainRecord(value);
+  if (!record) {
+    return undefined;
+  }
+
+  const titleTemplate = asStringConfig(record.titleTemplate);
+  const textTemplate = asStringConfig(record.textTemplate);
+  return titleTemplate && textTemplate
+    ? { titleTemplate, textTemplate }
+    : undefined;
+}
+
 function parseBusinessRules(value: unknown): BusinessLibraryRuleConfig[] {
   const parsed = asArrayRecord(value)
     .map((item) => ({
@@ -650,6 +740,7 @@ function parseBusinessRules(value: unknown): BusinessLibraryRuleConfig[] {
       preferredPositions: stringList(item.preferredPositions) as LocalSuggestionPosition[],
       reason: asStringConfig(item.reason),
       fallback: asStringConfig(item.fallback),
+      presentation: parseBusinessPresentation(item.presentation),
     }))
     .filter(
       (item) =>
@@ -982,7 +1073,11 @@ function rankBusinessSuggestions(
     context,
     focus,
   );
-  const applicableSuggestions = enhancedSuggestions.filter(
+  const presentedSuggestions = applyNodeIntentPresentations(
+    enhancedSuggestions,
+    context,
+  );
+  const applicableSuggestions = presentedSuggestions.filter(
     (suggestion) =>
       !hasExistingFunctionBlockAtInsertionBoundary(suggestion, focus.segment) &&
       !hasExistingFunctionBlockInRelatedSegment(suggestion, context, focus),
@@ -1000,6 +1095,134 @@ function rankBusinessSuggestions(
   return ranked
     .sort((left, right) => right.score - left.score || left.index - right.index)
     .map((item) => item.suggestion);
+}
+
+function applyNodeIntentPresentations(
+  suggestions: LocalSuggestionDraft[],
+  context: BusinessSuggestionContext,
+): LocalSuggestionDraft[] {
+  return suggestions.map((suggestion) => {
+    if (suggestion.businessPresentation) {
+      return suggestion;
+    }
+
+    const matchedRule = BUSINESS_RULES_CONFIG.nodeIntentRules
+      .filter((rule) => matchesNodeIntentRule(rule, suggestion, context))
+      .sort((left, right) => right.priority - left.priority)[0];
+    if (!matchedRule?.presentation) {
+      return suggestion;
+    }
+
+    const evidenceCount = nodeIntentEvidenceCount(matchedRule, context);
+    const presentation = renderBusinessPresentation(
+      matchedRule.presentation,
+      suggestion,
+      {
+        ruleId: matchedRule.id,
+        confidence: Math.min(98, 75 + evidenceCount * 5),
+        businessName: matchedRule.businessName,
+        reason: matchedRule.reason,
+        actionName: context.actionAnchorName || "当前回路",
+      },
+    );
+    return presentation
+      ? { ...suggestion, businessPresentation: presentation }
+      : suggestion;
+  });
+}
+
+function matchesNodeIntentRule(
+  rule: BusinessNodeIntentRuleConfig,
+  suggestion: LocalSuggestionDraft,
+  context: BusinessSuggestionContext,
+): boolean {
+  if (!includesCaseInsensitive(rule.nodeTypes, suggestion.addElement.nodeType)) {
+    return false;
+  }
+  const position = suggestion.position ?? inferPosition(suggestion);
+  if (rule.positions.length > 0 && !rule.positions.includes(position)) {
+    return false;
+  }
+  if (
+    rule.termsAny.length > 0 &&
+    !rule.termsAny.some((term) => localBusinessTermWeight(context, term) > 0)
+  ) {
+    return false;
+  }
+  if (
+    rule.termsAll.length > 0 &&
+    !rule.termsAll.every((term) => localBusinessTermWeight(context, term) > 0)
+  ) {
+    return false;
+  }
+  if (
+    rule.excludedTerms.some(
+      (term) => localBusinessTermWeight(context, term) > 0,
+    )
+  ) {
+    return false;
+  }
+  if (rule.requireActionAnchor && !context.actionAnchorName) {
+    return false;
+  }
+  if (
+    rule.actionRolesAny.length > 0 &&
+    !rule.actionRolesAny.some((role) => context.actionAnchorRoles.has(role))
+  ) {
+    return false;
+  }
+  const localRoles = new Set(context.localVariableRoles.map((match) => match.role));
+  if (
+    rule.chainRolesAny.length > 0 &&
+    !rule.chainRolesAny.some((role) => localRoles.has(role))
+  ) {
+    return false;
+  }
+
+  const matchedTerms = matchedNodeIntentTerms(rule, context);
+  const descriptorMatchCount = [...matchedTerms].filter((term) =>
+    context.descriptorTerms.has(term),
+  ).length;
+  const hasReliableEvidence =
+    Boolean(context.actionAnchorName) ||
+    context.coherentRoleCount >= 2 ||
+    descriptorMatchCount >= 2;
+  return (
+    hasReliableEvidence &&
+    nodeIntentEvidenceCount(rule, context) >= rule.minimumEvidenceCount
+  );
+}
+
+function matchedNodeIntentTerms(
+  rule: BusinessNodeIntentRuleConfig,
+  context: BusinessSuggestionContext,
+): Set<BusinessTerm> {
+  return new Set(
+    [...rule.termsAll, ...rule.termsAny].filter(
+      (term) => localBusinessTermWeight(context, term) > 0,
+    ),
+  );
+}
+
+function nodeIntentEvidenceCount(
+  rule: BusinessNodeIntentRuleConfig,
+  context: BusinessSuggestionContext,
+): number {
+  const matchedTerms = matchedNodeIntentTerms(rule, context);
+  const localRoles = new Set(context.localVariableRoles.map((match) => match.role));
+  const matchedChainRoles = rule.chainRolesAny.filter((role) =>
+    localRoles.has(role),
+  );
+  const matchedActionRoles = rule.actionRolesAny.filter((role) =>
+    context.actionAnchorRoles.has(role),
+  );
+  return (
+    matchedTerms.size +
+    Math.min(matchedChainRoles.length, 2) +
+    Math.min(matchedActionRoles.length, 1) +
+    (context.actionAnchorName ? 1 : 0) +
+    (context.coherentRoleCount >= 2 ? 1 : 0)
+  );
 }
 
 function rankTopologySuggestions(
@@ -1313,6 +1536,8 @@ function matchBusinessRule(
         ruleId: rule.id,
         reason: rule.reason,
         libraryElement,
+        presentation: rule.presentation,
+        completionMatch: matchingCompletionMatches[0],
       },
     ];
   });
@@ -1437,6 +1662,45 @@ function buildBusinessSuggestionContext(
   ];
   const signatureContextTerms = collectBusinessTerms(signatureContextTexts);
   addDerivedTerms(signatureContextTerms, segmentDataTypes);
+  const blockInstances = collectBlockInstances(
+    summary.segments.filter(
+      (segment) => segment.pouName?.trim() === focus.segment.pouName?.trim(),
+    ),
+  );
+  const variableRoleMatches = evaluateVariableRoles(
+    BUSINESS_RULES_CONFIG.variablePatterns,
+    pouVariables,
+    BUSINESS_RULES_CONFIG.blockPortRoleRules,
+    blockInstances,
+  );
+  const knownReferences = new Set(
+    pouVariables
+      .map((variable) => normalizeReference(variable.name))
+      .filter(Boolean),
+  );
+  const segmentReferences = collectSegmentReferences(
+    focus.segment,
+    knownReferences,
+  );
+  const localVariableRoles = variableRoleMatches.filter((match) =>
+    segmentReferences.has(normalizeReference(match.variableName)),
+  );
+  const descriptorTerms = collectBusinessTerms([
+    focus.segment.label,
+    focus.segment.note,
+  ]);
+  const actionAnchor = findBusinessActionAnchor(focus);
+  const actionAnchorRoles = new Set(
+    localVariableRoles
+      .filter(
+        (match) =>
+          actionAnchor.name &&
+          normalizeReference(match.variableName) ===
+            normalizeReference(actionAnchor.name),
+      )
+      .map((match) => match.role),
+  );
+  const coherentRoleCount = maxCoherentRoleCount(localVariableRoles);
   const signatureMatches = evaluateLoopSignatures(
     BUSINESS_RULES_CONFIG.variablePatterns,
     BUSINESS_RULES_CONFIG.loopSignatures,
@@ -1444,11 +1708,7 @@ function buildBusinessSuggestionContext(
     signatureContextTexts,
     signatureContextTerms,
     BUSINESS_RULES_CONFIG.blockPortRoleRules,
-    collectBlockInstances(
-      summary.segments.filter(
-        (segment) => segment.pouName?.trim() === focus.segment.pouName?.trim(),
-      ),
-    ),
+    blockInstances,
     collectFocusVariableNames(focus, surroundingNodes),
   );
   const completionLoopMatches = signatureMatches.filter(
@@ -1502,6 +1762,12 @@ function buildBusinessSuggestionContext(
     completionLoopMatches,
     observedLoopMatches,
     observedLoopBlockTypes,
+    descriptorTerms,
+    localVariableRoles,
+    coherentRoleCount,
+    actionAnchorName: actionAnchor.name,
+    actionAnchorTerms: actionAnchor.terms,
+    actionAnchorRoles,
   };
 }
 
@@ -1639,6 +1905,67 @@ function collectNodeReferences(node: DiagramNodeSummary): Set<string> {
       .map(normalizeReference)
       .filter((value): value is string => Boolean(value)),
   );
+}
+
+function findBusinessActionAnchor(
+  focus: FocusContext,
+): { name: string; terms: Set<BusinessTerm> } {
+  const directNode = focus.node;
+  if (directNode && isOutputNodeKind(directNode.kind)) {
+    const name = actionAnchorName(directNode);
+    if (name) {
+      return { name, terms: collectBusinessTerms(nodeBusinessTexts(directNode)) };
+    }
+  }
+
+  const queue = [
+    ...(focus.node?.to ?? []),
+    ...(focus.insertionPoint?.to ?? []),
+  ];
+  const visited = new Set<string>();
+  while (queue.length > 0) {
+    const nodeId = queue.shift();
+    if (!nodeId || visited.has(nodeId)) {
+      continue;
+    }
+    visited.add(nodeId);
+    const node = findNode(focus.segment, nodeId);
+    if (!node) {
+      continue;
+    }
+
+    if (isOutputNodeKind(node.kind)) {
+      const name = actionAnchorName(node);
+      if (name) {
+        return { name, terms: collectBusinessTerms(nodeBusinessTexts(node)) };
+      }
+    }
+    queue.push(...node.to);
+  }
+
+  return { name: "", terms: new Set<BusinessTerm>() };
+}
+
+function actionAnchorName(node: DiagramNodeSummary): string {
+  const candidate = isCoilKind(node.kind)
+    ? node.var
+    : node.instance || node.blockType;
+  const normalized = String(candidate ?? "").trim();
+  return normalized && !isUnnamedPlaceholder(normalized) ? normalized : "";
+}
+
+function maxCoherentRoleCount(
+  matches: BusinessVariableRoleMatch[],
+): number {
+  const rolesByGroup = new Map<string, Set<string>>();
+  for (const match of matches) {
+    for (const groupKey of match.groupKeys) {
+      const roles = rolesByGroup.get(groupKey) ?? new Set<string>();
+      roles.add(match.role);
+      rolesByGroup.set(groupKey, roles);
+    }
+  }
+  return Math.max(0, ...[...rolesByGroup.values()].map((roles) => roles.size));
 }
 
 function normalizeReference(value: string | undefined): string {
@@ -2838,13 +3165,15 @@ function toLocalSuggestion(
     endNodes,
     position,
     serialOrParallel,
-    text: draft.placement.text,
+    text: draft.businessPresentation?.text ?? draft.placement.text,
     addNode,
   };
 
   return {
     ...suggestion,
-    title: suggestionTitle(suggestion, suggestedNodeLabel(suggestion)),
+    title:
+      draft.businessPresentation?.title ??
+      suggestionTitle(suggestion, suggestedNodeLabel(suggestion)),
   };
 }
 
@@ -3348,8 +3677,7 @@ function replaceFunctionBlockDraft(
     portInputs,
     portOutputs,
   };
-
-  return {
+  const nextDraft: LocalSuggestionDraft = {
     ...draft,
     addElement: nextAddElement,
     placement: {
@@ -3361,6 +3689,145 @@ function replaceFunctionBlockDraft(
       ),
     },
   };
+  const businessPresentation = candidate.presentation
+    ? renderBusinessPresentation(candidate.presentation, nextDraft, {
+        ruleId: candidate.ruleId,
+        confidence: candidate.completionMatch ? 98 : 85,
+        businessName: candidate.name,
+        reason: candidate.reason || `当前业务条件适合使用 ${candidate.name}。`,
+        actionName: candidate.name,
+        groupName: formatBusinessGroupName(candidate.completionMatch?.groupKey),
+        candidateName: candidate.name,
+      })
+    : undefined;
+
+  return {
+    ...nextDraft,
+    businessPresentation:
+      businessPresentation ?? nextDraft.businessPresentation,
+  };
+}
+
+function renderBusinessPresentation(
+  config: BusinessPresentationConfig,
+  suggestion: LocalSuggestionDraft,
+  input: {
+    ruleId: string;
+    confidence: number;
+    businessName: string;
+    reason: string;
+    actionName: string;
+    groupName?: string;
+    candidateName?: string;
+  },
+): BusinessSuggestionPresentation | undefined {
+  const values: Record<string, string> = {
+    businessName: input.businessName,
+    reason: input.reason,
+    focusVar: suggestion.placement.anchorNodeVar || "当前节点",
+    actionName: input.actionName || "当前回路",
+    groupName: input.groupName || "当前回路",
+    candidateName:
+      input.candidateName || suggestion.addElement.blockType || "待补全节点",
+    placementAction: businessPlacementAction(suggestion),
+    placementText: businessPlacementText(suggestion),
+    elementType: businessElementType(suggestion.addElement),
+  };
+  const title = renderBusinessTemplate(config.titleTemplate, values);
+  const text = renderBusinessTemplate(config.textTemplate, values);
+  if (!title || !text) {
+    return undefined;
+  }
+  return {
+    title,
+    text,
+    ruleId: input.ruleId,
+    confidence: input.confidence,
+  };
+}
+
+function renderBusinessTemplate(
+  template: string,
+  values: Record<string, string>,
+): string | undefined {
+  let unsupportedPlaceholder = false;
+  const rendered = template.replace(/\{([A-Za-z][A-Za-z0-9]*)\}/g, (_, key) => {
+    if (!(key in values)) {
+      unsupportedPlaceholder = true;
+      return "";
+    }
+    return values[key];
+  }).trim();
+  return unsupportedPlaceholder || !rendered ? undefined : rendered;
+}
+
+function businessPlacementAction(suggestion: LocalSuggestionDraft): string {
+  switch (suggestion.position ?? inferPosition(suggestion)) {
+    case "front":
+      return "前串联";
+    case "behind":
+      return "后串联";
+    case "outsideFront":
+      return "外侧前串联";
+    case "outsideBehind":
+      return "外侧后串联";
+    case "parallel":
+      return "并联";
+    case "replace":
+      return "替换为";
+    default:
+      return "补充";
+  }
+}
+
+function businessPlacementText(suggestion: LocalSuggestionDraft): string {
+  const focusName = suggestion.placement.anchorNodeVar || "当前节点";
+  const elementType = businessElementType(suggestion.addElement);
+  switch (suggestion.position ?? inferPosition(suggestion)) {
+    case "front":
+      return `建议在 ${focusName} 前串联一个${elementType}`;
+    case "behind":
+      return `建议在 ${focusName} 后串联一个${elementType}`;
+    case "outsideFront":
+      return `建议在 ${focusName} 所在分支组前串联一个${elementType}`;
+    case "outsideBehind":
+      return `建议在 ${focusName} 所在并联结构汇合后串联一个${elementType}`;
+    case "parallel":
+      return `建议与 ${focusName} 并联一个${elementType}`;
+    case "replace":
+      return `建议将 ${focusName} 替换为${elementType}`;
+    default:
+      return `建议补充一个${elementType}`;
+  }
+}
+
+function businessElementType(addElement: LocalSuggestionAddElement): string {
+  switch (addElement.nodeType) {
+    case "contact":
+      return "常开触点";
+    case "negatedContact":
+      return "常闭触点";
+    case "risingContact":
+      return "上升沿触点";
+    case "fallingContact":
+      return "下降沿触点";
+    case "coil":
+      return "线圈";
+    case "setCoil":
+      return "置位线圈";
+    case "resetCoil":
+      return "复位线圈";
+    case "functionBlock":
+      return addElement.displayLabel;
+    default:
+      return addElement.displayLabel || "节点";
+  }
+}
+
+function formatBusinessGroupName(groupKey: string | undefined): string {
+  const value = String(groupKey ?? "").trim();
+  const separator = value.indexOf(":");
+  return separator >= 0 ? value.slice(separator + 1) || "当前回路" : value;
 }
 
 function buildLibraryPorts(
