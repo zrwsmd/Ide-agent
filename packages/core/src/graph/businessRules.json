@@ -5,6 +5,7 @@
   "dataTypeGroups": {
     "NUMERIC": ["SINT", "USINT", "INT", "UINT", "DINT", "UDINT", "LINT", "ULINT", "REAL", "LREAL"],
     "INTEGER": ["SINT", "USINT", "INT", "UINT", "DINT", "UDINT", "LINT", "ULINT"],
+    "ANY_INT": ["SINT", "USINT", "INT", "UINT", "DINT", "UDINT", "LINT", "ULINT"],
     "FLOAT": ["REAL", "LREAL"]
   },
   "typeCapabilities": {
@@ -28,7 +29,11 @@
     { "ifMatched": "moveAbsolute", "alsoMatch": ["motion"] },
     { "ifMatched": "moveRelative", "alsoMatch": ["motion"] },
     { "ifMatched": "moveVelocity", "alsoMatch": ["motion"] },
-    { "ifMatched": "motionHalt", "alsoMatch": ["motion"] }
+    { "ifMatched": "motionHalt", "alsoMatch": ["motion"] },
+    { "ifMatched": "feedbackTimeout", "alsoMatch": ["timer", "onDelay"] },
+    { "ifMatched": "minimumRunTime", "alsoMatch": ["timer", "onDelay"] },
+    { "ifMatched": "minimumStopTime", "alsoMatch": ["timer", "offDelay"] },
+    { "ifMatched": "stringLength", "alsoMatch": ["string"] }
   ],
   "termPatterns": [
     { "term": "alarm", "literalPatterns": ["alarm", "warning", "报警", "告警"], "regexPatterns": [] },
@@ -58,6 +63,16 @@
     { "term": "moveRelative", "literalPatterns": ["相对移动", "相对定位"], "regexPatterns": ["(?:^|[^a-z0-9])move[_\\-.\\s]*relative(?:$|[^a-z0-9])"] },
     { "term": "moveVelocity", "literalPatterns": ["速度运行", "速度模式"], "regexPatterns": ["(?:^|[^a-z0-9])move[_\\-.\\s]*velocity(?:$|[^a-z0-9])"] },
     { "term": "motionHalt", "literalPatterns": ["axis halt", "运动暂停", "受控暂停"], "regexPatterns": ["(?:^|[^a-z0-9])(?:mc|axis)[_\\-.\\s]*halt(?:$|[^a-z0-9])"] },
+    { "term": "ramp", "literalPatterns": ["ramp", "平滑变化", "平滑调节", "斜坡", "渐变", "缓升", "缓降", "加速过程", "减速过程", "软启动", "防水锤"], "regexPatterns": ["(?:^|[^a-z0-9])ramp(?:$|[^a-z0-9])"] },
+    { "term": "hysteresis", "literalPatterns": ["hysteresis", "deadband", "dead band", "回差", "滞环", "死区", "避免频繁启停", "避免频繁切换", "小幅波动不报警"], "regexPatterns": ["(?:^|[^a-z0-9])(?:hysteresis|dead[_\\-.\\s]*band)(?:$|[^a-z0-9])"] },
+    { "term": "selection", "literalPatterns": ["selector", "信号选择", "自动手动切换", "手自动切换", "模式切换", "主备选择", "优先级选择"], "regexPatterns": ["(?:^|[^a-z0-9])(?:selector|select)(?:$|[^a-z0-9])"] },
+    { "term": "multiplex", "literalPatterns": ["multiplex", "多路选择", "多路复用", "路由选择"], "regexPatterns": ["(?:^|[^a-z0-9])(?:mux|multiplex)(?:$|[^a-z0-9])"] },
+    { "term": "mode", "literalPatterns": ["auto mode", "manual mode", "maintenance mode", "自动模式", "手动模式", "检修模式", "点动", "模式选择"], "regexPatterns": ["(?:^|[^a-z0-9])(?:auto|manual|jog|maintenance|service)[_\\-.\\s]*mode(?:$|[^a-z0-9])"] },
+    { "term": "rotation", "literalPatterns": ["rotation", "lead lag", "lead/lag", "轮换", "主备", "备用泵", "主泵", "运行时间均衡", "故障跳过", "自动换机"], "regexPatterns": ["(?:^|[^a-z0-9])(?:lead[_\\-.\\s]*lag|rotation|standby)(?:$|[^a-z0-9])"] },
+    { "term": "feedbackTimeout", "literalPatterns": ["feedback timeout", "启动确认", "运行确认", "反馈确认", "反馈超时", "启动超时", "动作超时", "到位超时", "未到位"], "regexPatterns": ["(?:^|[^a-z0-9])(?:feedback|run|start|move)[_\\-.\\s]*(?:timeout|confirm|confirmation)(?:$|[^a-z0-9])"] },
+    { "term": "minimumRunTime", "literalPatterns": ["minimum run time", "最小运行时间", "最短运行时间", "运行保持时间"], "regexPatterns": ["(?:^|[^a-z0-9])(?:min|minimum)[_\\-.\\s]*run(?:[_\\-.\\s]*time)?(?:$|[^a-z0-9])"] },
+    { "term": "minimumStopTime", "literalPatterns": ["minimum stop time", "最小停机时间", "最短停机时间", "停机保持时间"], "regexPatterns": ["(?:^|[^a-z0-9])(?:min|minimum)[_\\-.\\s]*stop(?:[_\\-.\\s]*time)?(?:$|[^a-z0-9])"] },
+    { "term": "sequence", "literalPatterns": ["sequence", "顺序启动", "顺序控制", "按步骤", "分阶段", "工艺阶段", "阶段推进", "完成后进入"], "regexPatterns": ["(?:^|[^a-z0-9])(?:sequence|step)[_\\-.\\s]*(?:control|start)?(?:$|[^a-z0-9])"] },
     { "term": "negated", "literalPatterns": ["常闭触点", "常闭", "取反条件", "反相信号"], "regexPatterns": ["(?:^|[^a-z0-9])nc(?:$|[^a-z0-9])"] },
     { "term": "onDelay", "literalPatterns": ["on delay", "通电延时", "延时启动", "等待稳定", "持续有效确认", "最大时间", "超时检测"], "regexPatterns": ["(?:^|[^a-z0-9])on[_\\-.\\s]*delay(?:$|[^a-z0-9])"] },
     { "term": "offDelay", "literalPatterns": ["off delay", "断电延时", "延时停止", "延时停机", "停机后继续", "后运行"], "regexPatterns": ["(?:^|[^a-z0-9])off[_\\-.\\s]*delay(?:$|[^a-z0-9])"] },
@@ -81,6 +96,7 @@
     { "term": "stringMid", "literalPatterns": ["string mid", "字符串中段", "中段截取"], "regexPatterns": ["(?:^|[^a-z0-9])(?:substring|string[_\\-.\\s]*mid)(?:$|[^a-z0-9])"] },
     { "term": "stringConcat", "literalPatterns": ["concat", "concatenate", "字符串拼接", "字符拼接"], "regexPatterns": [] },
     { "term": "stringFind", "literalPatterns": ["string find", "find substring", "字符串查找", "字符查找"], "regexPatterns": ["(?:^|[^a-z0-9])(?:string[_\\-.\\s]*find|find[_\\-.\\s]*substring)(?:$|[^a-z0-9])"] },
+    { "term": "stringLength", "literalPatterns": ["string length", "length of string", "字符串长度", "编号长度", "长度计算"], "regexPatterns": ["(?:^|[^a-z0-9])(?:string[_\\-.\\s]*)?len(?:gth)?(?:$|[^a-z0-9])"] },
     { "term": "timer", "literalPatterns": ["timer", "定时", "延时", "计时", "时间", "超时"], "regexPatterns": ["(?:^|[^a-z0-9])(?:ton|tof|tp)(?:$|[^a-z0-9])"] },
     { "term": "safety", "literalPatterns": ["safety", "safe", "emergency stop", "急停", "安全门", "光栅"], "regexPatterns": ["(?:^|[^a-z0-9])sto(?:$|[^a-z0-9])"] },
     { "term": "stateMachine", "literalPatterns": ["state machine", "状态机", "步序"], "regexPatterns": ["(?:^|[^a-z0-9])(?:state[_\\-.\\s]*machine|sfc)(?:$|[^a-z0-9])"] }
@@ -149,9 +165,9 @@
         "minScore": 4,
         "sources": [
           { "source": "name", "literalPatterns": ["command", "request"], "regexPatterns": ["(?:^|[^a-z0-9])(?:cmd|req)(?:$|[^a-z0-9])"], "score": 4 },
-          { "source": "label", "literalPatterns": ["启动命令", "停止命令", "执行命令", "控制命令", "动作命令", "启动请求", "停止请求", "command signal"], "regexPatterns": [], "score": 5 },
-          { "source": "note", "literalPatterns": ["启动命令", "停止命令", "执行命令", "控制命令", "动作命令", "启动请求", "停止请求", "command signal"], "regexPatterns": [], "score": 5 },
-          { "source": "comment", "literalPatterns": ["启动命令", "停止命令", "执行命令", "控制命令", "动作命令", "启动请求", "停止请求", "command signal"], "regexPatterns": [], "score": 5 }
+          { "source": "label", "literalPatterns": ["启动命令", "停止命令", "执行命令", "控制命令", "动作命令", "启动请求", "停止请求", "运行请求", "开门请求", "开阀请求", "手动强启", "command signal"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["启动命令", "停止命令", "执行命令", "控制命令", "动作命令", "启动请求", "停止请求", "运行请求", "开门请求", "开阀请求", "手动强启", "command signal"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["启动命令", "停止命令", "执行命令", "控制命令", "动作命令", "启动请求", "停止请求", "运行请求", "开门请求", "开阀请求", "手动强启", "command signal"], "regexPatterns": [], "score": 5 }
         ]
       },
       {
@@ -174,10 +190,10 @@
         "acceptedDataTypes": ["BOOL"],
         "minScore": 4,
         "sources": [
-          { "source": "name", "literalPatterns": ["fault", "failure", "error"], "regexPatterns": [], "score": 4 },
-          { "source": "label", "literalPatterns": ["故障信号", "故障状态", "设备故障", "错误信号", "fault signal"], "regexPatterns": [], "score": 5 },
-          { "source": "note", "literalPatterns": ["故障信号", "故障状态", "设备故障", "错误信号", "fault signal"], "regexPatterns": [], "score": 5 },
-          { "source": "comment", "literalPatterns": ["故障信号", "故障状态", "设备故障", "错误信号", "fault signal"], "regexPatterns": [], "score": 5 }
+          { "source": "name", "literalPatterns": ["fault", "failure", "error", "overload", "热继电器"], "regexPatterns": ["(?:^|[^a-z0-9])(?:fault|failure|error|overload|ol)(?:$|[^a-z0-9])"], "score": 4 },
+          { "source": "label", "literalPatterns": ["故障信号", "故障状态", "设备故障", "错误信号", "过载信号", "过载状态", "变频器故障", "热继电器", "fault signal"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["故障信号", "故障状态", "设备故障", "错误信号", "过载信号", "过载状态", "变频器故障", "热继电器", "fault signal"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["故障信号", "故障状态", "设备故障", "错误信号", "过载信号", "过载状态", "变频器故障", "热继电器", "fault signal"], "regexPatterns": [], "score": 5 }
         ]
       },
       {
@@ -187,10 +203,10 @@
         "acceptedDataTypes": ["BOOL"],
         "minScore": 4,
         "sources": [
-          { "source": "name", "literalPatterns": ["done", "complete", "completed", "inposition", "in_position"], "regexPatterns": [], "score": 4 },
-          { "source": "label", "literalPatterns": ["完成信号", "完成状态", "完成反馈", "动作完成", "到位反馈", "completion signal"], "regexPatterns": [], "score": 5 },
-          { "source": "note", "literalPatterns": ["完成信号", "完成状态", "完成反馈", "动作完成", "到位反馈", "completion signal"], "regexPatterns": [], "score": 5 },
-          { "source": "comment", "literalPatterns": ["完成信号", "完成状态", "完成反馈", "动作完成", "到位反馈", "completion signal"], "regexPatterns": [], "score": 5 }
+          { "source": "name", "literalPatterns": ["done", "complete", "completed", "inposition", "in_position", "startconfirm", "runconfirm"], "regexPatterns": ["(?:^|[^a-z0-9])(?:done|complete|in[_\\-.\\s]*position|confirm)(?:$|[^a-z0-9])"], "score": 4 },
+          { "source": "label", "literalPatterns": ["完成信号", "完成状态", "完成反馈", "动作完成", "到位反馈", "到位状态", "启动确认", "运行确认", "开到位", "关到位", "伸出到位", "缩回到位", "回零完成", "completion signal"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["完成信号", "完成状态", "完成反馈", "动作完成", "到位反馈", "到位状态", "启动确认", "运行确认", "开到位", "关到位", "伸出到位", "缩回到位", "回零完成", "completion signal"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["完成信号", "完成状态", "完成反馈", "动作完成", "到位反馈", "到位状态", "启动确认", "运行确认", "开到位", "关到位", "伸出到位", "缩回到位", "回零完成", "completion signal"], "regexPatterns": [], "score": 5 }
         ]
       },
       {
@@ -227,9 +243,9 @@
         "minScore": 4,
         "sources": [
           { "source": "name", "literalPatterns": ["presettime", "preset_time", "delaytime", "delay_time", "duration", "timeout"], "regexPatterns": ["(?:^|[^a-z0-9])(?:pt|delay|preset|duration|timeout)(?:$|[^a-z0-9])"], "score": 4 },
-          { "source": "label", "literalPatterns": ["预置时间", "设定时间", "延时时间", "超时时间", "preset duration", "delay time"], "regexPatterns": [], "score": 5 },
-          { "source": "note", "literalPatterns": ["预置时间", "设定时间", "延时时间", "超时时间", "preset duration", "delay time"], "regexPatterns": [], "score": 5 },
-          { "source": "comment", "literalPatterns": ["预置时间", "设定时间", "延时时间", "超时时间", "preset duration", "delay time"], "regexPatterns": [], "score": 5 }
+          { "source": "label", "literalPatterns": ["预置时间", "设定时间", "延时时间", "超时时间", "最小运行时间", "最小停机时间", "轮换周期", "preset duration", "delay time"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["预置时间", "设定时间", "延时时间", "超时时间", "最小运行时间", "最小停机时间", "轮换周期", "preset duration", "delay time"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["预置时间", "设定时间", "延时时间", "超时时间", "最小运行时间", "最小停机时间", "轮换周期", "preset duration", "delay time"], "regexPatterns": [], "score": 5 }
         ]
       },
       {
@@ -244,10 +260,68 @@
           { "source": "note", "literalPatterns": ["减速度", "停止减速度", "deceleration"], "regexPatterns": [], "score": 5 },
           { "source": "comment", "literalPatterns": ["减速度", "停止减速度", "deceleration"], "regexPatterns": [], "score": 5 }
         ]
+      },
+      {
+        "id": "VR12-ready-signal",
+        "status": "active",
+        "role": "readySignal",
+        "acceptedDataTypes": ["BOOL"],
+        "minScore": 4,
+        "sources": [
+          { "source": "name", "literalPatterns": ["ready", "available", "standby"], "regexPatterns": ["(?:^|[^a-z0-9])(?:ready|available|standby)(?:$|[^a-z0-9])"], "score": 4 },
+          { "source": "label", "literalPatterns": ["设备就绪", "就绪信号", "可用状态", "可用信号", "待机可用", "ready signal"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["设备就绪", "就绪信号", "可用状态", "可用信号", "待机可用", "ready signal"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["设备就绪", "就绪信号", "可用状态", "可用信号", "待机可用", "ready signal"], "regexPatterns": [], "score": 5 }
+        ]
+      },
+      {
+        "id": "VR13-reset-command",
+        "status": "active",
+        "role": "resetCommand",
+        "acceptedDataTypes": ["BOOL"],
+        "minScore": 4,
+        "sources": [
+          { "source": "name", "literalPatterns": ["reset", "ack", "clear"], "regexPatterns": ["(?:^|[^a-z0-9])(?:reset|ack|clear)(?:$|[^a-z0-9])"], "score": 4 },
+          { "source": "label", "literalPatterns": ["复位按钮", "复位命令", "故障复位", "确认复位", "reset command"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["复位按钮", "复位命令", "故障复位", "确认复位", "reset command"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["复位按钮", "复位命令", "故障复位", "确认复位", "reset command"], "regexPatterns": [], "score": 5 }
+        ]
+      },
+      {
+        "id": "VR14-mode-signal",
+        "status": "active",
+        "role": "modeSignal",
+        "acceptedDataTypes": ["BOOL"],
+        "minScore": 4,
+        "sources": [
+          { "source": "name", "literalPatterns": ["auto", "manual", "jog", "maintenance", "mode"], "regexPatterns": ["(?:^|[^a-z0-9])(?:auto|manual|jog|maintenance|service|mode)(?:$|[^a-z0-9])"], "score": 4 },
+          { "source": "label", "literalPatterns": ["自动模式", "手动模式", "检修模式", "点动模式", "模式信号", "mode signal"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["自动模式", "手动模式", "检修模式", "点动模式", "模式信号", "mode signal"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["自动模式", "手动模式", "检修模式", "点动模式", "模式信号", "mode signal"], "regexPatterns": [], "score": 5 }
+        ]
+      },
+      {
+        "id": "VR15-selection-signal",
+        "status": "active",
+        "role": "selectionSignal",
+        "acceptedDataTypes": ["BOOL", "INT", "DINT", "UINT", "UDINT"],
+        "minScore": 4,
+        "sources": [
+          { "source": "name", "literalPatterns": ["select", "selector", "priority", "lead", "lag"], "regexPatterns": ["(?:^|[^a-z0-9])(?:select|selector|priority|lead|lag)(?:$|[^a-z0-9])"], "score": 4 },
+          { "source": "label", "literalPatterns": ["选择信号", "主备选择", "优先级选择", "轮换选择", "selection signal"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["选择信号", "主备选择", "优先级选择", "轮换选择", "selection signal"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["选择信号", "主备选择", "优先级选择", "轮换选择", "selection signal"], "regexPatterns": [], "score": 5 }
+        ]
       }
     ],
     "physicalTerms": [
-      { "physical": "temperature", "literalPatterns": ["temperature", "\u6e29\u5ea6"], "regexPatterns": ["(?:^|[^a-z0-9])temp(?:$|[^a-z0-9])"] }
+      { "physical": "temperature", "literalPatterns": ["temperature", "\u6e29\u5ea6"], "regexPatterns": ["(?:^|[^a-z0-9])temp(?:$|[^a-z0-9])"] },
+      { "physical": "pressure", "literalPatterns": ["pressure", "\u538b\u529b", "\u6052\u538b"], "regexPatterns": ["(?:^|[^a-z0-9])pressure(?:$|[^a-z0-9])"] },
+      { "physical": "flow", "literalPatterns": ["flow", "\u6d41\u91cf", "\u6052\u6d41"], "regexPatterns": ["(?:^|[^a-z0-9])flow(?:$|[^a-z0-9])"] },
+      { "physical": "level", "literalPatterns": ["level", "\u6db2\u4f4d", "\u6db2\u4f4d\u8c03\u8282"], "regexPatterns": ["(?:^|[^a-z0-9])level(?:$|[^a-z0-9])"] },
+      { "physical": "speed", "literalPatterns": ["speed", "\u901f\u5ea6", "\u8f6c\u901f"], "regexPatterns": ["(?:^|[^a-z0-9])speed(?:$|[^a-z0-9])"] },
+      { "physical": "position", "literalPatterns": ["position", "\u4f4d\u7f6e", "\u5230\u4f4d"], "regexPatterns": ["(?:^|[^a-z0-9])position(?:$|[^a-z0-9])"] },
+      { "physical": "tension", "literalPatterns": ["tension", "\u5f20\u529b"], "regexPatterns": ["(?:^|[^a-z0-9])tension(?:$|[^a-z0-9])"] }
     ]
   },
   "blockPortRoleRules": [
@@ -355,6 +429,52 @@
         { "port": "CLK", "direction": "input", "role": "triggerSignal", "acceptedDataTypes": ["BOOL"] },
         { "port": "Q", "direction": "output", "role": "pulseSignal", "acceptedDataTypes": ["BOOL"] }
       ]
+    },
+    {
+      "id": "BPR09-ramp-conditioning",
+      "status": "active",
+      "blockTypes": ["RAMP"],
+      "ports": [
+        { "port": "RUN", "direction": "input", "role": "conditionSignal", "acceptedDataTypes": ["BOOL"] },
+        { "port": "X0", "direction": "input", "role": "operand", "acceptedDataTypes": ["REAL"] },
+        { "port": "X1", "direction": "input", "role": "operand", "acceptedDataTypes": ["REAL"] },
+        { "port": "TR", "direction": "input", "role": "presetDuration", "acceptedDataTypes": ["TIME"] },
+        { "port": "CYCLE", "direction": "input", "role": "sampleTime", "acceptedDataTypes": ["TIME"] },
+        { "port": "BUSY", "direction": "output", "role": "busySignal", "acceptedDataTypes": ["BOOL"] },
+        { "port": "XOUT", "direction": "output", "role": "resultValue", "acceptedDataTypes": ["REAL"] }
+      ]
+    },
+    {
+      "id": "BPR10-hysteresis",
+      "status": "active",
+      "blockTypes": ["HYSTERESIS"],
+      "ports": [
+        { "port": "XIN1", "direction": "input", "role": "operand", "acceptedDataTypes": ["REAL"] },
+        { "port": "XIN2", "direction": "input", "role": "operand", "acceptedDataTypes": ["REAL"] },
+        { "port": "EPS", "direction": "input", "role": "deadband", "acceptedDataTypes": ["REAL"] },
+        { "port": "Q", "direction": "output", "role": "conditionSignal", "acceptedDataTypes": ["BOOL"] }
+      ]
+    },
+    {
+      "id": "BPR11-selection-functions",
+      "status": "active",
+      "blockTypes": ["SEL", "MUX"],
+      "ports": [
+        { "port": "G", "direction": "input", "role": "selectionSignal", "acceptedDataTypes": ["BOOL"] },
+        { "port": "K", "direction": "input", "role": "selectionIndex", "acceptedDataTypes": ["INT", "DINT", "UINT", "UDINT"] },
+        { "port": "IN0", "direction": "input", "role": "operand" },
+        { "port": "IN1", "direction": "input", "role": "operand" },
+        { "port": "OUT", "direction": "output", "role": "resultValue" }
+      ]
+    },
+    {
+      "id": "BPR12-string-length",
+      "status": "active",
+      "blockTypes": ["LEN"],
+      "ports": [
+        { "port": "IN", "direction": "input", "role": "stringInput", "acceptedDataTypes": ["STRING"] },
+        { "port": "OUT", "direction": "output", "role": "stringLength", "acceptedDataTypes": ["INT"] }
+      ]
     }
   ],
   "loopSignatures": [
@@ -441,6 +561,62 @@
       },
       "evidenceTermsAny": ["stop"],
       "targetBlockTypes": ["MC_Stop"]
+    },
+    {
+      "id": "LS10-process-control-missing-controller",
+      "status": "active",
+      "kind": "completion",
+      "groupStrategies": ["groupId", "deviceId", "namePrefix"],
+      "requiredRolesAll": ["processValue", "setpoint", "manipulatedValue"],
+      "requiredRoleTypes": {
+        "processValue": ["REAL", "LREAL"],
+        "setpoint": ["REAL", "LREAL"],
+        "manipulatedValue": ["REAL", "LREAL"]
+      },
+      "requiredPhysicalTermsAny": ["pressure", "flow", "level", "speed", "tension"],
+      "missingRolesAny": ["controllerOutput", "pidController"],
+      "targetBlockTypes": ["PID"]
+    },
+    {
+      "id": "LS11-command-run-feedback-timeout",
+      "status": "active",
+      "kind": "completion",
+      "groupStrategies": ["groupId", "deviceId", "namePrefix"],
+      "requiredRolesAll": ["commandSignal", "runFeedback", "presetDuration"],
+      "requiredRoleTypes": {
+        "commandSignal": ["BOOL"],
+        "runFeedback": ["BOOL"],
+        "presetDuration": ["TIME"]
+      },
+      "evidenceTermsAny": ["feedbackTimeout"],
+      "targetBlockTypes": ["TON"]
+    },
+    {
+      "id": "LS12-command-completion-timeout",
+      "status": "active",
+      "kind": "completion",
+      "groupStrategies": ["groupId", "deviceId", "namePrefix"],
+      "requiredRolesAll": ["commandSignal", "completionSignal", "presetDuration"],
+      "requiredRoleTypes": {
+        "commandSignal": ["BOOL"],
+        "completionSignal": ["BOOL"],
+        "presetDuration": ["TIME"]
+      },
+      "evidenceTermsAny": ["feedbackTimeout"],
+      "targetBlockTypes": ["TON"]
+    },
+    {
+      "id": "LS13-mode-selector-missing-selector",
+      "status": "active",
+      "kind": "completion",
+      "groupStrategies": ["groupId", "deviceId", "namePrefix"],
+      "requiredRolesAll": ["modeSignal", "selectionSignal"],
+      "requiredRoleTypes": {
+        "modeSignal": ["BOOL"],
+        "selectionSignal": ["BOOL", "INT", "DINT", "UINT", "UDINT"]
+      },
+      "evidenceTermsAny": ["selection", "mode"],
+      "targetBlockTypes": ["SEL"]
     },
     {
       "id": "LS03-observed-timer",
@@ -629,6 +805,92 @@
         "titleTemplate": "{placementAction} {businessName}线圈",
         "textTemplate": "{reason} {actionName}；{placementText}，由相同故障条件驱动，新增变量待绑定。"
       }
+    },
+    {
+      "id": "NI09-feedback-confirmation-contact",
+      "status": "active",
+      "nodeTypes": ["contact"],
+      "positions": ["front", "behind", "outsideFront", "outsideBehind", "parallel"],
+      "termsAny": ["feedbackTimeout", "done"],
+      "excludedTerms": ["safety"],
+      "chainRolesAny": ["runFeedback", "completionSignal"],
+      "minimumEvidenceCount": 3,
+      "priority": 88,
+      "businessName": "反馈确认",
+      "reason": "当前链路包含动作命令以及运行或到位反馈语义",
+      "presentation": {
+        "titleTemplate": "{placementAction} {businessName}常开触点",
+        "textTemplate": "{reason}；{placementText}，用于确认设备已经执行命令，待绑定具体反馈变量。"
+      }
+    },
+    {
+      "id": "NI10-mode-selection-contact",
+      "status": "active",
+      "nodeTypes": ["contact"],
+      "positions": ["front", "behind", "outsideFront", "outsideBehind", "parallel"],
+      "termsAny": ["mode", "selection"],
+      "excludedTerms": ["safety"],
+      "chainRolesAny": ["modeSignal", "selectionSignal"],
+      "minimumEvidenceCount": 3,
+      "priority": 84,
+      "businessName": "模式许可",
+      "reason": "当前链路包含明确的自动、手动或模式选择信号",
+      "presentation": {
+        "titleTemplate": "{placementAction} {businessName}常开触点",
+        "textTemplate": "{reason}；{placementText}，用于限定当前模式下允许执行的动作，待绑定具体模式变量。"
+      }
+    },
+    {
+      "id": "NI11-sequence-completion-contact",
+      "status": "active",
+      "nodeTypes": ["contact"],
+      "positions": ["front", "behind", "outsideFront", "outsideBehind", "parallel"],
+      "termsAll": ["sequence", "done"],
+      "excludedTerms": ["safety"],
+      "chainRolesAny": ["completionSignal"],
+      "minimumEvidenceCount": 3,
+      "priority": 86,
+      "businessName": "步骤完成",
+      "reason": "当前顺序链包含明确的动作完成或到位反馈",
+      "presentation": {
+        "titleTemplate": "{placementAction} {businessName}常开触点",
+        "textTemplate": "{reason}；{placementText}，用于满足当前步骤完成后推进后续动作，待绑定具体完成变量。"
+      }
+    },
+    {
+      "id": "NI12-feedback-timeout-alarm-coil",
+      "status": "active",
+      "nodeTypes": ["coil"],
+      "termsAny": ["alarm", "fault"],
+      "termsAll": ["feedbackTimeout"],
+      "excludedTerms": ["safety"],
+      "actionRolesAny": ["faultSignal"],
+      "chainRolesAny": ["runFeedback", "completionSignal", "presetDuration"],
+      "requireActionAnchor": true,
+      "minimumEvidenceCount": 4,
+      "priority": 92,
+      "businessName": "反馈超时报警",
+      "reason": "当前链路具有反馈超时条件和明确的故障输出锚点",
+      "presentation": {
+        "titleTemplate": "{placementAction} {businessName}线圈",
+        "textTemplate": "{reason} {actionName}；{placementText}，用于在动作未按时确认时输出报警。"
+      }
+    },
+    {
+      "id": "NI13-count-pulse-rising-edge",
+      "status": "active",
+      "nodeTypes": ["risingContact"],
+      "positions": ["front", "behind", "outsideFront", "outsideBehind"],
+      "termsAll": ["counter", "rising"],
+      "excludedTerms": ["safety"],
+      "minimumEvidenceCount": 2,
+      "priority": 86,
+      "businessName": "计数脉冲",
+      "reason": "当前链路包含计数事件和上升沿单次触发语义",
+      "presentation": {
+        "titleTemplate": "{placementAction} {businessName}上升沿",
+        "textTemplate": "{reason}；{placementText}，使每次事件到来只产生一次计数触发。"
+      }
     }
   ],
   "libraryRules": [
@@ -736,6 +998,26 @@
       "reason": "同一脉冲回路的触发条件和预置时间齐全，且尚未放置 TP 时推荐 TP。",
       "presentation": {
         "titleTemplate": "补充脉冲定时功能块",
+        "textTemplate": "{reason} {placementText}。"
+      }
+    },
+    {
+      "id": "T07-feedback-timeout-completion",
+      "status": "active",
+      "signatureRefsAny": ["LS11-command-run-feedback-timeout", "LS12-command-completion-timeout"],
+      "excludedTerms": ["safety"],
+      "portRequirements": [
+        { "port": "IN", "required": true, "acceptedDataTypes": ["BOOL"] },
+        { "port": "PT", "required": true, "acceptedDataTypes": ["TIME"], "allowCreateParameter": true }
+      ],
+      "candidateNames": ["TON"],
+      "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
+      "preferredPositions": ["behind", "outsideBehind"],
+      "priority": 92,
+      "baseScore": 116,
+      "reason": "同一设备的动作命令、运行或到位反馈以及超时参数已经齐全，但尚未放置反馈超时监控时推荐 TON。",
+      "presentation": {
+        "titleTemplate": "补充反馈超时监控",
         "textTemplate": "{reason} {placementText}。"
       }
     },
@@ -919,6 +1201,91 @@
       "reason": "不等判断使用 NE。"
     },
     {
+      "id": "N06-ramp-conditioning",
+      "status": "active",
+      "termsAll": ["ramp", "numeric"],
+      "excludedTerms": ["safety"],
+      "requiredAnyDataTypes": ["REAL"],
+      "portRequirements": [
+        { "port": "RUN", "required": true, "acceptedDataTypes": ["BOOL"] },
+        { "port": "X0", "required": true, "acceptedDataTypes": ["REAL"] },
+        { "port": "X1", "required": true, "acceptedDataTypes": ["REAL"] },
+        { "port": "TR", "required": true, "acceptedDataTypes": ["TIME"], "allowCreateParameter": true },
+        { "port": "CYCLE", "required": true, "acceptedDataTypes": ["TIME"], "allowCreateParameter": true }
+      ],
+      "candidateNames": ["RAMP"],
+      "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
+      "priority": 84,
+      "baseScore": 101,
+      "reason": "存在明确的平滑升降、斜坡或软变化需求，并且具备浮点输入时推荐 RAMP。",
+      "presentation": {
+        "titleTemplate": "补充平滑变化 RAMP",
+        "textTemplate": "{reason} {placementText}。"
+      }
+    },
+    {
+      "id": "N07-hysteresis-deadband",
+      "status": "active",
+      "termsAll": ["hysteresis", "numeric"],
+      "excludedTerms": ["safety"],
+      "requiredAnyDataTypes": ["REAL"],
+      "portRequirements": [
+        { "port": "XIN1", "required": true, "acceptedDataTypes": ["REAL"] },
+        { "port": "XIN2", "required": true, "acceptedDataTypes": ["REAL"] },
+        { "port": "EPS", "required": true, "acceptedDataTypes": ["REAL"], "allowCreateParameter": true }
+      ],
+      "candidateNames": ["HYSTERESIS"],
+      "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
+      "priority": 84,
+      "baseScore": 101,
+      "reason": "存在设定值附近波动、回差或避免频繁启停需求，并且具备浮点比较量时推荐 HYSTERESIS。",
+      "presentation": {
+        "titleTemplate": "补充回差防抖 HYSTERESIS",
+        "textTemplate": "{reason} {placementText}。"
+      }
+    },
+    {
+      "id": "N08-multiplex-selection",
+      "status": "active",
+      "termsAll": ["multiplex"],
+      "excludedTerms": ["safety"],
+      "requiredAnyDataTypes": ["INT", "DINT", "UINT", "UDINT"],
+      "portRequirements": [
+        { "port": "K", "required": true, "acceptedDataTypes": ["ANY_INT"] },
+        { "port": "IN0", "required": true, "acceptedDataTypes": ["ANY"], "allowCreateParameter": true },
+        { "port": "IN1", "required": true, "acceptedDataTypes": ["ANY"], "allowCreateParameter": true }
+      ],
+      "candidateNames": ["MUX"],
+      "allowedModes": ["functionBlockAfter", "functionBlockBefore"],
+      "priority": 84,
+      "baseScore": 99,
+      "reason": "存在按整数索引从多路数据中选择一路的明确需求时推荐 MUX。",
+      "presentation": {
+        "titleTemplate": "补充多路选择 MUX",
+        "textTemplate": "{reason} {placementText}。"
+      }
+    },
+    {
+      "id": "SEL01-mode-selection-completion",
+      "status": "active",
+      "signatureRefsAny": ["LS13-mode-selector-missing-selector"],
+      "excludedTerms": ["safety"],
+      "portRequirements": [
+        { "port": "G", "required": true, "acceptedDataTypes": ["BOOL"] },
+        { "port": "IN0", "required": true, "acceptedDataTypes": ["ANY"], "allowCreateParameter": true },
+        { "port": "IN1", "required": true, "acceptedDataTypes": ["ANY"], "allowCreateParameter": true }
+      ],
+      "candidateNames": ["SEL"],
+      "allowedModes": ["functionBlockAfter", "functionBlockBefore"],
+      "priority": 88,
+      "baseScore": 107,
+      "reason": "同一设备或功能组内的模式条件和选择意图已经明确，但尚未放置二选一功能时推荐 SEL，候选值在插入后绑定。",
+      "presentation": {
+        "titleTemplate": "补充模式选择 SEL",
+        "textTemplate": "{reason} {placementText}。"
+      }
+    },
+    {
       "id": "P01-pid-loop",
       "status": "active",
       "termsAll": ["pid", "numeric", "setpoint", "processValue", "manipulatedValue"],
@@ -944,6 +1311,22 @@
       "fallback": "回路角色不完整、无法确认同组关系或同组 PID 已存在时不通过该规则推荐。",
       "presentation": {
         "titleTemplate": "补充温度 PID 调节",
+        "textTemplate": "{reason} {placementText}。"
+      }
+    },
+    {
+      "id": "P03-process-pid-completion",
+      "status": "active",
+      "signatureRefsAny": ["LS10-process-control-missing-controller"],
+      "excludedTerms": ["safety"],
+      "candidateNames": ["PID"],
+      "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
+      "priority": 89,
+      "baseScore": 113,
+      "reason": "同一过程回路的实际值、设定值和控制输出已经齐全，但尚未放置 PID 时推荐 PID。",
+      "fallback": "角色不完整、无法确认同组关系或同组 PID 已存在时不通过该规则推荐。",
+      "presentation": {
+        "titleTemplate": "补充过程 PID 调节",
         "textTemplate": "{reason} {placementText}。"
       }
     },
@@ -1001,6 +1384,24 @@
       "priority": 80,
       "baseScore": 90,
       "reason": "STRING/WSTRING 子串查找使用 FIND。"
+    },
+    {
+      "id": "STR06-length",
+      "status": "active",
+      "termsAll": ["string", "stringLength"],
+      "requiredAnyDataTypes": ["STRING"],
+      "portRequirements": [
+        { "port": "IN", "required": true, "acceptedDataTypes": ["STRING"] }
+      ],
+      "candidateNames": ["LEN"],
+      "allowedModes": ["functionBlockAfter", "functionBlockBefore"],
+      "priority": 82,
+      "baseScore": 94,
+      "reason": "存在明确的字符串长度计算需求并且具备 STRING 数据时推荐 LEN。",
+      "presentation": {
+        "titleTemplate": "补充字符串长度 LEN",
+        "textTemplate": "{reason} {placementText}。"
+      }
     },
     {
       "id": "MC02-power",

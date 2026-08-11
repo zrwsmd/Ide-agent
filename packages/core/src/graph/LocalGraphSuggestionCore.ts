@@ -1259,12 +1259,22 @@ function addBusinessContactVariants(
       return [suggestion];
     }
 
-    const negatedContact = replaceWithNegatedContact(suggestion);
-    if (!matchesContactPolarity("negated", context)) {
-      return [suggestion];
+    const variants = [suggestion];
+    if (matchesContactPolarity("negated", context)) {
+      variants.push(replaceWithContactType(suggestion, "negatedContact"));
     }
 
-    return [suggestion, negatedContact];
+    const hasSafetyEvidence = localBusinessTermWeight(context, "safety") > 0;
+    const hasExplicitRisingEvidence = context.descriptorTerms.has("rising");
+    const hasExplicitFallingEvidence = context.descriptorTerms.has("falling");
+    if (!hasSafetyEvidence && hasExplicitRisingEvidence && !hasExplicitFallingEvidence) {
+      variants.push(replaceWithContactType(suggestion, "risingContact"));
+    }
+    if (!hasSafetyEvidence && hasExplicitFallingEvidence && !hasExplicitRisingEvidence) {
+      variants.push(replaceWithContactType(suggestion, "fallingContact"));
+    }
+
+    return variants;
   });
 }
 
@@ -1315,16 +1325,21 @@ function matchesContactPolarityRule(
   return !rule.excludedAnchorTerms?.some((term) => anchorTerms.has(term));
 }
 
-function replaceWithNegatedContact(
+function replaceWithContactType(
   suggestion: LocalSuggestionDraft,
+  nodeType: "negatedContact" | "risingContact" | "fallingContact",
 ): LocalSuggestionDraft {
+  const element = contactVariantElement(nodeType);
   return {
     ...suggestion,
     placement: {
       ...suggestion.placement,
-      text: suggestion.placement.text.replaceAll("常开触点", "常闭触点"),
+      text: suggestion.placement.text.replaceAll(
+        "常开触点",
+        element.displayLabel,
+      ),
     },
-    addElement: negatedContactElement(),
+    addElement: element,
   };
 }
 
@@ -2341,6 +2356,18 @@ function hasDataTypeInternal(
     return false;
   }
 
+  if (
+    [...localDataTypes].some(
+      (dataType) =>
+        dataType === normalizedRequired ||
+        dataType.startsWith(`${normalizedRequired}(`) ||
+        dataType.startsWith(`${normalizedRequired}[`) ||
+        dataType.endsWith(`.${normalizedRequired}`),
+    )
+  ) {
+    return true;
+  }
+
   const groupMembers =
     BUSINESS_RULES_CONFIG.dataTypeGroups[normalizedRequired];
   if (groupMembers?.length && !visitedGroups.has(normalizedRequired)) {
@@ -2350,13 +2377,7 @@ function hasDataTypeInternal(
     );
   }
 
-  return [...localDataTypes].some(
-    (dataType) =>
-      dataType === normalizedRequired ||
-      dataType.startsWith(`${normalizedRequired}(`) ||
-      dataType.startsWith(`${normalizedRequired}[`) ||
-      dataType.endsWith(`.${normalizedRequired}`),
-  );
+  return false;
 }
 
 function hasTypeCapability(
@@ -3540,9 +3561,20 @@ function contactElement(): LocalSuggestionAddElement {
 }
 
 function negatedContactElement(): LocalSuggestionAddElement {
+  return contactVariantElement("negatedContact");
+}
+
+function contactVariantElement(
+  nodeType: "negatedContact" | "risingContact" | "fallingContact",
+): LocalSuggestionAddElement {
+  const displayLabels = {
+    negatedContact: "常闭触点",
+    risingContact: "上升沿",
+    fallingContact: "下降沿",
+  } as const;
   return {
-    nodeType: "negatedContact",
-    displayLabel: "常闭触点",
+    nodeType,
+    displayLabel: displayLabels[nodeType],
     variableSource: "userInput",
     variableName: "",
     dataType: "BOOL",

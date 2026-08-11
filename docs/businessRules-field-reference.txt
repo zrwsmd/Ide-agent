@@ -70,6 +70,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
     "dataTypeGroups": {
       "NUMERIC": ["INT", "DINT", "REAL", "LREAL"],
       "INTEGER": ["INT", "DINT"],
+      "ANY_INT": ["INT", "DINT"],
       "FLOAT": ["REAL", "LREAL"]
     }
 
@@ -86,6 +87,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 表示 BOOL 和 TIME 两类都必须出现。
 
 类型组只解决类型归类，不代表端口连接一定正确。
+`ANY_INT` 对应库元素使用的 IEC 泛型整数端口，例如 MUX.K；运行时先接受库端口的精确 `ANY_INT` 声明，再用该类型组判断本地 INT、DINT、UINT 等实际变量是否可用。
 
 ### 5. `typeCapabilities`
 
@@ -375,6 +377,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 - `requiredRolesAll`：同一推断分组中必须全部存在的角色。
 - `requiredRoleTypes`：按角色限制数据类型。
 - `requiredPhysicalTerms`：必须出现的物理量证据。
+- `requiredPhysicalTermsAny`：列出的物理量至少出现一个即可，适合压力、流量、液位、速度、张力等共享同一签名结构的通用过程回路。
 - `evidenceRolesAny`：辅助角色，命中任意一个即可，例如 PID 控制器或 PID 参数。
 - `missingRolesAny`：仅用于 `completion`；列出的角色至少缺少一个时才通过，用来描述当前关系还不完整，但不能代替目标功能块检查。
 - `evidenceTermsAny`：辅助业务术语，当前焦点区段上下文命中任意一个即可。
@@ -408,6 +411,12 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 
 前三个变量组成同一组，同时具备 PV、SP、MV、温度和 PID 语义，并且该组中还没有真实 PID 功能块，才命中签名。
 缺少 SP、类型是 BOOL、变量属于不同分组、当前区段没有 PID 语义，或同组 PID 已经存在时，都不应通过该签名。
+
+通用过程回路可以使用：
+
+    "requiredPhysicalTermsAny": ["pressure", "flow", "level", "speed", "tension"]
+
+它表示这五类物理量命中任意一个即可，不表示同一回路必须同时包含五类物理量。温度 PID 仍由更具体、优先级更高的温度签名处理。
 
 如果以后图数据的 `variableList` 提供可选的 `deviceId`、`groupId`，规则可以优先按显式标识分组。例如：
 

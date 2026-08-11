@@ -95,6 +95,7 @@ export interface BusinessLoopSignatureConfig {
   requiredRolesAll: string[];
   requiredRoleTypes: Record<string, string[]>;
   requiredPhysicalTerms: string[];
+  requiredPhysicalTermsAny: string[];
   evidenceRolesAny: string[];
   missingRolesAny: string[];
   evidenceTermsAny: string[];
@@ -171,6 +172,7 @@ export function parseLoopSignatures(
       requiredRolesAll: stringList(item.requiredRolesAll),
       requiredRoleTypes: parseStringListRecord(item.requiredRoleTypes),
       requiredPhysicalTerms: stringList(item.requiredPhysicalTerms),
+      requiredPhysicalTermsAny: stringList(item.requiredPhysicalTermsAny),
       evidenceRolesAny: stringList(item.evidenceRolesAny),
       missingRolesAny: stringList(item.missingRolesAny),
       evidenceTermsAny: stringList(item.evidenceTermsAny),
@@ -676,6 +678,20 @@ function findMatchingGroups(
     if (
       signature.requiredPhysicalTerms.length > 0 &&
       !signature.requiredPhysicalTerms.every((physical) =>
+        hasPhysicalEvidence(
+          physical,
+          groupKey,
+          evidence,
+          contextPhysicalTerms,
+        ),
+      )
+    ) {
+      return false;
+    }
+
+    if (
+      signature.requiredPhysicalTermsAny.length > 0 &&
+      !signature.requiredPhysicalTermsAny.some((physical) =>
         hasPhysicalEvidence(
           physical,
           groupKey,

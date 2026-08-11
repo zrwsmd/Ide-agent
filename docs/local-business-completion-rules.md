@@ -137,7 +137,7 @@
 
 用于把多个变量角色组合为业务回路证据。`completion` 签名用于待补全关系，缺省按规范变量名前缀分组；`observed` 签名用于已有功能块/函数，按同一实例端口分组。两种方式都逐角色检查 `requiredRoleTypes`，不会把同一 POU 直接视为同一设备。
 
-`requiredPhysicalTerms` 校验物理量证据，`evidenceRolesAny` 在同一分组内校验辅助角色，`evidenceTermsAny` 必须由当前焦点、邻居或 segment 满足。`evidenceBlockTypesAny` 可限制端口分组必须来自指定库元素。只有 `completion` 签名交给 `libraryRules.signatureRefsAny`；`observed` 签名用于确认已有关系，不能反过来触发同类块重复推荐。
+`requiredPhysicalTerms` 要求列出的物理量全部具备；`requiredPhysicalTermsAny` 要求至少具备其中一个，供压力、流量、液位、速度、张力等通用过程回路复用同一签名。`evidenceRolesAny` 在同一分组内校验辅助角色，`evidenceTermsAny` 必须由当前焦点、邻居或 segment 满足。`evidenceBlockTypesAny` 可限制端口分组必须来自指定库元素。只有 `completion` 签名交给 `libraryRules.signatureRefsAny`；`observed` 签名用于确认已有关系，不能反过来触发同类块重复推荐。
 
 ### 7.4 `contactPolarityRules`
 
@@ -157,11 +157,15 @@
 
 节点业务文案使用统一的严格证据门槛：必须存在明确动作锚点、同组至少两个一致角色，或者区段标签/备注明确提供两个以上匹配术语。只有单个关键词、未知变量且没有动作锚点时继续返回结构文案。故障联锁等带方向性的文案还必须限制 `positions`，避免把并联触点错误描述为串联切断条件。
 
+上升沿/下降沿候选只在当前区段标签或备注明确给出沿语义且不属于安全场景时扩展；仅仅选中一个已有沿节点不会继续推荐另一个沿节点。普通触点候选始终保留。
+
 ### 7.6 `libraryRules`
 
 用于把通用功能块候选替换为具体 IEC/PLCopen/运行时库元素。活动规则支持术语、数据类型、类型能力、端口约束、位置、优先级和评分条件。
 
 `libraryRules.presentation` 可把命中的 `reason`、候选名称和无节点 ID 的友好位置说明写入最终 `title/text`。没有配置或模板无效时保留结构文案。
+
+当前扩展场景包括反馈超时 TON、通用过程 PID、模式选择 SEL、整数多路选择 MUX、平滑变化 RAMP、回差防抖 HYSTERESIS 和字符串长度 LEN。所有候选及端口必须在 `st-library-info-data.json` 中存在；`SEL/MUX` 的泛型数据输入允许插入后绑定，但 `SEL.G` 必须具备 BOOL，`MUX.K` 必须具备 ANY_INT 可接受的实际整数类型。当前库中的 RAMP/HYSTERESIS 数值端口只接受 REAL，LEN.IN 只接受 STRING，规则不会把 LREAL/WSTRING 当作这些固定端口的直接可绑定类型。
 
 ### 7.7 `rankingRules`
 

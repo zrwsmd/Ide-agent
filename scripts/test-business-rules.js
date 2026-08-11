@@ -2,6 +2,7 @@
 
 const assert = require("assert/strict");
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const {
   getLocalGraphSuggestions,
@@ -56,6 +57,7 @@ async function main() {
   assertExplicitIdGroupingCases();
   assertGenericMissingTargetCases();
   assertBlockPortRoleCases();
+  await assertExpandedBusinessCoverageCases();
   await assertStableBusinessCases();
   await assertLoopSignatureCases();
   await assertTimestampDiagramWhenAvailable();
@@ -1074,6 +1076,306 @@ function blockRoleTestSegment(
 
 function testPort(name, value, type, scope) {
   return { name, value, type, scope };
+}
+
+async function assertExpandedBusinessCoverageCases() {
+  const commonIds = {
+    deviceId: "Coverage-Device",
+    groupId: "Coverage-Group",
+  };
+  const diagram = [
+    coveragePou(
+      "COVERAGE_RAMP",
+      "segment-coverage-ramp",
+      "输送机速度平滑变化，避免水锤和机械冲击",
+      [
+        { name: "Ramp_Enable", type: "BOOL", scope: "VAR" },
+        { name: "Conveyor_Speed_Actual", type: "REAL", scope: "VAR" },
+      ],
+    ),
+    coveragePou(
+      "COVERAGE_HYSTERESIS",
+      "segment-coverage-hysteresis",
+      "压力在设定值附近小幅波动时避免频繁启停",
+      [
+        { name: "Pressure_Enable", type: "BOOL", scope: "VAR" },
+        { name: "Pressure_Actual", type: "REAL", scope: "VAR" },
+        { name: "Pressure_Target", type: "REAL", scope: "VAR" },
+      ],
+    ),
+    coveragePou(
+      "COVERAGE_MUX",
+      "segment-coverage-mux",
+      "按整数索引进行多路选择",
+      [
+        { name: "Channel_Index", type: "INT", scope: "VAR" },
+        { name: "Channel_A", type: "INT", scope: "VAR" },
+        { name: "Channel_B", type: "INT", scope: "VAR" },
+      ],
+    ),
+    coveragePou(
+      "COVERAGE_LEN",
+      "segment-coverage-len",
+      "计算完整追溯编号的字符串长度",
+      [{ name: "Trace_Code", type: "STRING", scope: "VAR" }],
+    ),
+    coveragePou(
+      "COVERAGE_PROCESS_PID",
+      "segment-coverage-process-pid",
+      "恒压供水：根据实际压力与目标压力调节水泵速度",
+      [
+        { name: "Press01_Enable", type: "BOOL", scope: "VAR", ...commonIds },
+        { name: "Press01_PV", type: "REAL", scope: "VAR", ...commonIds },
+        { name: "Press01_SP", type: "REAL", scope: "VAR", ...commonIds },
+        { name: "Press01_Output", type: "REAL", scope: "VAR", ...commonIds },
+      ],
+    ),
+    coveragePou(
+      "COVERAGE_FEEDBACK_TIMEOUT",
+      "segment-coverage-feedback-timeout",
+      "1号泵启动后未收到运行确认则反馈超时报警",
+      [
+        { name: "Pump1_Start_Request", type: "BOOL", scope: "VAR", ...commonIds },
+        { name: "Pump1_Run_Feedback", type: "BOOL", scope: "VAR", ...commonIds },
+        { name: "Pump1_Start_Timeout", type: "TIME", scope: "VAR", ...commonIds },
+        { name: "Pump1_Start_Fault", type: "BOOL", scope: "VAR", ...commonIds, nodeType: "coil" },
+      ],
+    ),
+    coveragePou(
+      "COVERAGE_COMPLETION_TIMEOUT",
+      "segment-coverage-completion-timeout",
+      "自动门发出开门命令后未到位则动作超时报警",
+      [
+        { name: "Door_Open_Request", type: "BOOL", scope: "VAR", ...commonIds },
+        { name: "Door_Open_Done", type: "BOOL", scope: "VAR", ...commonIds },
+        { name: "Door_Open_Timeout", type: "TIME", scope: "VAR", ...commonIds },
+      ],
+    ),
+    coveragePou(
+      "COVERAGE_MODE_SELECTION",
+      "segment-coverage-mode-selection",
+      "轨道小车自动模式与手动给定速度选择",
+      [
+        { name: "Cart_Auto_Mode", type: "BOOL", scope: "VAR", ...commonIds },
+        { name: "Cart_Speed_Select", type: "BOOL", scope: "VAR", ...commonIds },
+        { name: "Cart_Auto_Speed", type: "REAL", scope: "VAR", ...commonIds },
+        { name: "Cart_Manual_Speed", type: "REAL", scope: "VAR", ...commonIds },
+      ],
+    ),
+    coveragePou(
+      "COVERAGE_TIMEOUT_CROSS_GROUP",
+      "segment-coverage-timeout-cross-group",
+      "设备启动反馈超时监控",
+      [
+        {
+          name: "PumpA_Start_Request",
+          type: "BOOL",
+          scope: "VAR",
+          deviceId: "Pump-A",
+          groupId: "Start-Monitor",
+        },
+        {
+          name: "PumpB_Run_Feedback",
+          type: "BOOL",
+          scope: "VAR",
+          deviceId: "Pump-B",
+          groupId: "Start-Monitor",
+        },
+        {
+          name: "PumpA_Start_Timeout",
+          type: "TIME",
+          scope: "VAR",
+          deviceId: "Pump-A",
+          groupId: "Start-Monitor",
+        },
+      ],
+    ),
+    coveragePou(
+      "COVERAGE_RAMP_WRONG_TYPE",
+      "segment-coverage-ramp-wrong-type",
+      "输送机速度平滑变化",
+      [{ name: "Ramp_Enable_Only", type: "BOOL", scope: "VAR" }],
+    ),
+    coveragePou(
+      "COVERAGE_COUNT_EDGE",
+      "segment-coverage-count-edge",
+      "产品完成计数使用上升沿单次触发",
+      [{ name: "Product_Detected", type: "BOOL", scope: "VAR" }],
+    ),
+    coveragePou(
+      "COVERAGE_EXISTING_EDGE_ONLY",
+      "segment-coverage-existing-edge-only",
+      "产品检测",
+      [
+        {
+          name: "Existing_Product_Edge",
+          type: "BOOL",
+          scope: "VAR",
+          nodeType: "risingContact",
+        },
+      ],
+    ),
+  ];
+
+  const tempDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), "ide-agent-business-coverage-"),
+  );
+  const diagramPath = path.join(tempDir, "coverage.json");
+  fs.writeFileSync(diagramPath, JSON.stringify(diagram, null, 2), "utf8");
+
+  try {
+    const cases = [
+      ["segment-coverage-ramp", "RAMP", "补充平滑变化 RAMP"],
+      ["segment-coverage-hysteresis", "HYSTERESIS", "补充回差防抖 HYSTERESIS"],
+      ["segment-coverage-mux", "MUX", "补充多路选择 MUX"],
+      ["segment-coverage-len", "LEN", "补充字符串长度 LEN"],
+      ["segment-coverage-process-pid", "PID", "补充过程 PID 调节"],
+      ["segment-coverage-feedback-timeout", "TON", "补充反馈超时监控"],
+      ["segment-coverage-completion-timeout", "TON", "补充反馈超时监控"],
+      ["segment-coverage-mode-selection", "SEL", "补充模式选择 SEL"],
+    ];
+    const collectedSuggestions = [];
+    for (const [segmentId, blockType, expectedTitle] of cases) {
+      const suggestions = await suggestionsFor(
+        diagramPath,
+        segmentId,
+        `${segmentId}-node-0`,
+      );
+      collectedSuggestions.push(...suggestions);
+      assert.ok(
+        functionBlockTypes(suggestions).includes(blockType),
+        `${segmentId} should recommend ${blockType}`,
+      );
+      assert.equal(
+        suggestionForBlockType(suggestions, blockType)?.title,
+        expectedTitle,
+      );
+    }
+
+    const timeoutSuggestions = await suggestionsFor(
+      diagramPath,
+      "segment-coverage-feedback-timeout",
+      "segment-coverage-feedback-timeout-node-0",
+    );
+    assert.ok(
+      timeoutSuggestions.some(
+        (suggestion) =>
+          firstAddedNode(suggestion)?.type === "contact" &&
+          suggestion.title.includes("反馈确认常开触点"),
+      ),
+      "feedback timeout chain should use business copy for contact suggestions",
+    );
+
+    const modeSuggestions = await suggestionsFor(
+      diagramPath,
+      "segment-coverage-mode-selection",
+      "segment-coverage-mode-selection-node-0",
+    );
+    assert.ok(
+      modeSuggestions.some(
+        (suggestion) =>
+          firstAddedNode(suggestion)?.type === "contact" &&
+          suggestion.title.includes("模式许可常开触点"),
+      ),
+      "mode-selection chain should use business copy for contact suggestions",
+    );
+
+    const crossGroupSuggestions = await suggestionsFor(
+      diagramPath,
+      "segment-coverage-timeout-cross-group",
+      "segment-coverage-timeout-cross-group-node-0",
+    );
+    assert.ok(
+      crossGroupSuggestions.every(
+        (suggestion) => suggestion.title !== "补充反馈超时监控",
+      ),
+      "command and feedback from different devices must not satisfy the timeout signature",
+    );
+
+    const wrongTypeSuggestions = await suggestionsFor(
+      diagramPath,
+      "segment-coverage-ramp-wrong-type",
+      "segment-coverage-ramp-wrong-type-node-0",
+    );
+    assert.ok(
+      !functionBlockTypes(wrongTypeSuggestions).includes("RAMP"),
+      "RAMP must not be recommended without a local floating-point value",
+    );
+
+    const countEdgeSuggestions = await suggestionsFor(
+      diagramPath,
+      "segment-coverage-count-edge",
+      "segment-coverage-count-edge-node-0",
+    );
+    assert.ok(
+      countEdgeSuggestions.some(
+        (suggestion) =>
+          firstAddedNode(suggestion)?.type === "risingContact" &&
+          suggestion.title.includes("计数脉冲上升沿"),
+      ),
+      "explicit count-edge context should add a business-labelled rising-edge candidate",
+    );
+
+    const existingEdgeOnlySuggestions = await suggestionsFor(
+      diagramPath,
+      "segment-coverage-existing-edge-only",
+      "segment-coverage-existing-edge-only-node-0",
+    );
+    assert.ok(
+      !suggestedNodeTypes(existingEdgeOnlySuggestions).includes("risingContact"),
+      "selecting an existing edge without descriptor evidence must not cascade another edge",
+    );
+
+    assert.ok(
+      !functionBlockTypes(modeSuggestions).includes("MUX"),
+      "two-way mode selection must not be confused with indexed multiplexing",
+    );
+
+    for (const suggestion of collectedSuggestions) {
+      assertSuggestionUsesLibraryElement(suggestion);
+    }
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+function coveragePou(pouName, segmentId, label, variables) {
+  const nodesObj = {};
+  const startId = `${segmentId}-start`;
+  const endId = `${segmentId}-end`;
+  const nodeIds = variables.map((_, index) => `${segmentId}-node-${index}`);
+  nodesObj[startId] = {
+    id: startId,
+    type: "startLine",
+    sourceIds: [],
+    targetIds: [nodeIds[0]],
+  };
+  variables.forEach((variable, index) => {
+    const nodeId = nodeIds[index];
+    nodesObj[nodeId] = {
+      id: nodeId,
+      type: variable.nodeType ?? "contact",
+      sourceIds: [index === 0 ? startId : nodeIds[index - 1]],
+      targetIds: [index === variables.length - 1 ? endId : nodeIds[index + 1]],
+      varName: {
+        value: variable.name,
+        type: variable.type,
+        scope: variable.scope,
+      },
+    };
+  });
+  nodesObj[endId] = {
+    id: endId,
+    type: "endLine",
+    sourceIds: [nodeIds[nodeIds.length - 1]],
+    targetIds: [],
+  };
+  return {
+    pouName,
+    pouType: "PROGRAM",
+    variableList: variables.map(({ nodeType, ...variable }) => variable),
+    segmentList: [{ id: segmentId, label, note: "", nodesObj }],
+  };
 }
 
 async function assertLoopSignatureCases() {
