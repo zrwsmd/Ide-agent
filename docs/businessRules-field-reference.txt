@@ -36,7 +36,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 
 表示规则文件的结构版本，例如：
 
-    "schemaVersion": "ide-agent.business-rules.v10"
+    "schemaVersion": "ide-agent.business-rules.v11"
 
 它用于区分配置格式版本，不是规则优先级，也不是候选分数。升级字段结构时应同步升级版本号。
 
@@ -249,6 +249,9 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 - `_SP` -> setpoint，设定值/目标值。
 - `_MV`、`_Output` -> manipulatedValue，控制输出。
 - `_Kp`、`_Ti`、`_Td` -> controllerParameter，控制器参数。
+- `_Permit`、`_Permit_OK`、`_Interlock_OK` -> permitSignal，动作许可或正逻辑联锁满足信号。
+- `_Block`、`_Inhibit`、`_Jam`、`_Trip` -> inhibitSignal，动作阻断、堵料或跳闸信号。
+- `_Occupied`、`_Present`、`_Entry_Sensor`、`_Exit_Sensor` -> presenceSignal，物料、工件或区段占位检测。
 
 #### 9.3 roleEvidenceRules
 
@@ -303,6 +306,10 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 - commandSignal：启动、停止或执行命令。
 - runFeedback：设备运行状态反馈。
 - faultSignal：设备故障信号。
+- readySignal：设备就绪或健康状态。
+- permitSignal：动作许可或联锁满足信号，TRUE 表示允许动作。
+- inhibitSignal：动作阻断、堵料或跳闸信号，TRUE 表示禁止动作。
+- presenceSignal：物料、工件或区段占位检测信号。
 - completionSignal：动作完成或到位反馈。
 - axisReference：运动轴引用。
 
@@ -437,20 +444,23 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 
 类型：对象数组。
 
-作用：在已有“动作命令线圈”附近，检查同一设备的就绪和故障条件是否已经接入。它是通用设备闭环的单节点补全层，不只服务水泵，也适用于风机、阀门、气缸、输送机等动作设备。
+作用：在已有“动作命令线圈”附近，检查同一设备或同一动作组的许可、阻断和现场条件是否已经接入。它是通用设备闭环的单节点补全层，不只服务水泵，也适用于风机、阀门、气缸、输送区段和工位动作。
 
-它不会一次生成完整回路，也不会把运行反馈错误地当成启动许可。当前活动规则只做两类渐进式建议：
+它不会一次生成完整回路，也不会把运行反馈错误地当成启动许可。当前活动规则做以下渐进式建议：
 
 - 同设备存在 `readySignal`，动作路径未使用时，绑定该变量生成常开触点。
 - 同设备存在 `faultSignal`，动作路径未使用时，绑定该变量生成常闭触点。
+- 同动作组存在 `permitSignal`，动作路径未使用时，绑定该变量生成常开触点。
+- 同动作组存在 `inhibitSignal`，动作路径未使用时，绑定该变量生成常闭触点。
+- 同输送区段或工位存在 `presenceSignal`，动作路径未使用时，绑定该变量生成常开触点。
 
 字段：
 
 - `id`：设备闭环规则唯一标识。
 - `status`：只有 `active` 参与运行。
 - `anchorRolesAny`：动作锚点变量必须具备的角色，例如 `commandSignal`。
-- `anchorTermsAny`：动作锚点名称、注释或标签至少命中一个动作术语，例如 `start`、`run`、`enable`、`open`、`extend`。
-- `candidateRolesAny`：候选变量角色，例如 `readySignal` 或 `faultSignal`。
+- `anchorTermsAny`：动作锚点名称、注释或标签至少命中一个动作术语，例如 `start`、`run`、`clamp`、`push`、`feed`。
+- `candidateRolesAny`：候选变量角色，例如 `readySignal`、`faultSignal`、`permitSignal`、`inhibitSignal` 或 `presenceSignal`。
 - `candidateNodeType`：新增节点类型，当前支持 `contact` 或 `negatedContact`。
 - `allowedPositions`：允许插入的位置；仍由原有拓扑计算产生 `startNodes/endNodes`，规则不改连接边。
 - `excludedTerms`：动作锚点出现停止、复位、安全等语义时禁止套用启动许可规则。
@@ -458,7 +468,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 - `businessName` / `reason`：业务标题和解释信息。
 - `presentation`：业务文案模板，除通用占位符外支持 `{candidateVar}` 表示实际绑定的候选变量名。
 
-同一设备的判断顺序是：明确的 `groupId`、`deviceId` 优先；没有明确标识时，再使用变量名公共部分和变量注释/标签中稳定的设备描述。两个变量各自有冲突的明确设备标识时，不会因名字相似而混用。
+同一设备的判断顺序是：明确的 `groupId`、`deviceId` 优先；没有明确标识时，再使用变量名公共部分和变量注释/标签中稳定的设备描述。两个变量各自有冲突的明确设备标识时，不会因名字相似而混用。同一工位包含多个动作时还会比较明确动作术语，例如夹紧命令不会使用同工位的推料许可。
 
 例如：
 
@@ -471,6 +481,10 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
     启动按钮 -> M101 线圈
 
 系统会分别给出绑定 `X17` 的“就绪许可常开触点”和绑定 `X18` 的“故障联锁常闭触点”。如果 `X17` 已经在 `M101` 上游使用，就不再重复推荐它；如果只有 `X17/X18` 但没有明确动作锚点，则继续返回原来的结构建议。
+
+输送区段示例：`ConveyorA_Run_Cmd` 可以使用同组的 `ConveyorA_Run_Permit` 常开触点、`ConveyorA_Jam` 常闭触点和 `ConveyorA_Occupied` 常开触点；`ConveyorA_Run_FB` 是动作结果反馈，不会被错误地串在运行命令前面。
+
+工位动作示例：`Station01_Clamp_Cmd` 可以使用 `Station01_Clamp_Permit`，但不会因为公共前缀相同而使用 `Station01_Push_Permit`。安全、急停和风险控制仍不由这些普通业务规则自动生成。
 
 
 四、触点极性层

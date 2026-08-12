@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "ide-agent.business-rules.v10",
+  "schemaVersion": "ide-agent.business-rules.v11",
   "enabled": true,
   "defaultBlocks": ["TON", "TOF", "TP", "R_TRIG", "F_TRIG", "CTU", "CTD", "CTUD", "SR", "RS"],
   "dataTypeGroups": {
@@ -50,6 +50,16 @@
     { "term": "healthy", "literalPatterns": ["正常", "健康", "完好"], "regexPatterns": ["(?:^|[^a-z0-9])(?:ok|ready|healthy|normal|closed)(?:$|[^a-z0-9])"] },
     { "term": "interlock", "literalPatterns": ["interlock", "互锁", "联锁"], "regexPatterns": [] },
     { "term": "open", "literalPatterns": ["开门", "开阀", "打开"], "regexPatterns": ["(?:^|[^a-z0-9])open(?:$|[^a-z0-9])"] },
+    { "term": "clamp", "literalPatterns": ["clamp", "夹紧", "夹持"], "regexPatterns": ["(?:^|[^a-z0-9])clamp(?:$|[^a-z0-9])"] },
+    { "term": "retract", "literalPatterns": ["retract", "缩回", "退回"], "regexPatterns": ["(?:^|[^a-z0-9])retract(?:$|[^a-z0-9])"] },
+    { "term": "close", "literalPatterns": ["close", "关门", "关阀", "关闭"], "regexPatterns": ["(?:^|[^a-z0-9])close(?:$|[^a-z0-9])"] },
+    { "term": "push", "literalPatterns": ["push", "推料", "推出", "推送"], "regexPatterns": ["(?:^|[^a-z0-9])push(?:$|[^a-z0-9])"] },
+    { "term": "feed", "literalPatterns": ["feed", "送料", "进料", "给料"], "regexPatterns": ["(?:^|[^a-z0-9])feed(?:$|[^a-z0-9])"] },
+    { "term": "seal", "literalPatterns": ["seal", "封口", "封装"], "regexPatterns": ["(?:^|[^a-z0-9])seal(?:$|[^a-z0-9])"] },
+    { "term": "cut", "literalPatterns": ["cut", "切断", "切料"], "regexPatterns": ["(?:^|[^a-z0-9])cut(?:$|[^a-z0-9])"] },
+    { "term": "release", "literalPatterns": ["release", "释放", "松开"], "regexPatterns": ["(?:^|[^a-z0-9])release(?:$|[^a-z0-9])"] },
+    { "term": "blocked", "literalPatterns": ["blocked", "block", "inhibit", "禁止", "阻断", "堵料", "卡料", "跳闸"], "regexPatterns": ["(?:^|[^a-z0-9])(?:blocked|block|inhibit|jam|trip)(?:$|[^a-z0-9])"] },
+    { "term": "presence", "literalPatterns": ["present", "occupied", "有料", "占位", "物料存在", "工件存在", "入口检测", "出口检测", "光电"], "regexPatterns": ["(?:^|[^a-z0-9])(?:present|occupied|entry[_\\-.\\s]*sensor|exit[_\\-.\\s]*sensor|photo(?:electric|eye))(?:$|[^a-z0-9])"] },
     { "term": "extend", "literalPatterns": ["伸出", "推出"], "regexPatterns": ["(?:^|[^a-z0-9])extend(?:$|[^a-z0-9])"] },
     { "term": "latch", "literalPatterns": ["latch", "latched", "锁存", "自保持", "状态保持", "故障保持", "报警保持"], "regexPatterns": [] },
     { "term": "limit", "literalPatterns": ["limit", "clamp", "限幅", "上下限", "范围限制"], "regexPatterns": [] },
@@ -100,7 +110,7 @@
     { "term": "stringFind", "literalPatterns": ["string find", "find substring", "字符串查找", "字符查找"], "regexPatterns": ["(?:^|[^a-z0-9])(?:string[_\\-.\\s]*find|find[_\\-.\\s]*substring)(?:$|[^a-z0-9])"] },
     { "term": "stringLength", "literalPatterns": ["string length", "length of string", "字符串长度", "编号长度", "长度计算"], "regexPatterns": ["(?:^|[^a-z0-9])(?:string[_\\-.\\s]*)?len(?:gth)?(?:$|[^a-z0-9])"] },
     { "term": "timer", "literalPatterns": ["timer", "定时", "延时", "计时", "时间", "超时"], "regexPatterns": ["(?:^|[^a-z0-9])(?:ton|tof|tp)(?:$|[^a-z0-9])"] },
-    { "term": "safety", "literalPatterns": ["safety", "safe", "emergency stop", "急停", "安全门", "光栅"], "regexPatterns": ["(?:^|[^a-z0-9])sto(?:$|[^a-z0-9])"] },
+    { "term": "safety", "literalPatterns": ["safety", "safe", "safety gate", "light curtain", "emergency stop", "急停", "安全门", "安全回路", "安全扫描", "光栅"], "regexPatterns": ["(?:^|[^a-z0-9])(?:sto|estop)(?:$|[^a-z0-9])"] },
     { "term": "stateMachine", "literalPatterns": ["state machine", "状态机", "步序"], "regexPatterns": ["(?:^|[^a-z0-9])(?:state[_\\-.\\s]*machine|sfc)(?:$|[^a-z0-9])"] }
   ],
   "variablePatterns": {
@@ -117,7 +127,18 @@
       { "suffix": "_Td", "role": "controllerParameter", "acceptedDataTypes": ["REAL", "LREAL"] },
       { "suffix": "_Condition", "role": "conditionSignal", "acceptedDataTypes": ["BOOL"] },
       { "suffix": "_Delay", "role": "presetDuration", "acceptedDataTypes": ["TIME"] },
-      { "suffix": "_Deceleration", "role": "deceleration", "acceptedDataTypes": ["REAL", "LREAL"] }
+      { "suffix": "_Deceleration", "role": "deceleration", "acceptedDataTypes": ["REAL", "LREAL"] },
+      { "suffix": "_Permit", "role": "permitSignal", "acceptedDataTypes": ["BOOL"] },
+      { "suffix": "_Permit_OK", "role": "permitSignal", "acceptedDataTypes": ["BOOL"] },
+      { "suffix": "_Interlock_OK", "role": "permitSignal", "acceptedDataTypes": ["BOOL"] },
+      { "suffix": "_Block", "role": "inhibitSignal", "acceptedDataTypes": ["BOOL"] },
+      { "suffix": "_Inhibit", "role": "inhibitSignal", "acceptedDataTypes": ["BOOL"] },
+      { "suffix": "_Jam", "role": "inhibitSignal", "acceptedDataTypes": ["BOOL"] },
+      { "suffix": "_Trip", "role": "inhibitSignal", "acceptedDataTypes": ["BOOL"] },
+      { "suffix": "_Occupied", "role": "presenceSignal", "acceptedDataTypes": ["BOOL"] },
+      { "suffix": "_Present", "role": "presenceSignal", "acceptedDataTypes": ["BOOL"] },
+      { "suffix": "_Entry_Sensor", "role": "presenceSignal", "acceptedDataTypes": ["BOOL"] },
+      { "suffix": "_Exit_Sensor", "role": "presenceSignal", "acceptedDataTypes": ["BOOL"] }
     ],
     "roleEvidenceRules": [
       {
@@ -167,9 +188,9 @@
         "minScore": 4,
         "sources": [
           { "source": "name", "literalPatterns": ["command", "request"], "regexPatterns": ["(?:^|[^a-z0-9])(?:cmd|req)(?:$|[^a-z0-9])", "(?:^|[_\\-.\\s])(?:start|run|enable|open|extend)$"], "score": 4 },
-          { "source": "label", "literalPatterns": ["启动命令", "运行命令", "使能命令", "停止命令", "执行命令", "控制命令", "动作命令", "开门命令", "开阀命令", "伸出命令", "启动请求", "停止请求", "运行请求", "开门请求", "开阀请求", "伸出请求", "手动强启", "command signal"], "regexPatterns": [], "score": 5 },
-          { "source": "note", "literalPatterns": ["启动命令", "运行命令", "使能命令", "停止命令", "执行命令", "控制命令", "动作命令", "开门命令", "开阀命令", "伸出命令", "启动请求", "停止请求", "运行请求", "开门请求", "开阀请求", "伸出请求", "手动强启", "command signal"], "regexPatterns": [], "score": 5 },
-          { "source": "comment", "literalPatterns": ["启动命令", "运行命令", "使能命令", "停止命令", "执行命令", "控制命令", "动作命令", "开门命令", "开阀命令", "伸出命令", "启动请求", "停止请求", "运行请求", "开门请求", "开阀请求", "伸出请求", "手动强启", "command signal"], "regexPatterns": [], "score": 5 }
+          { "source": "label", "literalPatterns": ["启动命令", "运行命令", "使能命令", "停止命令", "执行命令", "控制命令", "动作命令", "开门命令", "开阀命令", "伸出命令", "夹紧命令", "缩回命令", "推料命令", "送料命令", "封口命令", "切断命令", "释放命令", "启动请求", "停止请求", "运行请求", "开门请求", "开阀请求", "伸出请求", "夹紧请求", "缩回请求", "推料请求", "送料请求", "手动强启", "command signal"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["启动命令", "运行命令", "使能命令", "停止命令", "执行命令", "控制命令", "动作命令", "开门命令", "开阀命令", "伸出命令", "夹紧命令", "缩回命令", "推料命令", "送料命令", "封口命令", "切断命令", "释放命令", "启动请求", "停止请求", "运行请求", "开门请求", "开阀请求", "伸出请求", "夹紧请求", "缩回请求", "推料请求", "送料请求", "手动强启", "command signal"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["启动命令", "运行命令", "使能命令", "停止命令", "执行命令", "控制命令", "动作命令", "开门命令", "开阀命令", "伸出命令", "夹紧命令", "缩回命令", "推料命令", "送料命令", "封口命令", "切断命令", "释放命令", "启动请求", "停止请求", "运行请求", "开门请求", "开阀请求", "伸出请求", "夹紧请求", "缩回请求", "推料请求", "送料请求", "手动强启", "command signal"], "regexPatterns": [], "score": 5 }
         ]
       },
       {
@@ -313,6 +334,45 @@
           { "source": "label", "literalPatterns": ["选择信号", "主备选择", "优先级选择", "轮换选择", "selection signal"], "regexPatterns": [], "score": 5 },
           { "source": "note", "literalPatterns": ["选择信号", "主备选择", "优先级选择", "轮换选择", "selection signal"], "regexPatterns": [], "score": 5 },
           { "source": "comment", "literalPatterns": ["选择信号", "主备选择", "优先级选择", "轮换选择", "selection signal"], "regexPatterns": [], "score": 5 }
+        ]
+      },
+      {
+        "id": "VR16-permit-signal",
+        "status": "active",
+        "role": "permitSignal",
+        "acceptedDataTypes": ["BOOL"],
+        "minScore": 4,
+        "sources": [
+          { "source": "name", "literalPatterns": ["permit", "permissive", "interlock_ok", "permit_ok", "enable_ok"], "regexPatterns": ["(?:^|[^a-z0-9])(?:permit|permissive|allowed|interlock[_\\-.\\s]*ok|permit[_\\-.\\s]*ok|enable[_\\-.\\s]*ok)(?:$|[^a-z0-9])"], "score": 4 },
+          { "source": "label", "literalPatterns": ["运行许可", "启动许可", "允许运行", "许可条件", "联锁正常", "联锁满足", "许可信号", "permit signal"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["运行许可", "启动许可", "允许运行", "许可条件", "联锁正常", "联锁满足", "许可信号", "permit signal"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["运行许可", "启动许可", "允许运行", "许可条件", "联锁正常", "联锁满足", "许可信号", "permit signal"], "regexPatterns": [], "score": 5 }
+        ]
+      },
+      {
+        "id": "VR17-inhibit-signal",
+        "status": "active",
+        "role": "inhibitSignal",
+        "acceptedDataTypes": ["BOOL"],
+        "minScore": 4,
+        "sources": [
+          { "source": "name", "literalPatterns": ["block", "blocked", "inhibit", "jam", "trip", "堵料", "卡料", "跳闸"], "regexPatterns": ["(?:^|[^a-z0-9])(?:block(?:ed)?|inhibit(?:ed)?|jam|trip)(?:$|[^a-z0-9])"], "score": 4 },
+          { "source": "label", "literalPatterns": ["阻断信号", "阻断状态", "禁止信号", "禁止动作", "堵料信号", "堵料状态", "跳闸信号", "inhibit signal"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["阻断信号", "阻断状态", "禁止信号", "禁止动作", "堵料信号", "堵料状态", "跳闸信号", "inhibit signal"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["阻断信号", "阻断状态", "禁止信号", "禁止动作", "堵料信号", "堵料状态", "跳闸信号", "inhibit signal"], "regexPatterns": [], "score": 5 }
+        ]
+      },
+      {
+        "id": "VR18-presence-signal",
+        "status": "active",
+        "role": "presenceSignal",
+        "acceptedDataTypes": ["BOOL"],
+        "minScore": 4,
+        "sources": [
+          { "source": "name", "literalPatterns": ["present", "occupied", "entry_sensor", "exit_sensor", "photoeye", "photoelectric"], "regexPatterns": ["(?:^|[^a-z0-9])(?:present|occupied|pe|entry[_\\-.\\s]*sensor|exit[_\\-.\\s]*sensor|photo(?:electric|eye))(?:$|[^a-z0-9])"], "score": 4 },
+          { "source": "label", "literalPatterns": ["入口检测", "出口检测", "入口光电", "出口光电", "物料存在", "工件存在", "有料状态", "占位状态", "光电传感器", "presence signal"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["入口检测", "出口检测", "入口光电", "出口光电", "物料存在", "工件存在", "有料状态", "占位状态", "光电传感器", "presence signal"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["入口检测", "出口检测", "入口光电", "出口光电", "物料存在", "工件存在", "有料状态", "占位状态", "光电传感器", "presence signal"], "regexPatterns": [], "score": 5 }
         ]
       }
     ],
@@ -682,6 +742,57 @@
       "presentation": {
         "titleTemplate": "{placementAction} {candidateVar} 故障联锁",
         "textTemplate": "{actionName} 动作回路尚未使用同一设备的故障信号 {candidateVar}；{placementText}，故障有效时切断动作许可。"
+      }
+    },
+    {
+      "id": "DL03-action-permit-condition",
+      "status": "active",
+      "anchorRolesAny": ["commandSignal"],
+      "anchorTermsAny": ["start", "run", "enable", "open", "extend", "clamp", "retract", "close", "push", "feed", "seal", "cut", "release", "move"],
+      "candidateRolesAny": ["permitSignal"],
+      "candidateNodeType": "contact",
+      "allowedPositions": ["front", "behind", "outsideFront", "outsideBehind"],
+      "excludedTerms": ["stop", "reset", "safety"],
+      "priority": 96,
+      "businessName": "动作许可条件",
+      "reason": "动作命令与候选许可信号属于同一设备或动作组，且当前命令路径尚未使用该许可",
+      "presentation": {
+        "titleTemplate": "{placementAction} {candidateVar} 许可条件",
+        "textTemplate": "{actionName} 动作回路尚未使用同组许可信号 {candidateVar}；{placementText}，许可满足后才允许执行动作。"
+      }
+    },
+    {
+      "id": "DL04-action-inhibit-interlock",
+      "status": "active",
+      "anchorRolesAny": ["commandSignal"],
+      "anchorTermsAny": ["start", "run", "enable", "open", "extend", "clamp", "retract", "close", "push", "feed", "seal", "cut", "release", "move"],
+      "candidateRolesAny": ["inhibitSignal"],
+      "candidateNodeType": "negatedContact",
+      "allowedPositions": ["front", "behind", "outsideFront", "outsideBehind"],
+      "excludedTerms": ["stop", "reset", "safety"],
+      "priority": 96,
+      "businessName": "动作阻断联锁",
+      "reason": "动作命令与候选阻断信号属于同一设备或动作组，且当前命令路径尚未使用该阻断条件",
+      "presentation": {
+        "titleTemplate": "{placementAction} {candidateVar} 阻断联锁",
+        "textTemplate": "{actionName} 动作回路尚未使用同组阻断信号 {candidateVar}；{placementText}，阻断或堵料有效时禁止动作。"
+      }
+    },
+    {
+      "id": "DL05-material-presence-condition",
+      "status": "active",
+      "anchorRolesAny": ["commandSignal"],
+      "anchorTermsAny": ["start", "run", "enable", "open", "extend", "clamp", "retract", "close", "push", "feed", "seal", "cut", "release", "move"],
+      "candidateRolesAny": ["presenceSignal"],
+      "candidateNodeType": "contact",
+      "allowedPositions": ["front", "behind", "outsideFront", "outsideBehind"],
+      "excludedTerms": ["stop", "reset", "safety"],
+      "priority": 92,
+      "businessName": "物料或工件存在条件",
+      "reason": "动作命令与候选物料/工件检测属于同一设备或动作组，且当前命令路径尚未使用该检测条件",
+      "presentation": {
+        "titleTemplate": "{placementAction} {candidateVar} 物料检测",
+        "textTemplate": "{actionName} 动作回路尚未使用同组物料或工件检测 {candidateVar}；{placementText}，检测到目标后才允许动作。"
       }
     }
   ],

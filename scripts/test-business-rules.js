@@ -81,10 +81,34 @@ async function main() {
 
 function assertActiveRuleCandidatesExistInLibrary() {
   const rules = JSON.parse(fs.readFileSync(rulesPath, "utf8"));
-  assert.equal(rules.schemaVersion, "ide-agent.business-rules.v10");
+  assert.equal(rules.schemaVersion, "ide-agent.business-rules.v11");
   assert.ok(
     (rules.deviceLoopRules ?? []).length >= 2,
     "deviceLoopRules must define generic ready and fault completion",
+  );
+  assert.ok(
+    rules.variablePatterns.suffixRoles.some(
+      (rule) => rule.suffix === "_Permit" && rule.role === "permitSignal",
+    ),
+    "variable patterns must recognize explicit action permits",
+  );
+  assert.ok(
+    rules.variablePatterns.roleEvidenceRules.some(
+      (rule) => rule.role === "inhibitSignal",
+    ),
+    "variable patterns must recognize generic blocking conditions",
+  );
+  assert.ok(
+    (rules.deviceLoopRules ?? []).some(
+      (rule) => rule.id === "DL05-material-presence-condition",
+    ),
+    "device loop rules must support material or workpiece presence",
+  );
+  assert.ok(
+    rules.termPatterns
+      .find((rule) => rule.term === "safety")
+      ?.literalPatterns.includes("light curtain"),
+    "ordinary business completion must recognize common safety-device names",
   );
   assert.ok(rules.dataTypeGroups.NUMERIC.includes("LREAL"));
   assert.ok(rules.dataTypeGroups.INTEGER.includes("UDINT"));
@@ -597,6 +621,17 @@ function assertVariableRoleEvidenceCases() {
       type: "BOOL",
       scope: "VAR",
     },
+    {
+      name: "PE_Main",
+      type: "BOOL",
+      scope: "VAR",
+      comment: "主输送段光电检测",
+    },
+    {
+      name: "PE_Count",
+      type: "DINT",
+      scope: "VAR",
+    },
   ]);
 
   const hasRole = (variableName, role) =>
@@ -611,6 +646,11 @@ function assertVariableRoleEvidenceCases() {
   assert.ok(hasRole("X102", "runFeedback"));
   assert.ok(hasRole("X103", "faultSignal"));
   assert.ok(hasRole("AxisData", "axisReference"));
+  assert.ok(hasRole("PE_Main", "presenceSignal"));
+  assert.ok(
+    !hasRole("PE_Count", "presenceSignal"),
+    "PE shorthand must still respect the BOOL type constraint",
+  );
   assert.ok(
     !hasRole("Wrong_Run_Feedback", "runFeedback"),
     "REAL must not be accepted as a BOOL run-feedback signal",
@@ -2150,6 +2190,60 @@ async function assertDeviceLoopCompletionCases() {
   assert.ok(
     !suggestionForVariable(crossDeviceSuggestions, "Pump_Fault"),
     "fault signals from another explicit device must not be mixed into the action loop",
+  );
+
+  const conveyorSuggestions = await suggestionsFor(
+    deviceLoopCompletionFixturePath,
+    "segment-conveyor-section",
+    "conveyor-command",
+  );
+  assert.ok(
+    suggestionForVariable(conveyorSuggestions, "ConveyorA_Run_Permit", "contact"),
+    "a conveyor section should suggest its same-device run permit",
+  );
+  assert.ok(
+    suggestionForVariable(conveyorSuggestions, "ConveyorA_Jam", "negatedContact"),
+    "a conveyor section should suggest a normally-closed jam interlock",
+  );
+  assert.ok(
+    suggestionForVariable(conveyorSuggestions, "ConveyorA_Occupied", "contact"),
+    "a conveyor section should recognize material-presence conditions",
+  );
+  assert.ok(
+    !suggestionForVariable(conveyorSuggestions, "ConveyorA_Run_FB", "contact"),
+    "a conveyor run feedback must not be inserted before its run command",
+  );
+
+  const stationSuggestions = await suggestionsFor(
+    deviceLoopCompletionFixturePath,
+    "segment-station-action",
+    "station-command",
+  );
+  assert.ok(
+    suggestionForVariable(stationSuggestions, "Station01_Clamp_Permit", "contact"),
+    "a station action should suggest its same-device action permit",
+  );
+  assert.ok(
+    suggestionForVariable(stationSuggestions, "Station01_Clamp_Block", "negatedContact"),
+    "a station action should suggest a normally-closed action block",
+  );
+  assert.equal(
+    suggestionForVariable(stationSuggestions, "Station01_Push_Permit", "contact"),
+    undefined,
+    "same-station conditions for a different action must not be mixed into the selected action",
+  );
+  const stationRequestSuggestions = await suggestionsFor(
+    deviceLoopCompletionFixturePath,
+    "segment-station-action",
+    "station-request",
+  );
+  assert.ok(
+    stationRequestSuggestions.some(
+      (suggestion) =>
+        firstAddedNode(suggestion)?.type === "FBDCompartment" &&
+        String(firstAddedNode(suggestion)?.childrenNode?.type ?? "").toUpperCase() === "TON",
+    ),
+    "an action with completion feedback and timeout should retain the generic TON recommendation",
   );
 }
 

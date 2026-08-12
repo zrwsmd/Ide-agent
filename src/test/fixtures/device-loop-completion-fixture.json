@@ -181,5 +181,80 @@
         }
       }
     ]
+  },
+  {
+    "pouName": "CONVEYOR_SECTION_LOOP",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "ConveyorA_Start_Request", "type": "BOOL", "scope": "VAR", "comment": "输送段A启动请求" },
+      { "name": "ConveyorA_Run_Cmd", "type": "BOOL", "scope": "VAR", "comment": "输送段A运行命令" },
+      { "name": "ConveyorA_Run_Permit", "type": "BOOL", "scope": "VAR", "comment": "输送段A允许运行" },
+      { "name": "ConveyorA_Jam", "type": "BOOL", "scope": "VAR", "comment": "输送段A堵料信号" },
+      { "name": "ConveyorA_Occupied", "type": "BOOL", "scope": "VAR", "comment": "输送段A有料状态" },
+      { "name": "ConveyorA_Run_FB", "type": "BOOL", "scope": "VAR", "comment": "输送段A运行反馈" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-conveyor-section",
+        "label": "输送段A运行控制",
+        "note": "有料且无堵料时允许运行",
+        "nodesObj": {
+          "conveyor-start-line": { "id": "conveyor-start-line", "type": "startLine", "sourceIds": [], "targetIds": ["conveyor-request"] },
+          "conveyor-request": {
+            "id": "conveyor-request",
+            "type": "contact",
+            "sourceIds": ["conveyor-start-line"],
+            "targetIds": ["conveyor-command"],
+            "varName": { "value": "ConveyorA_Start_Request", "type": "BOOL", "scope": "VAR" }
+          },
+          "conveyor-command": {
+            "id": "conveyor-command",
+            "type": "coil",
+            "sourceIds": ["conveyor-request"],
+            "targetIds": ["conveyor-end-line"],
+            "varName": { "value": "ConveyorA_Run_Cmd", "type": "BOOL", "scope": "VAR" }
+          },
+          "conveyor-end-line": { "id": "conveyor-end-line", "type": "endLine", "sourceIds": ["conveyor-command"], "targetIds": [] }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "STATION_ACTION_LOOP",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Station01_Clamp_Request", "type": "BOOL", "scope": "VAR", "comment": "夹紧工位动作请求" },
+      { "name": "Station01_Clamp_Cmd", "type": "BOOL", "scope": "VAR", "comment": "夹紧动作命令" },
+      { "name": "Station01_Clamp_Permit", "type": "BOOL", "scope": "VAR", "comment": "夹紧动作许可" },
+      { "name": "Station01_Push_Permit", "type": "BOOL", "scope": "VAR", "comment": "推料动作许可" },
+      { "name": "Station01_Clamp_Block", "type": "BOOL", "scope": "VAR", "comment": "夹紧动作阻断" },
+      { "name": "Station01_Clamp_Done", "type": "BOOL", "scope": "VAR", "comment": "夹紧到位反馈" },
+      { "name": "Station01_Clamp_Timeout", "type": "TIME", "scope": "VAR", "comment": "夹紧到位超时时间" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-station-action",
+        "label": "工位夹紧动作反馈超时",
+        "note": "夹紧命令发出后需要到位确认",
+        "nodesObj": {
+          "station-start-line": { "id": "station-start-line", "type": "startLine", "sourceIds": [], "targetIds": ["station-request"] },
+          "station-request": {
+            "id": "station-request",
+            "type": "contact",
+            "sourceIds": ["station-start-line"],
+            "targetIds": ["station-command"],
+            "varName": { "value": "Station01_Clamp_Request", "type": "BOOL", "scope": "VAR" }
+          },
+          "station-command": {
+            "id": "station-command",
+            "type": "coil",
+            "sourceIds": ["station-request"],
+            "targetIds": ["station-end-line"],
+            "varName": { "value": "Station01_Clamp_Cmd", "type": "BOOL", "scope": "VAR" }
+          },
+          "station-end-line": { "id": "station-end-line", "type": "endLine", "sourceIds": ["station-command"], "targetIds": [] }
+        }
+      }
+    ]
   }
 ]

@@ -540,7 +540,7 @@ const FALLBACK_TERM_IMPLICATIONS: BusinessTermImplicationConfig[] = [
 ];
 
 const FALLBACK_BUSINESS_RULES_CONFIG: BusinessRulesConfig = {
-  schemaVersion: "ide-agent.business-rules.v10",
+  schemaVersion: "ide-agent.business-rules.v11",
   enabled: true,
   defaultBlocks: FALLBACK_COMMON_FUNCTION_BLOCK_TYPES,
   dataTypeGroups: FALLBACK_DATA_TYPE_GROUPS,
@@ -2338,9 +2338,7 @@ function analyzeDeviceLoopContext(
   ]);
   if (
     !anchorRoles.has("commandSignal") ||
-    !["start", "run", "enable", "open", "extend"].some((term) =>
-      anchorTerms.has(term),
-    ) ||
+    !hasDeviceActionTerm(anchorTerms) ||
     anchorTerms.has("stop") ||
     anchorTerms.has("reset") ||
     anchorTerms.has("safety") ||
@@ -2355,13 +2353,25 @@ function analyzeDeviceLoopContext(
   );
   const candidates: DeviceLoopRoleCandidate[] = [];
   for (const match of roleMatches) {
-    if (!["readySignal", "faultSignal"].includes(match.role)) {
+    if (
+      ![
+        "readySignal",
+        "permitSignal",
+        "faultSignal",
+        "inhibitSignal",
+        "presenceSignal",
+      ].includes(match.role)
+    ) {
       continue;
     }
     const variable = variablesByReference.get(
       normalizeReference(match.variableName),
     );
     if (!variable || normalizeDataType(variable.type) !== "BOOL") {
+      continue;
+    }
+    const candidateTerms = collectBusinessTerms(variableBusinessTexts(variable));
+    if (hasConflictingDeviceActionTerms(anchorTerms, candidateTerms)) {
       continue;
     }
     const association = strongestDeviceAssociation(
@@ -2409,6 +2419,63 @@ function analyzeDeviceLoopContext(
       anchorNode.id,
     ),
   };
+}
+
+const DEVICE_ACTION_TERMS = new Set([
+  "start",
+  "run",
+  "enable",
+  "open",
+  "extend",
+  "clamp",
+  "retract",
+  "close",
+  "push",
+  "feed",
+  "seal",
+  "cut",
+  "release",
+  "move",
+]);
+
+const DEVICE_ACTION_NAME_TOKENS = new Set([
+  ...DEVICE_ACTION_TERMS,
+  "home",
+]);
+
+const DEVICE_SPECIFIC_ACTION_TERMS = new Set([
+  "open",
+  "extend",
+  "clamp",
+  "retract",
+  "close",
+  "push",
+  "feed",
+  "seal",
+  "cut",
+  "release",
+  "move",
+]);
+
+function hasDeviceActionTerm(terms: Set<BusinessTerm>): boolean {
+  return [...DEVICE_ACTION_TERMS].some((term) => terms.has(term));
+}
+
+function hasConflictingDeviceActionTerms(
+  anchorTerms: Set<BusinessTerm>,
+  candidateTerms: Set<BusinessTerm>,
+): boolean {
+  const anchorActions = [...DEVICE_SPECIFIC_ACTION_TERMS].filter((term) =>
+    anchorTerms.has(term),
+  );
+  const candidateActions = [...DEVICE_SPECIFIC_ACTION_TERMS].filter((term) =>
+    candidateTerms.has(term),
+  );
+  return (
+    anchorActions.length > 0 &&
+    candidateActions.length > 0 &&
+    !anchorActions.some((term) => candidateActions.includes(term))
+  );
 }
 
 function findDeviceCommandAnchorNode(
@@ -2534,12 +2601,38 @@ function deviceDescriptionStem(
             "available", "standby", "healthy", "ready", "就绪", "健康", "可用",
             "状态", "信号",
           ]
-        : [
-            "故障信号", "故障状态", "设备故障", "错误信号", "过载信号",
-            "过载状态", "变频器故障", "faultsignal", "failure", "overload",
-            "error", "fault", "故障", "错误", "异常", "过载", "状态", "信号",
-          ];
+        : role === "permitSignal"
+          ? [
+              "运行许可", "启动许可", "允许运行", "许可条件", "允许条件",
+              "联锁正常", "联锁满足", "许可信号", "permit", "permissive",
+              "interlockok", "enableok", "allowed", "许可", "允许", "联锁",
+            ]
+          : role === "inhibitSignal"
+            ? [
+                "阻断信号", "阻断状态", "禁止信号", "禁止动作", "堵料信号",
+                "堵料状态", "跳闸信号", "blocksignal", "inhibitsignal",
+                "blocked", "inhibit", "jam", "trip", "阻断", "禁止", "堵料", "跳闸",
+              ]
+            : role === "presenceSignal"
+              ? [
+                  "入口检测", "出口检测", "入口光电", "出口光电", "物料存在",
+                  "工件存在", "有料状态", "占位状态", "present", "occupied",
+                  "entrysensor", "exitsensor", "photoelectric", "photoeye",
+                  "material", "workpiece", "part", "传感器", "检测", "光电",
+                ]
+              : [
+                  "故障信号", "故障状态", "设备故障", "错误信号", "过载信号",
+                  "过载状态", "变频器故障", "faultsignal", "failure", "overload",
+                  "error", "fault", "故障", "错误", "异常", "过载", "状态", "信号",
+                ];
   for (const phrase of rolePhrases.sort((left, right) => right.length - left.length)) {
+    normalized = normalized.replaceAll(phrase, "");
+  }
+  for (const phrase of [
+    "clamp", "retract", "extend", "open", "close", "push", "feed", "seal",
+    "cut", "release", "move", "夹紧", "缩回", "伸出", "开门", "开阀", "关门",
+    "关阀", "推料", "送料", "封口", "切断", "释放", "动作",
+  ]) {
     normalized = normalized.replaceAll(phrase, "");
   }
   return isReliableDeviceStem(normalized) ? normalized : "";
@@ -2555,8 +2648,20 @@ function deviceVariableNameStem(name: string, role: string): string {
       ? ["command", "cmd", "request", "req", "start", "run", "enable", "open", "extend"]
       : role === "readySignal"
         ? ["ready", "available", "standby", "healthy", "status", "signal"]
-        : ["fault", "failure", "error", "overload", "ol", "status", "signal"],
+        : role === "permitSignal"
+          ? ["permit", "permissive", "allowed", "allow", "interlock", "ok", "enable", "status", "signal"]
+          : role === "inhibitSignal"
+            ? ["block", "blocked", "inhibit", "inhibited", "jam", "trip", "status", "signal"]
+            : role === "presenceSignal"
+              ? [
+                  "present", "occupied", "entry", "exit", "sensor", "photoelectric",
+                  "photoeye", "material", "workpiece", "part", "pe", "status", "signal",
+                ]
+              : ["fault", "failure", "error", "overload", "ol", "status", "signal"],
   );
+  for (const token of DEVICE_ACTION_NAME_TOKENS) {
+    roleTokens.add(token);
+  }
   while (tokens.length > 0 && roleTokens.has(tokens[tokens.length - 1])) {
     tokens.pop();
   }
