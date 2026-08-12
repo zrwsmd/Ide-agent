@@ -560,14 +560,17 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 
 #### 13.4 portRequirements
 
-类型：对象数组。当前实现校验库元素的输入端口。
+类型：对象数组。用于按方向校验库元素的输入端口、输出端口或任一方向端口。
 
 字段：
 
 - `port`：端口名，例如 `IN`、`PT`、`Axis`。
+- `direction`：可选，`input`、`output` 或 `any`。省略时默认为 `input`，兼容旧规则。
 - `required`：为 true 时库元素必须有此端口。
 - `acceptedDataTypes`：端口类型允许的类型或类型组。
 - `allowCreateParameter`：允许系统把该端口作为待创建参数，即使当前局部还没有该类型变量。
+
+输入端口要求还会结合当前 POU 的可用数据类型判断能否绑定，除非配置了 `allowCreateParameter: true`。输出端口由候选功能块产生，只校验库端口名和类型，不要求当前 POU 预先存在同类型变量，也不应配置 `allowCreateParameter`。
 
 示例：
 

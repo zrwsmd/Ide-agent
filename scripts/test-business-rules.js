@@ -350,6 +350,21 @@ function assertActiveRuleCandidatesExistInLibrary() {
       Number.isFinite(rule.priority),
       `${rule.id} must define a rule priority`,
     );
+    const requiredOutputRequirements = (rule.portRequirements ?? []).filter(
+      (requirement) =>
+        requirement.required && requirement.direction === "output",
+    );
+    assert.ok(
+      requiredOutputRequirements.length > 0,
+      `${rule.id} must define its required business-result output ports`,
+    );
+    for (const requirement of requiredOutputRequirements) {
+      assert.notEqual(
+        requirement.allowCreateParameter,
+        true,
+        `${rule.id}/${requirement.port} output must not use allowCreateParameter`,
+      );
+    }
     for (const signatureId of rule.signatureRefsAny ?? []) {
       assert.ok(
         signatureIds.has(signatureId),
@@ -396,13 +411,29 @@ function assertActiveRuleCandidatesExistInLibrary() {
         `${rule.id} references missing st-library-info element: ${candidateName}`,
       );
       for (const portRequirement of rule.portRequirements ?? []) {
+        const direction = String(
+          portRequirement.direction ?? "input",
+        ).toLowerCase();
+        assert.ok(
+          ["input", "output", "any"].includes(direction),
+          `${rule.id}/${portRequirement.port} has unsupported direction ${direction}`,
+        );
         if (portRequirement.required) {
           assert.ok(
             portRequirement.acceptedDataTypes?.length > 0,
             `${rule.id}/${portRequirement.port} must define accepted data types`,
           );
         }
-        const libraryPort = (libraryElement.inputs ?? []).find(
+        const candidatePorts =
+          direction === "input"
+            ? libraryElement.inputs ?? []
+            : direction === "output"
+              ? libraryElement.outputs ?? []
+              : [
+                  ...(libraryElement.inputs ?? []),
+                  ...(libraryElement.outputs ?? []),
+                ];
+        const libraryPort = candidatePorts.find(
           ([name]) =>
             String(name).toUpperCase() ===
             String(portRequirement.port).toUpperCase(),
@@ -410,7 +441,17 @@ function assertActiveRuleCandidatesExistInLibrary() {
         if (portRequirement.required) {
           assert.ok(
             libraryPort,
-            `${rule.id}/${candidateName} requires missing input port ${portRequirement.port}`,
+            `${rule.id}/${candidateName} requires missing ${direction} port ${portRequirement.port}`,
+          );
+          assert.ok(
+            portRequirement.acceptedDataTypes.some((acceptedDataType) =>
+              libraryDataTypeMatches(
+                libraryPort[1],
+                acceptedDataType,
+                rules.dataTypeGroups,
+              ),
+            ),
+            `${rule.id}/${candidateName}/${portRequirement.port} has incompatible type ${libraryPort[1]}`,
           );
         }
       }
@@ -425,6 +466,34 @@ function assertActiveRuleCandidatesExistInLibrary() {
       `${rule.id} must define a ranking rule priority`,
     );
   }
+}
+
+function libraryDataTypeMatches(
+  actualDataType,
+  requiredDataType,
+  dataTypeGroups,
+  visitedGroups = new Set(),
+) {
+  const actual = String(actualDataType ?? "").trim().toUpperCase();
+  const required = String(requiredDataType ?? "").trim().toUpperCase();
+  if (!actual || !required) {
+    return false;
+  }
+  if (actual === required) {
+    return true;
+  }
+  if (visitedGroups.has(required)) {
+    return false;
+  }
+  const members = dataTypeGroups?.[required] ?? [];
+  if (members.length === 0) {
+    return false;
+  }
+  const nextVisitedGroups = new Set(visitedGroups);
+  nextVisitedGroups.add(required);
+  return members.some((member) =>
+    libraryDataTypeMatches(actual, member, dataTypeGroups, nextVisitedGroups),
+  );
 }
 
 function assertVariableRoleEvidenceCases() {

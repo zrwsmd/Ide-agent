@@ -13,6 +13,7 @@ import {
   BusinessBlockPortRoleRuleConfig,
   BusinessLoopSignatureConfig,
   BusinessLoopSignatureMatch,
+  BusinessPortDirection,
   BusinessVariableRoleMatch,
   BusinessVariablePatternsConfig,
   EMPTY_BLOCK_PORT_ROLE_RULES,
@@ -318,6 +319,7 @@ interface BusinessNodeIntentRuleConfig {
 
 interface BusinessPortRequirementConfig {
   port: string;
+  direction: BusinessPortDirection;
   required: boolean;
   acceptedDataTypes: string[];
   allowCreateParameter: boolean;
@@ -758,6 +760,7 @@ function parsePortRequirements(
   return asArrayRecord(value)
     .map((item) => ({
       port: asStringConfig(item.port),
+      direction: parsePortRequirementDirection(item.direction),
       required: asBooleanConfig(item.required, false),
       acceptedDataTypes: stringList(item.acceptedDataTypes),
       allowCreateParameter: asBooleanConfig(
@@ -766,6 +769,15 @@ function parsePortRequirements(
       ),
     }))
     .filter((item) => item.port);
+}
+
+function parsePortRequirementDirection(
+  value: unknown,
+): BusinessPortDirection {
+  const normalized = asStringConfig(value).toLowerCase();
+  return normalized === "output" || normalized === "any"
+    ? normalized
+    : "input";
 }
 
 function parseBusinessRankingRules(value: unknown): BusinessRankingRuleConfig[] {
@@ -1567,30 +1579,69 @@ function matchesPortRequirements(
     return true;
   }
 
-  const inputPorts = libraryElement.inputs ?? [];
   return requirements.every((requirement) => {
     if (requirement.required && requirement.acceptedDataTypes.length === 0) {
       return false;
     }
 
-    const libraryPort = inputPorts.find(
-      ([name]) =>
+    const candidatePorts: Array<{
+      direction: "input" | "output";
+      port: [string, string, string];
+    }> =
+      requirement.direction === "input"
+        ? (libraryElement.inputs ?? []).map((port) => ({
+            direction: "input",
+            port,
+          }))
+        : requirement.direction === "output"
+          ? (libraryElement.outputs ?? []).map((port) => ({
+              direction: "output",
+              port,
+            }))
+          : [
+              ...(libraryElement.inputs ?? []).map((port) => ({
+                direction: "input" as const,
+                port,
+              })),
+              ...(libraryElement.outputs ?? []).map((port) => ({
+                direction: "output" as const,
+                port,
+              })),
+            ];
+    const matchingLibraryPorts = candidatePorts.filter(
+      ({ port: [name] }) =>
         name.trim().toUpperCase() === requirement.port.trim().toUpperCase(),
     );
-    if (!libraryPort) {
+    if (matchingLibraryPorts.length === 0) {
       return !requirement.required;
     }
 
-    const libraryPortTypes = new Set([normalizeDataType(libraryPort[1])]);
     if (
       requirement.acceptedDataTypes.length > 0 &&
-      !hasAnyDataType(libraryPortTypes, requirement.acceptedDataTypes)
+      !matchingLibraryPorts.some(({ port: libraryPort }) =>
+        hasAnyDataType(
+          new Set([normalizeDataType(libraryPort[1])]),
+          requirement.acceptedDataTypes,
+        ),
+      )
     ) {
       return false;
     }
 
+    if (!requirement.required) {
+      return true;
+    }
+
+    const hasMatchingOutput = matchingLibraryPorts.some(
+      ({ direction, port }) =>
+        direction === "output" &&
+        hasAnyDataType(
+          new Set([normalizeDataType(port[1])]),
+          requirement.acceptedDataTypes,
+        ),
+    );
     return (
-      !requirement.required ||
+      hasMatchingOutput ||
       requirement.allowCreateParameter ||
       hasAnyDataType(localDataTypes, requirement.acceptedDataTypes)
     );

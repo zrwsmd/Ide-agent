@@ -902,7 +902,8 @@
       "requiredAnyDataTypes": ["BOOL", "TIME"],
       "portRequirements": [
         { "port": "IN", "required": true, "acceptedDataTypes": ["BOOL"] },
-        { "port": "PT", "required": true, "acceptedDataTypes": ["TIME"], "allowCreateParameter": true }
+        { "port": "PT", "required": true, "acceptedDataTypes": ["TIME"], "allowCreateParameter": true },
+        { "port": "Q", "direction": "output", "required": true, "acceptedDataTypes": ["BOOL"] }
       ],
       "candidateNames": ["TON"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
@@ -920,7 +921,8 @@
       "requiredAnyDataTypes": ["BOOL", "TIME"],
       "portRequirements": [
         { "port": "IN", "required": true, "acceptedDataTypes": ["BOOL"] },
-        { "port": "PT", "required": true, "acceptedDataTypes": ["TIME"], "allowCreateParameter": true }
+        { "port": "PT", "required": true, "acceptedDataTypes": ["TIME"], "allowCreateParameter": true },
+        { "port": "Q", "direction": "output", "required": true, "acceptedDataTypes": ["BOOL"] }
       ],
       "candidateNames": ["TOF"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
@@ -937,7 +939,8 @@
       "requiredAnyDataTypes": ["BOOL", "TIME"],
       "portRequirements": [
         { "port": "IN", "required": true, "acceptedDataTypes": ["BOOL"] },
-        { "port": "PT", "required": true, "acceptedDataTypes": ["TIME"], "allowCreateParameter": true }
+        { "port": "PT", "required": true, "acceptedDataTypes": ["TIME"], "allowCreateParameter": true },
+        { "port": "Q", "direction": "output", "required": true, "acceptedDataTypes": ["BOOL"] }
       ],
       "candidateNames": ["TP"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
@@ -951,7 +954,8 @@
       "signatureRefsAny": ["LS06-on-delay-missing-timer"],
       "portRequirements": [
         { "port": "IN", "required": true, "acceptedDataTypes": ["BOOL"] },
-        { "port": "PT", "required": true, "acceptedDataTypes": ["TIME"], "allowCreateParameter": true }
+        { "port": "PT", "required": true, "acceptedDataTypes": ["TIME"], "allowCreateParameter": true },
+        { "port": "Q", "direction": "output", "required": true, "acceptedDataTypes": ["BOOL"] }
       ],
       "candidateNames": ["TON"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
@@ -970,7 +974,8 @@
       "signatureRefsAny": ["LS07-off-delay-missing-timer"],
       "portRequirements": [
         { "port": "IN", "required": true, "acceptedDataTypes": ["BOOL"] },
-        { "port": "PT", "required": true, "acceptedDataTypes": ["TIME"], "allowCreateParameter": true }
+        { "port": "PT", "required": true, "acceptedDataTypes": ["TIME"], "allowCreateParameter": true },
+        { "port": "Q", "direction": "output", "required": true, "acceptedDataTypes": ["BOOL"] }
       ],
       "candidateNames": ["TOF"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
@@ -989,7 +994,8 @@
       "signatureRefsAny": ["LS08-pulse-missing-timer"],
       "portRequirements": [
         { "port": "IN", "required": true, "acceptedDataTypes": ["BOOL"] },
-        { "port": "PT", "required": true, "acceptedDataTypes": ["TIME"], "allowCreateParameter": true }
+        { "port": "PT", "required": true, "acceptedDataTypes": ["TIME"], "allowCreateParameter": true },
+        { "port": "Q", "direction": "output", "required": true, "acceptedDataTypes": ["BOOL"] }
       ],
       "candidateNames": ["TP"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
@@ -1008,7 +1014,8 @@
       "excludedTerms": ["safety"],
       "portRequirements": [
         { "port": "IN", "required": true, "acceptedDataTypes": ["BOOL"] },
-        { "port": "PT", "required": true, "acceptedDataTypes": ["TIME"], "allowCreateParameter": true }
+        { "port": "PT", "required": true, "acceptedDataTypes": ["TIME"], "allowCreateParameter": true },
+        { "port": "Q", "direction": "output", "required": true, "acceptedDataTypes": ["BOOL"] }
       ],
       "candidateNames": ["TON"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
@@ -1029,7 +1036,8 @@
       "requiredAnyDataTypes": ["BOOL", "TIME"],
       "portRequirements": [
         { "port": "IN", "required": true, "acceptedDataTypes": ["BOOL"] },
-        { "port": "PT", "required": true, "acceptedDataTypes": ["TIME"], "allowCreateParameter": true }
+        { "port": "PT", "required": true, "acceptedDataTypes": ["TIME"], "allowCreateParameter": true },
+        { "port": "Q", "direction": "output", "required": true, "acceptedDataTypes": ["BOOL"] }
       ],
       "candidateNames": ["TON", "TOF", "TP"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
@@ -1043,6 +1051,9 @@
       "termsAny": ["rising"],
       "excludedTerms": ["falling", "safety"],
       "requiredAnyDataTypes": ["BOOL"],
+      "portRequirements": [
+        { "port": "Q", "direction": "output", "required": true, "acceptedDataTypes": ["BOOL"] }
+      ],
       "candidateNames": ["R_TRIG"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore"],
       "priority": 80,
@@ -1055,6 +1066,9 @@
       "termsAny": ["falling"],
       "excludedTerms": ["rising", "safety"],
       "requiredAnyDataTypes": ["BOOL"],
+      "portRequirements": [
+        { "port": "Q", "direction": "output", "required": true, "acceptedDataTypes": ["BOOL"] }
+      ],
       "candidateNames": ["F_TRIG"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore"],
       "priority": 80,
@@ -1070,7 +1084,10 @@
       "portRequirements": [
         { "port": "CU", "required": true, "acceptedDataTypes": ["BOOL"] },
         { "port": "CD", "required": true, "acceptedDataTypes": ["BOOL"] },
-        { "port": "PV", "required": false, "acceptedDataTypes": ["INTEGER"], "allowCreateParameter": true }
+        { "port": "PV", "required": false, "acceptedDataTypes": ["INTEGER"], "allowCreateParameter": true },
+        { "port": "QU", "direction": "output", "required": true, "acceptedDataTypes": ["BOOL"] },
+        { "port": "QD", "direction": "output", "required": true, "acceptedDataTypes": ["BOOL"] },
+        { "port": "CV", "direction": "output", "required": true, "acceptedDataTypes": ["INTEGER"] }
       ],
       "candidateNames": ["CTUD"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
@@ -1086,7 +1103,9 @@
       "requiredAnyDataTypes": ["BOOL", "INT", "DINT", "UINT", "UDINT"],
       "portRequirements": [
         { "port": "CU", "required": true, "acceptedDataTypes": ["BOOL"] },
-        { "port": "PV", "required": false, "acceptedDataTypes": ["INTEGER"], "allowCreateParameter": true }
+        { "port": "PV", "required": false, "acceptedDataTypes": ["INTEGER"], "allowCreateParameter": true },
+        { "port": "Q", "direction": "output", "required": true, "acceptedDataTypes": ["BOOL"] },
+        { "port": "CV", "direction": "output", "required": true, "acceptedDataTypes": ["INTEGER"] }
       ],
       "candidateNames": ["CTU"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
@@ -1102,7 +1121,9 @@
       "requiredAnyDataTypes": ["BOOL", "INT", "DINT", "UINT", "UDINT"],
       "portRequirements": [
         { "port": "CD", "required": true, "acceptedDataTypes": ["BOOL"] },
-        { "port": "PV", "required": false, "acceptedDataTypes": ["INTEGER"], "allowCreateParameter": true }
+        { "port": "PV", "required": false, "acceptedDataTypes": ["INTEGER"], "allowCreateParameter": true },
+        { "port": "Q", "direction": "output", "required": true, "acceptedDataTypes": ["BOOL"] },
+        { "port": "CV", "direction": "output", "required": true, "acceptedDataTypes": ["INTEGER"] }
       ],
       "candidateNames": ["CTD"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
@@ -1116,6 +1137,10 @@
       "termsAny": ["counter"],
       "excludedTerms": ["countUp", "countDown", "countBidirectional", "safety"],
       "requiredAnyDataTypes": ["BOOL", "INT", "DINT", "UINT", "UDINT"],
+      "portRequirements": [
+        { "port": "Q", "direction": "output", "required": true, "acceptedDataTypes": ["BOOL"] },
+        { "port": "CV", "direction": "output", "required": true, "acceptedDataTypes": ["INTEGER"] }
+      ],
       "candidateNames": ["CTU", "CTD"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
       "priority": 40,
@@ -1128,6 +1153,9 @@
       "termsAll": ["latch", "setDominant"],
       "excludedTerms": ["stateMachine", "safety"],
       "requiredAnyDataTypes": ["BOOL"],
+      "portRequirements": [
+        { "port": "Q1", "direction": "output", "required": true, "acceptedDataTypes": ["BOOL"] }
+      ],
       "candidateNames": ["SR"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
       "priority": 80,
@@ -1140,6 +1168,9 @@
       "termsAll": ["latch", "resetDominant"],
       "excludedTerms": ["stateMachine", "safety"],
       "requiredAnyDataTypes": ["BOOL"],
+      "portRequirements": [
+        { "port": "Q1", "direction": "output", "required": true, "acceptedDataTypes": ["BOOL"] }
+      ],
       "candidateNames": ["RS"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
       "priority": 80,
@@ -1151,6 +1182,9 @@
       "status": "active",
       "termsAll": ["limit", "numeric"],
       "requiredAnyDataTypes": ["NUMERIC"],
+      "portRequirements": [
+        { "port": "OUT", "direction": "output", "required": true, "acceptedDataTypes": ["ANY"] }
+      ],
       "candidateNames": ["LIMIT", "MIN", "MAX"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore"],
       "priority": 80,
@@ -1162,6 +1196,9 @@
       "status": "active",
       "termsAll": ["comparison", "greater", "numeric"],
       "requiredAnyDataTypes": ["NUMERIC"],
+      "portRequirements": [
+        { "port": "OUT", "direction": "output", "required": true, "acceptedDataTypes": ["BOOL"] }
+      ],
       "candidateNames": ["GT", "GE"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore"],
       "priority": 80,
@@ -1173,6 +1210,9 @@
       "status": "active",
       "termsAll": ["comparison", "less", "numeric"],
       "requiredAnyDataTypes": ["NUMERIC"],
+      "portRequirements": [
+        { "port": "OUT", "direction": "output", "required": true, "acceptedDataTypes": ["BOOL"] }
+      ],
       "candidateNames": ["LT", "LE"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore"],
       "priority": 80,
@@ -1184,6 +1224,9 @@
       "status": "active",
       "termsAll": ["comparison", "equal"],
       "excludedTerms": ["notEqual"],
+      "portRequirements": [
+        { "port": "OUT", "direction": "output", "required": true, "acceptedDataTypes": ["BOOL"] }
+      ],
       "candidateNames": ["EQ"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore"],
       "priority": 80,
@@ -1194,6 +1237,9 @@
       "id": "N05-comparison-not-equal",
       "status": "active",
       "termsAll": ["comparison", "notEqual"],
+      "portRequirements": [
+        { "port": "OUT", "direction": "output", "required": true, "acceptedDataTypes": ["BOOL"] }
+      ],
       "candidateNames": ["NE"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore"],
       "priority": 80,
@@ -1211,7 +1257,8 @@
         { "port": "X0", "required": true, "acceptedDataTypes": ["REAL"] },
         { "port": "X1", "required": true, "acceptedDataTypes": ["REAL"] },
         { "port": "TR", "required": true, "acceptedDataTypes": ["TIME"], "allowCreateParameter": true },
-        { "port": "CYCLE", "required": true, "acceptedDataTypes": ["TIME"], "allowCreateParameter": true }
+        { "port": "CYCLE", "required": true, "acceptedDataTypes": ["TIME"], "allowCreateParameter": true },
+        { "port": "XOUT", "direction": "output", "required": true, "acceptedDataTypes": ["REAL"] }
       ],
       "candidateNames": ["RAMP"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
@@ -1232,7 +1279,8 @@
       "portRequirements": [
         { "port": "XIN1", "required": true, "acceptedDataTypes": ["REAL"] },
         { "port": "XIN2", "required": true, "acceptedDataTypes": ["REAL"] },
-        { "port": "EPS", "required": true, "acceptedDataTypes": ["REAL"], "allowCreateParameter": true }
+        { "port": "EPS", "required": true, "acceptedDataTypes": ["REAL"], "allowCreateParameter": true },
+        { "port": "Q", "direction": "output", "required": true, "acceptedDataTypes": ["BOOL"] }
       ],
       "candidateNames": ["HYSTERESIS"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
@@ -1253,7 +1301,8 @@
       "portRequirements": [
         { "port": "K", "required": true, "acceptedDataTypes": ["ANY_INT"] },
         { "port": "IN0", "required": true, "acceptedDataTypes": ["ANY"], "allowCreateParameter": true },
-        { "port": "IN1", "required": true, "acceptedDataTypes": ["ANY"], "allowCreateParameter": true }
+        { "port": "IN1", "required": true, "acceptedDataTypes": ["ANY"], "allowCreateParameter": true },
+        { "port": "OUT", "direction": "output", "required": true, "acceptedDataTypes": ["ANY"] }
       ],
       "candidateNames": ["MUX"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore"],
@@ -1273,7 +1322,8 @@
       "portRequirements": [
         { "port": "G", "required": true, "acceptedDataTypes": ["BOOL"] },
         { "port": "IN0", "required": true, "acceptedDataTypes": ["ANY"], "allowCreateParameter": true },
-        { "port": "IN1", "required": true, "acceptedDataTypes": ["ANY"], "allowCreateParameter": true }
+        { "port": "IN1", "required": true, "acceptedDataTypes": ["ANY"], "allowCreateParameter": true },
+        { "port": "OUT", "direction": "output", "required": true, "acceptedDataTypes": ["ANY"] }
       ],
       "candidateNames": ["SEL"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore"],
@@ -1291,6 +1341,9 @@
       "termsAll": ["pid", "numeric", "setpoint", "processValue", "manipulatedValue"],
       "excludedTerms": ["safety"],
       "requiredAnyDataTypes": ["REAL", "LREAL"],
+      "portRequirements": [
+        { "port": "XOUT", "direction": "output", "required": true, "acceptedDataTypes": ["REAL"] }
+      ],
       "candidateNames": ["PID"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
       "priority": 80,
@@ -1303,6 +1356,9 @@
       "status": "active",
       "signatureRefsAny": ["LS05-temperature-pid-missing-controller"],
       "excludedTerms": ["safety"],
+      "portRequirements": [
+        { "port": "XOUT", "direction": "output", "required": true, "acceptedDataTypes": ["REAL"] }
+      ],
       "candidateNames": ["PID"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
       "priority": 90,
@@ -1319,6 +1375,9 @@
       "status": "active",
       "signatureRefsAny": ["LS10-process-control-missing-controller"],
       "excludedTerms": ["safety"],
+      "portRequirements": [
+        { "port": "XOUT", "direction": "output", "required": true, "acceptedDataTypes": ["REAL"] }
+      ],
       "candidateNames": ["PID"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"],
       "priority": 89,
@@ -1335,6 +1394,9 @@
       "status": "active",
       "termsAll": ["string", "stringLeft"],
       "requiredAnyDataTypes": ["STRING", "WSTRING"],
+      "portRequirements": [
+        { "port": "OUT", "direction": "output", "required": true, "acceptedDataTypes": ["STRING"] }
+      ],
       "candidateNames": ["LEFT"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore"],
       "priority": 80,
@@ -1346,6 +1408,9 @@
       "status": "active",
       "termsAll": ["string", "stringRight"],
       "requiredAnyDataTypes": ["STRING", "WSTRING"],
+      "portRequirements": [
+        { "port": "OUT", "direction": "output", "required": true, "acceptedDataTypes": ["STRING"] }
+      ],
       "candidateNames": ["RIGHT"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore"],
       "priority": 80,
@@ -1357,6 +1422,9 @@
       "status": "active",
       "termsAll": ["string", "stringMid"],
       "requiredAnyDataTypes": ["STRING", "WSTRING"],
+      "portRequirements": [
+        { "port": "OUT", "direction": "output", "required": true, "acceptedDataTypes": ["STRING"] }
+      ],
       "candidateNames": ["MID"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore"],
       "priority": 80,
@@ -1368,6 +1436,9 @@
       "status": "active",
       "termsAll": ["string", "stringConcat"],
       "requiredAnyDataTypes": ["STRING", "WSTRING"],
+      "portRequirements": [
+        { "port": "OUT", "direction": "output", "required": true, "acceptedDataTypes": ["STRING"] }
+      ],
       "candidateNames": ["CONCAT"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore"],
       "priority": 80,
@@ -1379,6 +1450,9 @@
       "status": "active",
       "termsAll": ["string", "stringFind"],
       "requiredAnyDataTypes": ["STRING", "WSTRING"],
+      "portRequirements": [
+        { "port": "OUT", "direction": "output", "required": true, "acceptedDataTypes": ["INT"] }
+      ],
       "candidateNames": ["FIND"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore"],
       "priority": 80,
@@ -1391,7 +1465,8 @@
       "termsAll": ["string", "stringLength"],
       "requiredAnyDataTypes": ["STRING"],
       "portRequirements": [
-        { "port": "IN", "required": true, "acceptedDataTypes": ["STRING"] }
+        { "port": "IN", "required": true, "acceptedDataTypes": ["STRING"] },
+        { "port": "OUT", "direction": "output", "required": true, "acceptedDataTypes": ["INT"] }
       ],
       "candidateNames": ["LEN"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore"],
@@ -1409,6 +1484,9 @@
       "termsAll": ["motion", "axis", "motionPower"],
       "excludedTerms": ["safety"],
       "requiredTypeCapabilities": ["MOTION_AXIS_REFERENCE"],
+      "portRequirements": [
+        { "port": "Status", "direction": "output", "required": true, "acceptedDataTypes": ["BOOL"] }
+      ],
       "candidateNames": ["MC_Power"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "outputFunctionBlock"],
       "priority": 80,
@@ -1421,6 +1499,9 @@
       "termsAll": ["motion", "axis", "reset"],
       "excludedTerms": ["safety"],
       "requiredTypeCapabilities": ["MOTION_AXIS_REFERENCE"],
+      "portRequirements": [
+        { "port": "Done", "direction": "output", "required": true, "acceptedDataTypes": ["BOOL"] }
+      ],
       "candidateNames": ["MC_Reset"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "outputFunctionBlock"],
       "priority": 80,
@@ -1433,6 +1514,9 @@
       "termsAll": ["motion", "axis", "motionHome"],
       "excludedTerms": ["safety"],
       "requiredTypeCapabilities": ["MOTION_AXIS_REFERENCE"],
+      "portRequirements": [
+        { "port": "Done", "direction": "output", "required": true, "acceptedDataTypes": ["BOOL"] }
+      ],
       "candidateNames": ["MC_Home"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "outputFunctionBlock"],
       "priority": 80,
@@ -1445,6 +1529,9 @@
       "termsAll": ["motion", "axis", "moveAbsolute"],
       "excludedTerms": ["safety"],
       "requiredTypeCapabilities": ["MOTION_AXIS_REFERENCE"],
+      "portRequirements": [
+        { "port": "Done", "direction": "output", "required": true, "acceptedDataTypes": ["BOOL"] }
+      ],
       "candidateNames": ["MC_MoveAbsolute"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "outputFunctionBlock"],
       "priority": 80,
@@ -1457,6 +1544,9 @@
       "termsAll": ["motion", "axis", "moveRelative"],
       "excludedTerms": ["safety"],
       "requiredTypeCapabilities": ["MOTION_AXIS_REFERENCE"],
+      "portRequirements": [
+        { "port": "Done", "direction": "output", "required": true, "acceptedDataTypes": ["BOOL"] }
+      ],
       "candidateNames": ["MC_MoveRelative"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "outputFunctionBlock"],
       "priority": 80,
@@ -1469,6 +1559,9 @@
       "termsAll": ["motion", "axis", "moveVelocity"],
       "excludedTerms": ["safety"],
       "requiredTypeCapabilities": ["MOTION_AXIS_REFERENCE"],
+      "portRequirements": [
+        { "port": "InVelocity", "direction": "output", "required": true, "acceptedDataTypes": ["BOOL"] }
+      ],
       "candidateNames": ["MC_MoveVelocity"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "outputFunctionBlock"],
       "priority": 80,
@@ -1481,6 +1574,9 @@
       "termsAll": ["motion", "axis", "stop"],
       "excludedTerms": ["motionHalt", "safety"],
       "requiredTypeCapabilities": ["MOTION_AXIS_REFERENCE"],
+      "portRequirements": [
+        { "port": "Done", "direction": "output", "required": true, "acceptedDataTypes": ["BOOL"] }
+      ],
       "candidateNames": ["MC_Stop"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "outputFunctionBlock"],
       "priority": 80,
@@ -1492,6 +1588,9 @@
       "status": "active",
       "signatureRefsAny": ["LS09-motion-stop-missing-block"],
       "excludedTerms": ["motionHalt", "safety"],
+      "portRequirements": [
+        { "port": "Done", "direction": "output", "required": true, "acceptedDataTypes": ["BOOL"] }
+      ],
       "candidateNames": ["MC_Stop"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "outputFunctionBlock"],
       "priority": 90,
@@ -1508,6 +1607,9 @@
       "termsAll": ["motion", "axis", "motionHalt"],
       "excludedTerms": ["safety"],
       "requiredTypeCapabilities": ["MOTION_AXIS_REFERENCE"],
+      "portRequirements": [
+        { "port": "Done", "direction": "output", "required": true, "acceptedDataTypes": ["BOOL"] }
+      ],
       "candidateNames": ["MC_Halt"],
       "allowedModes": ["functionBlockAfter", "functionBlockBefore", "outputFunctionBlock"],
       "priority": 80,
