@@ -81,7 +81,7 @@
     { "term": "multiplex", "literalPatterns": ["multiplex", "多路选择", "多路复用", "路由选择"], "regexPatterns": ["(?:^|[^a-z0-9])(?:mux|multiplex)(?:$|[^a-z0-9])"] },
     { "term": "mode", "literalPatterns": ["auto mode", "manual mode", "maintenance mode", "自动模式", "手动模式", "检修模式", "点动", "模式选择"], "regexPatterns": ["(?:^|[^a-z0-9])(?:auto|manual|jog|maintenance|service)[_\\-.\\s]*mode(?:$|[^a-z0-9])"] },
     { "term": "rotation", "literalPatterns": ["rotation", "lead lag", "lead/lag", "轮换", "主备", "备用泵", "主泵", "运行时间均衡", "故障跳过", "自动换机"], "regexPatterns": ["(?:^|[^a-z0-9])(?:lead[_\\-.\\s]*lag|rotation|standby)(?:$|[^a-z0-9])"] },
-    { "term": "feedbackTimeout", "literalPatterns": ["feedback timeout", "启动确认", "运行确认", "反馈确认", "反馈超时", "启动超时", "动作超时", "到位超时", "未到位"], "regexPatterns": ["(?:^|[^a-z0-9])(?:feedback|run|start|move)[_\\-.\\s]*(?:timeout|confirm|confirmation)(?:$|[^a-z0-9])"] },
+    { "term": "feedbackTimeout", "literalPatterns": ["feedback timeout", "未收到反馈", "未收到运行反馈", "未收到到位反馈", "反馈未到", "未反馈", "未确认", "动作未完成", "动作未到位", "启动确认", "运行确认", "反馈确认", "反馈超时", "启动超时", "动作超时", "到位超时", "超时报警", "未到位"], "regexPatterns": ["(?:^|[^a-z0-9])(?:feedback|run|start|move|action)[_\\-.\\s]*(?:timeout|confirm|confirmation)(?:$|[^a-z0-9])", "(?:未收到|未|动作未|启动未|运行未|到位未).{0,8}(?:反馈|确认|完成|到位|超时)"] },
     { "term": "minimumRunTime", "literalPatterns": ["minimum run time", "最小运行时间", "最短运行时间", "运行保持时间"], "regexPatterns": ["(?:^|[^a-z0-9])(?:min|minimum)[_\\-.\\s]*run(?:[_\\-.\\s]*time)?(?:$|[^a-z0-9])"] },
     { "term": "minimumStopTime", "literalPatterns": ["minimum stop time", "最小停机时间", "最短停机时间", "停机保持时间"], "regexPatterns": ["(?:^|[^a-z0-9])(?:min|minimum)[_\\-.\\s]*stop(?:[_\\-.\\s]*time)?(?:$|[^a-z0-9])"] },
     { "term": "sequence", "literalPatterns": ["sequence", "顺序启动", "顺序控制", "按步骤", "分阶段", "工艺阶段", "阶段推进", "完成后进入"], "regexPatterns": ["(?:^|[^a-z0-9])(?:sequence|step)[_\\-.\\s]*(?:control|start)?(?:$|[^a-z0-9])"] },
@@ -668,6 +668,32 @@
       "targetBlockTypes": ["TON"]
     },
     {
+      "id": "LS14-command-run-feedback-timeout-generic",
+      "status": "active",
+      "kind": "completion",
+      "groupStrategies": ["groupId", "deviceId", "namePrefix"],
+      "requiredRolesAll": ["commandSignal", "runFeedback", "presetDuration"],
+      "requiredRoleTypes": {
+        "commandSignal": ["BOOL"],
+        "runFeedback": ["BOOL"],
+        "presetDuration": ["TIME"]
+      },
+      "targetBlockTypes": ["TON"]
+    },
+    {
+      "id": "LS15-command-completion-timeout-generic",
+      "status": "active",
+      "kind": "completion",
+      "groupStrategies": ["groupId", "deviceId", "namePrefix"],
+      "requiredRolesAll": ["commandSignal", "completionSignal", "presetDuration"],
+      "requiredRoleTypes": {
+        "commandSignal": ["BOOL"],
+        "completionSignal": ["BOOL"],
+        "presetDuration": ["TIME"]
+      },
+      "targetBlockTypes": ["TON"]
+    },
+    {
       "id": "LS13-mode-selector-missing-selector",
       "status": "active",
       "kind": "completion",
@@ -1159,7 +1185,7 @@
     {
       "id": "T07-feedback-timeout-completion",
       "status": "active",
-      "signatureRefsAny": ["LS11-command-run-feedback-timeout", "LS12-command-completion-timeout"],
+      "signatureRefsAny": ["LS11-command-run-feedback-timeout", "LS12-command-completion-timeout", "LS14-command-run-feedback-timeout-generic", "LS15-command-completion-timeout-generic"],
       "excludedTerms": ["safety"],
       "portRequirements": [
         { "port": "IN", "required": true, "acceptedDataTypes": ["BOOL"] },

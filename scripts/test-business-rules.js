@@ -212,6 +212,23 @@ function assertActiveRuleCandidatesExistInLibrary() {
   assert.ok(definedRoles.has("setpoint"));
   assert.ok(definedRoles.has("manipulatedValue"));
   assert.ok(signatureIds.has("LS05-temperature-pid-missing-controller"));
+  assert.ok(signatureIds.has("LS14-command-run-feedback-timeout-generic"));
+  assert.ok(signatureIds.has("LS15-command-completion-timeout-generic"));
+  const feedbackTimeoutRule = (rules.libraryRules ?? []).find(
+    (rule) => rule.id === "T07-feedback-timeout-completion",
+  );
+  assert.ok(
+    feedbackTimeoutRule?.signatureRefsAny?.includes(
+      "LS14-command-run-feedback-timeout-generic",
+    ),
+    "T07 must include the generic run-feedback timeout signature",
+  );
+  assert.ok(
+    feedbackTimeoutRule?.signatureRefsAny?.includes(
+      "LS15-command-completion-timeout-generic",
+    ),
+    "T07 must include the generic completion timeout signature",
+  );
   for (const signature of rules.loopSignatures ?? []) {
     if ((signature.kind ?? "completion") === "completion") {
       assert.ok(
@@ -1304,6 +1321,35 @@ async function assertExpandedBusinessCoverageCases() {
       ],
     ),
     coveragePou(
+      "COVERAGE_GENERIC_ACTION_TIMEOUT",
+      "segment-coverage-generic-action-timeout",
+      "generic action monitoring",
+      [
+        { name: "Valve01_Open_Cmd", type: "BOOL", scope: "VAR", ...commonIds },
+        { name: "Valve01_Run_FB", type: "BOOL", scope: "VAR", ...commonIds },
+        { name: "Valve01_Preset_Time", type: "TIME", scope: "VAR", ...commonIds },
+      ],
+    ),
+    coveragePou(
+      "COVERAGE_GENERIC_ACTION_TIMEOUT_MISSING_FEEDBACK",
+      "segment-coverage-generic-action-timeout-missing-feedback",
+      "generic action timing parameter",
+      [
+        { name: "Valve02_Open_Cmd", type: "BOOL", scope: "VAR", ...commonIds },
+        { name: "Valve02_Preset_Time", type: "TIME", scope: "VAR", ...commonIds },
+      ],
+    ),
+    coveragePou(
+      "COVERAGE_GENERIC_ACTION_TIMEOUT_CROSS_GROUP",
+      "segment-coverage-generic-action-timeout-cross-group",
+      "generic action monitoring",
+      [
+        { name: "Valve03_Open_Cmd", type: "BOOL", scope: "VAR", deviceId: "Valve-03", groupId: "Open-03" },
+        { name: "Valve03_Run_FB", type: "BOOL", scope: "VAR", deviceId: "Valve-04", groupId: "Open-04" },
+        { name: "Valve03_Preset_Time", type: "TIME", scope: "VAR", deviceId: "Valve-03", groupId: "Open-03" },
+      ],
+    ),
+    coveragePou(
       "COVERAGE_MODE_SELECTION",
       "segment-coverage-mode-selection",
       "轨道小车自动模式与手动给定速度选择",
@@ -1384,6 +1430,7 @@ async function assertExpandedBusinessCoverageCases() {
       ["segment-coverage-process-pid", "PID", "补充过程 PID 调节"],
       ["segment-coverage-feedback-timeout", "TON", "补充反馈超时监控"],
       ["segment-coverage-completion-timeout", "TON", "补充反馈超时监控"],
+      ["segment-coverage-generic-action-timeout", "TON", "补充反馈超时监控"],
       ["segment-coverage-mode-selection", "SEL", "补充模式选择 SEL"],
     ];
     const collectedSuggestions = [];
@@ -1442,6 +1489,30 @@ async function assertExpandedBusinessCoverageCases() {
         (suggestion) => suggestion.title !== "补充反馈超时监控",
       ),
       "command and feedback from different devices must not satisfy the timeout signature",
+    );
+
+    const genericMissingFeedbackSuggestions = await suggestionsFor(
+      diagramPath,
+      "segment-coverage-generic-action-timeout-missing-feedback",
+      "segment-coverage-generic-action-timeout-missing-feedback-node-0",
+    );
+    assert.ok(
+      genericMissingFeedbackSuggestions.every(
+        (suggestion) => suggestion.title !== "补充反馈超时监控",
+      ),
+      "a command and TIME parameter without feedback must not satisfy generic timeout completion",
+    );
+
+    const genericCrossGroupSuggestions = await suggestionsFor(
+      diagramPath,
+      "segment-coverage-generic-action-timeout-cross-group",
+      "segment-coverage-generic-action-timeout-cross-group-node-0",
+    );
+    assert.ok(
+      genericCrossGroupSuggestions.every(
+        (suggestion) => suggestion.title !== "补充反馈超时监控",
+      ),
+      "generic timeout completion must not mix feedback from another device or action group",
     );
 
     const wrongTypeSuggestions = await suggestionsFor(
