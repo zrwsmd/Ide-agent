@@ -1,0 +1,235 @@
+[
+  {
+    "pouName": "MOTION_AXIS_CONTEXT_TEST",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Feed_Axis", "type": "AXIS_REF", "scope": "VAR" },
+      { "name": "Aux_Axis", "type": "AXIS_REF", "scope": "VAR" },
+      { "name": "Feed_Stop_Request", "type": "BOOL", "scope": "VAR" },
+      { "name": "Feed_Move_Request", "type": "BOOL", "scope": "VAR" },
+      { "name": "Aux_Move_Request", "type": "BOOL", "scope": "VAR" },
+      { "name": "Feed_Stop_Lock_Request", "type": "BOOL", "scope": "VAR" },
+      { "name": "Feed_Speed", "type": "LREAL", "scope": "VAR" },
+      { "name": "Aux_Position", "type": "LREAL", "scope": "VAR" },
+      { "name": "Stop_Deceleration", "type": "LREAL", "scope": "VAR" },
+      { "name": "Stop_Jerk", "type": "LREAL", "scope": "VAR" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-stop-focus",
+        "label": "送料轴受控停止",
+        "note": "送料轴停止请求到来后按设定减速度停止。",
+        "nodesObj": {
+          "stop-focus-start": {
+            "id": "stop-focus-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["stop-focus-axis"]
+          },
+          "stop-focus-axis": {
+            "id": "stop-focus-axis",
+            "type": "FBDCompartment",
+            "sourceIds": ["stop-focus-start"],
+            "targetIds": ["stop-focus-contact"],
+            "childrenNode": {
+              "type": "MC_ReadActualPosition",
+              "isFunction": false,
+              "varName": { "value": "Feed_Position_Reader", "type": "MC_ReadActualPosition", "scope": "VAR" },
+              "portInputs": [
+                { "name": "EN", "value": "", "type": "", "scope": "" },
+                { "name": "Axis", "value": "Feed_Axis", "type": "AXIS_REF", "scope": "VAR_IN_OUT" }
+              ],
+              "portOutputs": [
+                { "name": "ENO", "value": "", "type": "", "scope": "" }
+              ]
+            }
+          },
+          "stop-focus-contact": {
+            "id": "stop-focus-contact",
+            "type": "risingContact",
+            "sourceIds": ["stop-focus-axis"],
+            "targetIds": ["stop-focus-end"],
+            "varName": { "value": "Feed_Stop_Request", "type": "BOOL", "scope": "VAR" }
+          },
+          "stop-focus-end": {
+            "id": "stop-focus-end",
+            "type": "endLine",
+            "sourceIds": ["stop-focus-contact"],
+            "targetIds": []
+          }
+        }
+      },
+      {
+        "id": "segment-feed-move",
+        "label": "送料轴速度运行",
+        "note": "送料轴按给定速度连续运行。",
+        "nodesObj": {
+          "feed-move-start": {
+            "id": "feed-move-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["feed-move-fb"]
+          },
+          "feed-move-fb": {
+            "id": "feed-move-fb",
+            "type": "FBDCompartment",
+            "sourceIds": ["feed-move-start"],
+            "targetIds": ["feed-move-end"],
+            "childrenNode": {
+              "type": "MC_MoveVelocity",
+              "isFunction": false,
+              "varName": { "value": "Feed_Move_Velocity", "type": "MC_MoveVelocity", "scope": "VAR" },
+              "portInputs": [
+                { "name": "EN", "value": "", "type": "", "scope": "" },
+                { "name": "Axis", "value": "Feed_Axis", "type": "AXIS_REF", "scope": "VAR_IN_OUT" },
+                { "name": "Execute", "value": "Feed_Move_Request", "type": "BOOL", "scope": "VAR_INPUT" },
+                { "name": "Velocity", "value": "Feed_Speed", "type": "LREAL", "scope": "VAR_INPUT" }
+              ],
+              "portOutputs": [
+                { "name": "ENO", "value": "", "type": "", "scope": "" }
+              ]
+            }
+          },
+          "feed-move-end": {
+            "id": "feed-move-end",
+            "type": "endLine",
+            "sourceIds": ["feed-move-fb"],
+            "targetIds": []
+          }
+        }
+      },
+      {
+        "id": "segment-aux-move",
+        "label": "辅助轴绝对定位",
+        "note": "辅助轴移动到指定位置。",
+        "nodesObj": {
+          "aux-move-start": {
+            "id": "aux-move-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["aux-move-fb"]
+          },
+          "aux-move-fb": {
+            "id": "aux-move-fb",
+            "type": "FBDCompartment",
+            "sourceIds": ["aux-move-start"],
+            "targetIds": ["aux-move-end"],
+            "childrenNode": {
+              "type": "MC_MoveAbsolute",
+              "isFunction": false,
+              "varName": { "value": "Aux_Move_Absolute", "type": "MC_MoveAbsolute", "scope": "VAR" },
+              "portInputs": [
+                { "name": "EN", "value": "", "type": "", "scope": "" },
+                { "name": "Axis", "value": "Aux_Axis", "type": "AXIS_REF", "scope": "VAR_IN_OUT" },
+                { "name": "Execute", "value": "Aux_Move_Request", "type": "BOOL", "scope": "VAR_INPUT" },
+                { "name": "Position", "value": "Aux_Position", "type": "LREAL", "scope": "VAR_INPUT" }
+              ],
+              "portOutputs": [
+                { "name": "ENO", "value": "", "type": "", "scope": "" }
+              ]
+            }
+          },
+          "aux-move-end": {
+            "id": "aux-move-end",
+            "type": "endLine",
+            "sourceIds": ["aux-move-fb"],
+            "targetIds": []
+          }
+        }
+      },
+      {
+        "id": "segment-existing-stop",
+        "label": "送料轴既有停止命令",
+        "note": "送料轴已有一个受控停止实例。",
+        "nodesObj": {
+          "existing-stop-start": {
+            "id": "existing-stop-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["existing-stop-fb"]
+          },
+          "existing-stop-fb": {
+            "id": "existing-stop-fb",
+            "type": "FBDCompartment",
+            "sourceIds": ["existing-stop-start"],
+            "targetIds": ["existing-stop-end"],
+            "childrenNode": {
+              "type": "MC_Stop",
+              "isFunction": false,
+              "varName": { "value": "Feed_Stop_Existing", "type": "MC_Stop", "scope": "VAR" },
+              "portInputs": [
+                { "name": "EN", "value": "", "type": "", "scope": "" },
+                { "name": "Axis", "value": "Feed_Axis", "type": "AXIS_REF", "scope": "VAR_IN_OUT" },
+                { "name": "Execute", "value": "Feed_Stop_Lock_Request", "type": "BOOL", "scope": "VAR_INPUT" },
+                { "name": "Deceleration", "value": "Stop_Deceleration", "type": "LREAL", "scope": "VAR_INPUT" },
+                { "name": "Jerk", "value": "Stop_Jerk", "type": "LREAL", "scope": "VAR_INPUT" }
+              ],
+              "portOutputs": [
+                { "name": "ENO", "value": "", "type": "", "scope": "" }
+              ]
+            }
+          },
+          "existing-stop-end": {
+            "id": "existing-stop-end",
+            "type": "endLine",
+            "sourceIds": ["existing-stop-fb"],
+            "targetIds": []
+          }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "MOTION_AXIS_UNBOUND_TEST",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Unbound_Stop_Request", "type": "BOOL", "scope": "VAR" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-unbound-stop",
+        "label": "未绑定轴停止",
+        "note": "停止请求到来后停止运动轴，但轴引用尚未绑定。",
+        "nodesObj": {
+          "unbound-stop-start": {
+            "id": "unbound-stop-start",
+            "type": "startLine",
+            "sourceIds": [],
+            "targetIds": ["unbound-stop-axis"]
+          },
+          "unbound-stop-axis": {
+            "id": "unbound-stop-axis",
+            "type": "FBDCompartment",
+            "sourceIds": ["unbound-stop-start"],
+            "targetIds": ["unbound-stop-contact"],
+            "childrenNode": {
+              "type": "MC_ReadActualPosition",
+              "isFunction": false,
+              "varName": { "value": "Unbound_Position_Reader", "type": "MC_ReadActualPosition", "scope": "VAR" },
+              "portInputs": [
+                { "name": "EN", "value": "", "type": "", "scope": "" },
+                { "name": "Axis", "value": "???", "type": "AXIS_REF", "scope": "VAR_IN_OUT" }
+              ],
+              "portOutputs": [
+                { "name": "ENO", "value": "", "type": "", "scope": "" }
+              ]
+            }
+          },
+          "unbound-stop-contact": {
+            "id": "unbound-stop-contact",
+            "type": "risingContact",
+            "sourceIds": ["unbound-stop-axis"],
+            "targetIds": ["unbound-stop-end"],
+            "varName": { "value": "Unbound_Stop_Request", "type": "BOOL", "scope": "VAR" }
+          },
+          "unbound-stop-end": {
+            "id": "unbound-stop-end",
+            "type": "endLine",
+            "sourceIds": ["unbound-stop-contact"],
+            "targetIds": []
+          }
+        }
+      }
+    ]
+  }
+]

@@ -210,6 +210,22 @@ interface SegmentBusinessSnapshot {
   blockTypes: Set<string>;
 }
 
+interface MotionAxisCommandInstance {
+  nodeId: string;
+  segmentId: string;
+  blockType: string;
+  instance: string;
+  axisReference: string;
+  executeReference: string;
+}
+
+interface MotionAxisContext {
+  axisReference: string;
+  resolution: "focusPort" | "neighborPort" | "segmentUniquePort";
+  commands: MotionAxisCommandInstance[];
+  lockingStops: MotionAxisCommandInstance[];
+}
+
 interface BusinessSuggestionContext {
   hasBusinessContext: boolean;
   hasLocalBusinessContext: boolean;
@@ -238,6 +254,7 @@ interface BusinessSuggestionContext {
   actionAnchorName: string;
   actionAnchorTerms: Set<BusinessTerm>;
   actionAnchorRoles: Set<string>;
+  motionAxisContext?: MotionAxisContext;
 }
 
 interface BusinessRulesConfig {
@@ -400,6 +417,21 @@ const FALLBACK_COMMON_FUNCTION_BLOCK_TYPES = [
   "SR",
   "RS",
 ];
+const MOTION_AXIS_COMMAND_BLOCK_TYPES = new Set([
+  "MC_HOME",
+  "MC_MOVEABSOLUTE",
+  "MC_MOVERELATIVE",
+  "MC_MOVEADDITIVE",
+  "MC_MOVESUPERIMPOSED",
+  "MC_MOVEVELOCITY",
+  "MC_POSITIONPROFILE",
+  "MC_VELOCITYPROFILE",
+  "MC_ACCELERATIONPROFILE",
+  "MC_STOP",
+  "MC_HALT",
+  "SMC_MOVECONTINUOUSABSOLUTE",
+  "SMC_MOVECONTINUOUSRELATIVE",
+]);
 const MAX_RETURNED_SUGGESTIONS = 16;
 const FALLBACK_DATA_TYPE_GROUPS: Record<string, string[]> = {
   NUMERIC: [
@@ -987,6 +1019,7 @@ function buildLocalPayload(
   focus: FocusContext,
 ): LocalGraphSuggestionPayload {
   const suggestions = buildSuggestions(summary, focus);
+  const motionAxisContext = analyzeMotionAxisContext(summary, focus);
 
   return {
     schemaVersion: "ide-agent.graph-completion.v1",
@@ -1004,6 +1037,29 @@ function buildLocalPayload(
       confidence: 1,
       source: focus.source,
       pouName: focus.segment.pouName || summary.pouName,
+      ...(motionAxisContext
+        ? {
+            motionAxisContext: {
+              axisReference: motionAxisContext.axisReference,
+              resolution: motionAxisContext.resolution,
+              runtimeStateKnown: false,
+              commands: motionAxisContext.commands.map((command) => ({
+                nodeId: command.nodeId,
+                segmentId: command.segmentId,
+                blockType: command.blockType,
+                instance: command.instance,
+                executeReference: command.executeReference,
+              })),
+              lockingStops: motionAxisContext.lockingStops.map((command) => ({
+                nodeId: command.nodeId,
+                segmentId: command.segmentId,
+                instance: command.instance,
+                executeReference: command.executeReference,
+                requiresExecuteRelease: true,
+              })),
+            },
+          }
+        : {}),
     },
     suggestions,
   };
@@ -1379,7 +1435,11 @@ function applyBusinessLibraryEnhancements(
     candidateIndex += 1;
     for (let index = 0; index < candidates.length; index += 1) {
       const candidate = candidates[(offset + index) % candidates.length];
-      const replacement = replaceFunctionBlockDraft(suggestion, candidate);
+      const replacement = replaceFunctionBlockDraft(
+        suggestion,
+        candidate,
+        context,
+      );
       if (
         !hasExistingFunctionBlockAtInsertionBoundary(
           replacement,
@@ -1756,6 +1816,7 @@ function buildBusinessSuggestionContext(
     focus.segment.note,
   ]);
   const actionAnchor = findBusinessActionAnchor(focus);
+  const motionAxisContext = analyzeMotionAxisContext(summary, focus);
   const actionAnchorRoles = new Set(
     localVariableRoles
       .filter(
@@ -1834,6 +1895,7 @@ function buildBusinessSuggestionContext(
     actionAnchorName: actionAnchor.name,
     actionAnchorTerms: actionAnchor.terms,
     actionAnchorRoles,
+    motionAxisContext,
   };
 }
 
@@ -2050,6 +2112,136 @@ function normalizeReference(value: string | undefined): string {
   }
 
   return normalized;
+}
+
+function analyzeMotionAxisContext(
+  summary: DiagramSummary,
+  focus: FocusContext,
+): MotionAxisContext | undefined {
+  const resolvedAxis = resolveMotionAxisReference(focus);
+  if (!resolvedAxis) {
+    return undefined;
+  }
+
+  const pouName = (focus.segment.pouName || summary.pouName).trim();
+  const samePouSegments = summary.segments.filter(
+    (segment) => (segment.pouName || summary.pouName).trim() === pouName,
+  );
+  const normalizedAxisReference = normalizeReference(
+    resolvedAxis.axisReference,
+  );
+  const commands = samePouSegments.flatMap((segment) =>
+    segment.nodes.flatMap((node): MotionAxisCommandInstance[] => {
+      const blockType = normalizeBlockType(node.blockType);
+      if (!MOTION_AXIS_COMMAND_BLOCK_TYPES.has(blockType)) {
+        return [];
+      }
+
+      const axisReference = motionAxisReferenceForNode(node);
+      if (normalizeReference(axisReference) !== normalizedAxisReference) {
+        return [];
+      }
+
+      return [
+        {
+          nodeId: node.id,
+          segmentId: segment.segmentId,
+          blockType: node.blockType?.trim() || blockType,
+          instance: node.instance?.trim() || "",
+          axisReference,
+          executeReference: motionExecuteReferenceForNode(node),
+        },
+      ];
+    }),
+  );
+
+  return {
+    axisReference: resolvedAxis.axisReference,
+    resolution: resolvedAxis.resolution,
+    commands,
+    lockingStops: commands.filter(
+      (command) => normalizeBlockType(command.blockType) === "MC_STOP",
+    ),
+  };
+}
+
+function resolveMotionAxisReference(
+  focus: FocusContext,
+): Pick<MotionAxisContext, "axisReference" | "resolution"> | undefined {
+  const focusAxisReferences = uniqueMotionAxisReferences(
+    focus.node ? [focus.node] : [],
+  );
+  if (focusAxisReferences.length === 1) {
+    return {
+      axisReference: focusAxisReferences[0],
+      resolution: "focusPort",
+    };
+  }
+  if (focusAxisReferences.length > 1) {
+    return undefined;
+  }
+
+  const boundaryIds = focus.node
+    ? [...focus.node.from, ...focus.node.to]
+    : focus.insertionPoint
+      ? [...focus.insertionPoint.from, ...focus.insertionPoint.to]
+      : [];
+  const boundaryNodes = boundaryIds
+    .map((nodeId) => findNode(focus.segment, nodeId))
+    .filter((node): node is DiagramNodeSummary => Boolean(node));
+  const neighborAxisReferences = uniqueMotionAxisReferences(boundaryNodes);
+  if (neighborAxisReferences.length === 1) {
+    return {
+      axisReference: neighborAxisReferences[0],
+      resolution: "neighborPort",
+    };
+  }
+  if (neighborAxisReferences.length > 1) {
+    return undefined;
+  }
+
+  const segmentAxisReferences = uniqueMotionAxisReferences(
+    focus.segment.nodes,
+  );
+  return segmentAxisReferences.length === 1
+    ? {
+        axisReference: segmentAxisReferences[0],
+        resolution: "segmentUniquePort",
+      }
+    : undefined;
+}
+
+function uniqueMotionAxisReferences(nodes: DiagramNodeSummary[]): string[] {
+  const references = new Map<string, string>();
+  for (const node of nodes) {
+    const axisReference = motionAxisReferenceForNode(node);
+    const normalized = normalizeReference(axisReference);
+    if (normalized && !references.has(normalized)) {
+      references.set(normalized, axisReference.trim());
+    }
+  }
+  return [...references.values()];
+}
+
+function motionAxisReferenceForNode(node: DiagramNodeSummary): string {
+  const axisPort = [...(node.inputPorts ?? []), ...(node.outputPorts ?? [])].find(
+    (port) =>
+      port.name.trim().toUpperCase() === "AXIS" &&
+      hasTypeCapability(
+        new Set([normalizeDataType(port.type)]),
+        "MOTION_AXIS_REFERENCE",
+      ),
+  );
+  return normalizeReference(axisPort?.value) ? axisPort?.value.trim() ?? "" : "";
+}
+
+function motionExecuteReferenceForNode(node: DiagramNodeSummary): string {
+  const executePort = (node.inputPorts ?? []).find(
+    (port) => port.name.trim().toUpperCase() === "EXECUTE",
+  );
+  return normalizeReference(executePort?.value)
+    ? executePort?.value.trim() ?? ""
+    : "";
 }
 
 function intersection<T>(left: Set<T>, right: Set<T>): Set<T> {
@@ -3747,6 +3939,7 @@ function isLibraryBackedSuggestion(draft: LocalSuggestionDraft): boolean {
 function replaceFunctionBlockDraft(
   draft: LocalSuggestionDraft,
   candidate: BusinessElementCandidate,
+  context: BusinessSuggestionContext,
 ): LocalSuggestionDraft {
   const libraryElement = candidate.libraryElement;
   const isFunction = Boolean(libraryElement && isFunctionLibraryElement(libraryElement));
@@ -3783,12 +3976,87 @@ function replaceFunctionBlockDraft(
         candidateName: candidate.name,
       })
     : undefined;
+  const motionAxisPresentation = buildMotionAxisPresentation(
+    candidate,
+    nextDraft,
+    context.motionAxisContext,
+  );
 
   return {
     ...nextDraft,
     businessPresentation:
-      businessPresentation ?? nextDraft.businessPresentation,
+      motionAxisPresentation ??
+      businessPresentation ??
+      nextDraft.businessPresentation,
   };
+}
+
+function buildMotionAxisPresentation(
+  candidate: BusinessElementCandidate,
+  suggestion: LocalSuggestionDraft,
+  motionAxisContext: MotionAxisContext | undefined,
+): BusinessSuggestionPresentation | undefined {
+  if (
+    normalizeBlockType(candidate.name) !== "MC_STOP" ||
+    !motionAxisContext
+  ) {
+    return undefined;
+  }
+
+  const sameAxisCommands = motionAxisContext.commands.filter(
+    (command) => normalizeBlockType(command.blockType) !== "MC_STOP",
+  );
+  const commandNames = uniqueDisplayNames(
+    sameAxisCommands.map((command) => command.blockType),
+  );
+  const existingStops = motionAxisContext.lockingStops;
+  const details: string[] = [];
+  if (commandNames.length > 0) {
+    details.push(
+      `同一轴还配置了 ${formatDisplayList(commandNames)}；MC_Stop 会中止该轴当前运动，并在 Execute 保持有效期间阻止新的运动命令`,
+    );
+  } else {
+    details.push(
+      "MC_Stop 会中止该轴当前运动，并在 Execute 保持有效期间阻止新的运动命令",
+    );
+  }
+  if (existingStops.length > 0) {
+    const executeReferences = uniqueDisplayNames(
+      existingStops.map((command) => command.executeReference).filter(Boolean),
+    );
+    details.push(
+      executeReferences.length > 0
+        ? `同一轴已有 MC_Stop，其 Execute 由 ${formatDisplayList(executeReferences)} 驱动；静态图无法确认当前值，停止完成后需释放 Execute 才能解除轴锁定`
+        : "同一轴已有 MC_Stop；静态图无法确认其 Execute 当前值，停止完成后需释放 Execute 才能解除轴锁定",
+    );
+  } else {
+    details.push("停止完成后需释放 Execute，轴才能重新接受运动命令");
+  }
+
+  return {
+    title: `补充 ${motionAxisContext.axisReference} 受控停止`,
+    text: `${businessPlacementText(suggestion)}。${details.join("；")}。`,
+    ruleId: `${candidate.ruleId}:same-axis-context`,
+    confidence: commandNames.length > 0 || existingStops.length > 0 ? 96 : 90,
+  };
+}
+
+function uniqueDisplayNames(values: string[]): string[] {
+  const names = new Map<string, string>();
+  for (const value of values) {
+    const normalized = String(value ?? "").trim().toUpperCase();
+    if (normalized && !names.has(normalized)) {
+      names.set(normalized, String(value).trim());
+    }
+  }
+  return [...names.values()];
+}
+
+function formatDisplayList(values: string[]): string {
+  if (values.length <= 3) {
+    return values.join("、");
+  }
+  return `${values.slice(0, 3).join("、")} 等 ${values.length} 类运动命令`;
 }
 
 function renderBusinessPresentation(

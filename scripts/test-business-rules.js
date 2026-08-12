@@ -33,6 +33,13 @@ const loopSignatureFixturePath = path.join(
   "fixtures",
   "loop-signature-business-suggestion-fixture.json",
 );
+const motionAxisContextFixturePath = path.join(
+  rootDir,
+  "src",
+  "test",
+  "fixtures",
+  "motion-axis-context-fixture.json",
+);
 const rulesPath = path.join(
   rootDir,
   "packages",
@@ -1759,6 +1766,80 @@ async function assertStableBusinessCases() {
     !suggestedNodeTypes(motionStopSuggestions).includes("negatedContact"),
     "MC_Stop command triggering must keep a normal contact",
   );
+
+  const sameAxisResult = await getLocalGraphSuggestions({
+    diagramPath: motionAxisContextFixturePath,
+    segmentId: "segment-stop-focus",
+    selectedNodeId: "stop-focus-contact",
+  });
+  const sameAxisSuggestions = sameAxisResult?.payload?.suggestions ?? [];
+  const sameAxisStopSuggestion = findFunctionBlockSuggestion(
+    sameAxisSuggestions,
+    "MC_STOP",
+  );
+  assert.ok(
+    sameAxisStopSuggestion,
+    "same-axis context must not suppress an otherwise valid MC_Stop suggestion",
+  );
+  assert.equal(
+    sameAxisStopSuggestion.title,
+    "补充 Feed_Axis 受控停止",
+  );
+  assert.match(sameAxisStopSuggestion.text, /MC_MoveVelocity/);
+  assert.doesNotMatch(sameAxisStopSuggestion.text, /MC_MoveAbsolute/);
+  assert.match(sameAxisStopSuggestion.text, /Feed_Stop_Lock_Request/);
+  assert.match(sameAxisStopSuggestion.text, /释放 Execute/);
+  assert.deepStrictEqual(sameAxisStopSuggestion.startNodes, [
+    "stop-focus-contact",
+  ]);
+  assert.deepStrictEqual(sameAxisStopSuggestion.endNodes, ["stop-focus-end"]);
+  assert.equal(sameAxisStopSuggestion.position, "behind");
+  assert.equal(sameAxisStopSuggestion.serialOrParallel, "serial");
+  const sameAxisContext =
+    sameAxisResult?.payload?.recognizedFocus?.motionAxisContext;
+  assert.equal(sameAxisContext?.axisReference, "Feed_Axis");
+  assert.equal(sameAxisContext?.resolution, "neighborPort");
+  assert.equal(sameAxisContext?.runtimeStateKnown, false);
+  assert.ok(
+    sameAxisContext?.commands.some(
+      (command) => command.blockType === "MC_MoveVelocity",
+    ),
+  );
+  assert.ok(
+    !sameAxisContext?.commands.some(
+      (command) => command.blockType === "MC_MoveAbsolute",
+    ),
+    "a command bound to another AXIS_REF must not enter the same-axis context",
+  );
+  assert.ok(
+    sameAxisContext?.lockingStops.some(
+      (stop) =>
+        stop.executeReference === "Feed_Stop_Lock_Request" &&
+        stop.requiresExecuteRelease === true,
+    ),
+  );
+
+  const unboundAxisResult = await getLocalGraphSuggestions({
+    diagramPath: motionAxisContextFixturePath,
+    segmentId: "segment-unbound-stop",
+    selectedNodeId: "unbound-stop-contact",
+  });
+  assert.equal(
+    unboundAxisResult?.payload?.recognizedFocus?.motionAxisContext,
+    undefined,
+    "an unbound Axis port must not produce guessed same-axis context",
+  );
+  const unboundStopSuggestion = findFunctionBlockSuggestion(
+    unboundAxisResult?.payload?.suggestions ?? [],
+    "MC_STOP",
+  );
+  if (unboundStopSuggestion) {
+    assert.notEqual(
+      unboundStopSuggestion.title,
+      "补充 ??? 受控停止",
+      "unbound Axis must keep the existing fallback presentation",
+    );
+  }
 
   const motionHaltSuggestions = await suggestionsFor(
     fixturePath,
