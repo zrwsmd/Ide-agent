@@ -177,12 +177,28 @@ interface BusinessSuggestionPresentation {
   confidence: number;
 }
 
+interface BusinessDeviceLoopRuleConfig {
+  id: string;
+  status: string;
+  anchorRolesAny: string[];
+  anchorTermsAny: BusinessTerm[];
+  candidateRolesAny: string[];
+  candidateNodeType: "contact" | "negatedContact";
+  allowedPositions: LocalSuggestionPosition[];
+  excludedTerms: BusinessTerm[];
+  priority: number;
+  businessName: string;
+  reason: string;
+  presentation?: BusinessPresentationConfig;
+}
+
 interface LocalSuggestionAddElement {
   nodeType: string;
   displayLabel: string;
   variableSource: string;
   variableName: string;
   dataType: string;
+  variableScope?: string;
   userInputRequired: boolean;
   blockType: string;
   instanceSource: string;
@@ -226,6 +242,29 @@ interface MotionAxisContext {
   lockingStops: MotionAxisCommandInstance[];
 }
 
+interface DeviceCommandAnchor {
+  nodeId: string;
+  variableName: string;
+  roles: Set<string>;
+  terms: Set<BusinessTerm>;
+}
+
+interface DeviceLoopRoleCandidate {
+  variableName: string;
+  dataType: string;
+  scope: string;
+  role: string;
+  evidenceScore: number;
+  associationKey: string;
+  association: "groupId" | "deviceId" | "descriptionStem" | "nameStem";
+}
+
+interface DeviceLoopContext {
+  action: DeviceCommandAnchor;
+  candidates: DeviceLoopRoleCandidate[];
+  existingCommandPathReferences: Set<string>;
+}
+
 interface BusinessSuggestionContext {
   hasBusinessContext: boolean;
   hasLocalBusinessContext: boolean;
@@ -255,6 +294,7 @@ interface BusinessSuggestionContext {
   actionAnchorTerms: Set<BusinessTerm>;
   actionAnchorRoles: Set<string>;
   motionAxisContext?: MotionAxisContext;
+  deviceLoopContext?: DeviceLoopContext;
 }
 
 interface BusinessRulesConfig {
@@ -269,6 +309,7 @@ interface BusinessRulesConfig {
   variablePatterns: BusinessVariablePatternsConfig;
   blockPortRoleRules: BusinessBlockPortRoleRuleConfig[];
   loopSignatures: BusinessLoopSignatureConfig[];
+  deviceLoopRules: BusinessDeviceLoopRuleConfig[];
   contactPolarityRules: BusinessContactPolarityRuleConfig[];
   nodeIntentRules: BusinessNodeIntentRuleConfig[];
   libraryRules: BusinessLibraryRuleConfig[];
@@ -499,7 +540,7 @@ const FALLBACK_TERM_IMPLICATIONS: BusinessTermImplicationConfig[] = [
 ];
 
 const FALLBACK_BUSINESS_RULES_CONFIG: BusinessRulesConfig = {
-  schemaVersion: "ide-agent.business-rules.v9",
+  schemaVersion: "ide-agent.business-rules.v10",
   enabled: true,
   defaultBlocks: FALLBACK_COMMON_FUNCTION_BLOCK_TYPES,
   dataTypeGroups: FALLBACK_DATA_TYPE_GROUPS,
@@ -533,6 +574,7 @@ const FALLBACK_BUSINESS_RULES_CONFIG: BusinessRulesConfig = {
   variablePatterns: EMPTY_VARIABLE_PATTERNS,
   blockPortRoleRules: EMPTY_BLOCK_PORT_ROLE_RULES,
   loopSignatures: EMPTY_LOOP_SIGNATURES,
+  deviceLoopRules: [],
   contactPolarityRules: [],
   nodeIntentRules: [],
   libraryRules: [],
@@ -576,6 +618,7 @@ function loadBusinessRulesConfig(): BusinessRulesConfig {
     variablePatterns: parseVariablePatterns(record.variablePatterns),
     blockPortRoleRules: parseBlockPortRoleRules(record.blockPortRoleRules),
     loopSignatures: parseLoopSignatures(record.loopSignatures),
+    deviceLoopRules: parseDeviceLoopRules(record.deviceLoopRules),
     contactPolarityRules: parseContactPolarityRules(
       record.contactPolarityRules,
     ),
@@ -583,6 +626,37 @@ function loadBusinessRulesConfig(): BusinessRulesConfig {
     libraryRules: parseBusinessRules(record.libraryRules ?? record.rules),
     rankingRules: parseBusinessRankingRules(record.rankingRules),
   };
+}
+
+function parseDeviceLoopRules(value: unknown): BusinessDeviceLoopRuleConfig[] {
+  return asArrayRecord(value)
+    .map((item) => ({
+      id: asStringConfig(item.id),
+      status: asStringConfig(item.status) || "active",
+      anchorRolesAny: stringList(item.anchorRolesAny),
+      anchorTermsAny: stringList(item.anchorTermsAny),
+      candidateRolesAny: stringList(item.candidateRolesAny),
+      candidateNodeType: asStringConfig(item.candidateNodeType) as
+        | "contact"
+        | "negatedContact",
+      allowedPositions: stringList(
+        item.allowedPositions,
+      ) as LocalSuggestionPosition[],
+      excludedTerms: stringList(item.excludedTerms),
+      priority: asOptionalNumberConfig(item.priority) ?? 0,
+      businessName: asStringConfig(item.businessName),
+      reason: asStringConfig(item.reason),
+      presentation: parseBusinessPresentation(item.presentation),
+    }))
+    .filter(
+      (item) =>
+        item.status.toLowerCase() === "active" &&
+        Boolean(item.id) &&
+        item.candidateRolesAny.length > 0 &&
+        ["contact", "negatedContact"].includes(item.candidateNodeType) &&
+        Boolean(item.businessName) &&
+        Boolean(item.presentation),
+    );
 }
 
 function parseTermPatterns(value: unknown): BusinessTermPatternConfig[] {
@@ -1133,7 +1207,7 @@ function rankBusinessSuggestions(
   }
 
   const contactAwareSuggestions = addBusinessContactVariants(
-    suggestions,
+    addDeviceLoopSuggestions(suggestions, context, focus),
     context,
   );
   const enhancedSuggestions = applyBusinessLibraryEnhancements(
@@ -1323,7 +1397,10 @@ function addBusinessContactVariants(
   context: BusinessSuggestionContext,
 ): LocalSuggestionDraft[] {
   return suggestions.flatMap((suggestion) => {
-    if (suggestion.addElement.nodeType !== "contact") {
+    if (
+      suggestion.addElement.nodeType !== "contact" ||
+      suggestion.addElement.variableSource === "existingVariable"
+    ) {
       return [suggestion];
     }
 
@@ -1344,6 +1421,133 @@ function addBusinessContactVariants(
 
     return variants;
   });
+}
+
+function addDeviceLoopSuggestions(
+  suggestions: LocalSuggestionDraft[],
+  context: BusinessSuggestionContext,
+  focus: FocusContext,
+): LocalSuggestionDraft[] {
+  const deviceLoop = context.deviceLoopContext;
+  if (!BUSINESS_RULES_CONFIG.enabled || !deviceLoop) {
+    return suggestions;
+  }
+
+  const generated: LocalSuggestionDraft[] = [];
+  const matchingRules = BUSINESS_RULES_CONFIG.deviceLoopRules
+    .filter((rule) => matchesDeviceLoopRule(rule, context, deviceLoop))
+    .sort((left, right) => right.priority - left.priority);
+
+  for (const rule of matchingRules) {
+    const roleCandidates = deviceLoop.candidates.filter(
+      (candidate) =>
+        rule.candidateRolesAny.includes(candidate.role) &&
+        !deviceLoop.existingCommandPathReferences.has(
+          normalizeReference(candidate.variableName),
+        ),
+    );
+    for (const candidate of roleCandidates) {
+      for (const suggestion of suggestions) {
+        if (!isDeviceLoopInsertion(suggestion, rule, deviceLoop, focus)) {
+          continue;
+        }
+
+        const addElement = contactVariantElement(
+          rule.candidateNodeType,
+          candidate.variableName,
+          candidate.dataType,
+          candidate.scope,
+        );
+        const nextDraft: LocalSuggestionDraft = {
+          ...suggestion,
+          addElement,
+          placement: {
+            ...suggestion.placement,
+            text: suggestion.placement.text.replaceAll(
+              "常开触点",
+              addElement.displayLabel,
+            ),
+          },
+        };
+        const presentation = rule.presentation
+          ? renderBusinessPresentation(rule.presentation, nextDraft, {
+              ruleId: `${rule.id}:${candidate.variableName}`,
+              confidence:
+                candidate.association === "nameStem" ? 90 : 98,
+              businessName: rule.businessName,
+              reason: rule.reason,
+              actionName: deviceLoop.action.variableName,
+              candidateVar: candidate.variableName,
+            })
+          : undefined;
+        generated.push(
+          presentation
+            ? { ...nextDraft, businessPresentation: presentation }
+            : nextDraft,
+        );
+      }
+    }
+  }
+
+  return dedupeSuggestions([...generated, ...suggestions]);
+}
+
+function matchesDeviceLoopRule(
+  rule: BusinessDeviceLoopRuleConfig,
+  context: BusinessSuggestionContext,
+  deviceLoop: DeviceLoopContext,
+): boolean {
+  if (
+    rule.excludedTerms.some(
+      (term) =>
+        deviceLoop.action.terms.has(term) ||
+        localBusinessTermWeight(context, term) > 0,
+    )
+  ) {
+    return false;
+  }
+  if (
+    rule.anchorRolesAny.length > 0 &&
+    !rule.anchorRolesAny.some((role) => deviceLoop.action.roles.has(role))
+  ) {
+    return false;
+  }
+  return (
+    rule.anchorTermsAny.length === 0 ||
+    rule.anchorTermsAny.some((term) => deviceLoop.action.terms.has(term))
+  );
+}
+
+function isDeviceLoopInsertion(
+  suggestion: LocalSuggestionDraft,
+  rule: BusinessDeviceLoopRuleConfig,
+  deviceLoop: DeviceLoopContext,
+  focus: FocusContext,
+): boolean {
+  if (
+    suggestion.addElement.nodeType !== "contact" ||
+    inferSerialOrParallel(suggestion) !== "serial"
+  ) {
+    return false;
+  }
+  const position = suggestion.position ?? inferPosition(suggestion);
+  if (
+    rule.allowedPositions.length > 0 &&
+    !rule.allowedPositions.includes(position)
+  ) {
+    return false;
+  }
+
+  const insertionBefore = suggestion.placement.insertBeforeNodeId;
+  return Boolean(
+    insertionBefore &&
+      (insertionBefore === deviceLoop.action.nodeId ||
+        canReachNode(
+          focus.segment,
+          insertionBefore,
+          deviceLoop.action.nodeId,
+        )),
+  );
 }
 
 function matchesContactPolarity(
@@ -1397,7 +1601,12 @@ function replaceWithContactType(
   suggestion: LocalSuggestionDraft,
   nodeType: "negatedContact" | "risingContact" | "fallingContact",
 ): LocalSuggestionDraft {
-  const element = contactVariantElement(nodeType);
+  const element = contactVariantElement(
+    nodeType,
+    suggestion.addElement.variableName,
+    suggestion.addElement.dataType,
+    suggestion.addElement.variableScope,
+  );
   return {
     ...suggestion,
     placement: {
@@ -1828,6 +2037,12 @@ function buildBusinessSuggestionContext(
       .map((match) => match.role),
   );
   const coherentRoleCount = maxCoherentRoleCount(localVariableRoles);
+  const deviceLoopContext = analyzeDeviceLoopContext(
+    focus,
+    pouVariables,
+    variableRoleMatches,
+    actionAnchor.name,
+  );
   const signatureMatches = evaluateLoopSignatures(
     BUSINESS_RULES_CONFIG.variablePatterns,
     BUSINESS_RULES_CONFIG.loopSignatures,
@@ -1867,6 +2082,7 @@ function buildBusinessSuggestionContext(
       hasLocalBusinessContext ||
       matchedLoopSignatures.size > 0 ||
       observedLoopSignatures.size > 0 ||
+      Boolean(deviceLoopContext) ||
       isBusinessBlockType(focusBlockType) ||
       [...segmentBlockTypes].some((value) => isBusinessBlockType(value)),
     hasLocalBusinessContext,
@@ -1896,6 +2112,7 @@ function buildBusinessSuggestionContext(
     actionAnchorTerms: actionAnchor.terms,
     actionAnchorRoles,
     motionAxisContext,
+    deviceLoopContext,
   };
 }
 
@@ -2094,6 +2311,328 @@ function maxCoherentRoleCount(
     }
   }
   return Math.max(0, ...[...rolesByGroup.values()].map((roles) => roles.size));
+}
+
+function analyzeDeviceLoopContext(
+  focus: FocusContext,
+  variables: DiagramVariableSummary[],
+  roleMatches: BusinessVariableRoleMatch[],
+  actionAnchor: string,
+): DeviceLoopContext | undefined {
+  const anchorNode = findDeviceCommandAnchorNode(focus, actionAnchor);
+  if (!anchorNode) {
+    return undefined;
+  }
+
+  const anchorReference = normalizeReference(anchorNode.var);
+  const anchorVariable = variables.find(
+    (variable) => normalizeReference(variable.name) === anchorReference,
+  );
+  const anchorRoleMatches = roleMatches.filter(
+    (match) => normalizeReference(match.variableName) === anchorReference,
+  );
+  const anchorRoles = new Set(anchorRoleMatches.map((match) => match.role));
+  const anchorTerms = collectBusinessTerms([
+    ...nodeBusinessTexts(anchorNode),
+    ...(anchorVariable ? variableBusinessTexts(anchorVariable) : []),
+  ]);
+  if (
+    !anchorRoles.has("commandSignal") ||
+    !["start", "run", "enable", "open", "extend"].some((term) =>
+      anchorTerms.has(term),
+    ) ||
+    anchorTerms.has("stop") ||
+    anchorTerms.has("reset") ||
+    anchorTerms.has("safety") ||
+    anchorTerms.has("fault") ||
+    anchorTerms.has("alarm")
+  ) {
+    return undefined;
+  }
+
+  const variablesByReference = new Map(
+    variables.map((variable) => [normalizeReference(variable.name), variable]),
+  );
+  const candidates: DeviceLoopRoleCandidate[] = [];
+  for (const match of roleMatches) {
+    if (!["readySignal", "faultSignal"].includes(match.role)) {
+      continue;
+    }
+    const variable = variablesByReference.get(
+      normalizeReference(match.variableName),
+    );
+    if (!variable || normalizeDataType(variable.type) !== "BOOL") {
+      continue;
+    }
+    const association = strongestDeviceAssociation(
+      anchorRoleMatches,
+      match,
+      anchorVariable,
+      variable,
+    );
+    if (!association) {
+      continue;
+    }
+    candidates.push({
+      variableName: variable.name,
+      dataType: variable.type,
+      scope: variable.scope || "VAR",
+      role: match.role,
+      evidenceScore: match.score,
+      associationKey: association.key,
+      association: association.strategy,
+    });
+  }
+
+  if (candidates.length === 0) {
+    return undefined;
+  }
+
+  candidates.sort(
+    (left, right) =>
+      deviceAssociationWeight(right.association) -
+        deviceAssociationWeight(left.association) ||
+      right.evidenceScore - left.evidenceScore ||
+      left.variableName.localeCompare(right.variableName),
+  );
+
+  return {
+    action: {
+      nodeId: anchorNode.id,
+      variableName: anchorNode.var?.trim() || actionAnchor,
+      roles: anchorRoles,
+      terms: anchorTerms,
+    },
+    candidates: dedupeDeviceLoopCandidates(candidates),
+    existingCommandPathReferences: collectUpstreamReferences(
+      focus.segment,
+      anchorNode.id,
+    ),
+  };
+}
+
+function findDeviceCommandAnchorNode(
+  focus: FocusContext,
+  actionAnchor: string,
+): DiagramNodeSummary | undefined {
+  const normalizedAction = normalizeReference(actionAnchor);
+  if (!normalizedAction) {
+    return undefined;
+  }
+  if (
+    focus.node &&
+    isCoilKind(focus.node.kind) &&
+    normalizeReference(focus.node.var) === normalizedAction
+  ) {
+    return focus.node;
+  }
+  return focus.segment.nodes.find(
+    (node) =>
+      isCoilKind(node.kind) &&
+      normalizeReference(node.var) === normalizedAction,
+  );
+}
+
+function strongestDeviceAssociation(
+  anchorMatches: BusinessVariableRoleMatch[],
+  candidate: BusinessVariableRoleMatch,
+  anchorVariable: DiagramVariableSummary | undefined,
+  candidateVariable: DiagramVariableSummary,
+):
+  | { key: string; strategy: DeviceLoopRoleCandidate["association"] }
+  | undefined {
+  const anchorKeys = new Set(anchorMatches.flatMap((match) => match.groupKeys));
+  const sharedKeys = candidate.groupKeys.filter((key) => anchorKeys.has(key));
+  for (const strategy of ["groupId", "deviceId"] as const) {
+    const key = sharedKeys
+      .filter((item) => deviceAssociationStrategy(item) === strategy)
+      .sort((left, right) => right.length - left.length)[0];
+    if (key) {
+      return { key, strategy };
+    }
+  }
+  const anchorHasExplicitGroup = [...anchorKeys].some((key) =>
+    ["groupId", "deviceId"].includes(deviceAssociationStrategy(key)),
+  );
+  const candidateHasExplicitGroup = candidate.groupKeys.some((key) =>
+    ["groupId", "deviceId"].includes(deviceAssociationStrategy(key)),
+  );
+  if (anchorHasExplicitGroup && candidateHasExplicitGroup) {
+    return undefined;
+  }
+
+  const anchorDescriptionStems = deviceDescriptionStems(
+    anchorVariable,
+    "commandSignal",
+  );
+  const candidateDescriptionStems = new Set(
+    deviceDescriptionStems(candidateVariable, candidate.role),
+  );
+  const descriptionStem = anchorDescriptionStems.find((stem) =>
+    candidateDescriptionStems.has(stem),
+  );
+  if (descriptionStem) {
+    return {
+      key: `description:${descriptionStem}`,
+      strategy: "descriptionStem",
+    };
+  }
+
+  const anchorNameStem = deviceVariableNameStem(
+    anchorVariable?.name ?? anchorMatches[0]?.variableName ?? "",
+    "commandSignal",
+  );
+  const candidateNameStem = deviceVariableNameStem(
+    candidateVariable.name,
+    candidate.role,
+  );
+  if (anchorNameStem && anchorNameStem === candidateNameStem) {
+    return { key: `name:${anchorNameStem}`, strategy: "nameStem" };
+  }
+  return undefined;
+}
+
+function deviceDescriptionStems(
+  variable: DiagramVariableSummary | undefined,
+  role: string,
+): string[] {
+  if (!variable) {
+    return [];
+  }
+  return uniqueDisplayNames(
+    [variable.label, variable.note, variable.comment]
+      .map((value) => deviceDescriptionStem(value, role))
+      .filter(Boolean),
+  ).map((value) => value.toLowerCase());
+}
+
+function deviceDescriptionStem(
+  value: string | undefined,
+  role: string,
+): string {
+  let normalized = String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_\-.、，,:：;；()（）\[\]【】]+/gu, "");
+  if (!normalized) {
+    return "";
+  }
+
+  const rolePhrases =
+    role === "commandSignal"
+      ? [
+          "启动命令", "运行命令", "使能命令", "执行命令", "控制命令",
+          "动作命令", "启动请求", "运行请求", "开门请求", "开阀请求",
+          "伸出请求", "command", "request", "start", "run", "enable",
+          "open", "extend", "cmd", "req", "命令", "请求", "启动", "运行",
+          "使能", "开门", "开阀", "伸出",
+        ]
+      : role === "readySignal"
+        ? [
+            "设备就绪", "就绪信号", "设备健康", "健康状态", "可用状态",
+            "可用信号", "待机可用", "readysignal", "healthysignal",
+            "available", "standby", "healthy", "ready", "就绪", "健康", "可用",
+            "状态", "信号",
+          ]
+        : [
+            "故障信号", "故障状态", "设备故障", "错误信号", "过载信号",
+            "过载状态", "变频器故障", "faultsignal", "failure", "overload",
+            "error", "fault", "故障", "错误", "异常", "过载", "状态", "信号",
+          ];
+  for (const phrase of rolePhrases.sort((left, right) => right.length - left.length)) {
+    normalized = normalized.replaceAll(phrase, "");
+  }
+  return isReliableDeviceStem(normalized) ? normalized : "";
+}
+
+function deviceVariableNameStem(name: string, role: string): string {
+  const tokens = splitBusinessIdentifierWords(name)
+    .toLowerCase()
+    .split(/[^a-z0-9\u0080-\uFFFF]+/gu)
+    .filter(Boolean);
+  const roleTokens = new Set(
+    role === "commandSignal"
+      ? ["command", "cmd", "request", "req", "start", "run", "enable", "open", "extend"]
+      : role === "readySignal"
+        ? ["ready", "available", "standby", "healthy", "status", "signal"]
+        : ["fault", "failure", "error", "overload", "ol", "status", "signal"],
+  );
+  while (tokens.length > 0 && roleTokens.has(tokens[tokens.length - 1])) {
+    tokens.pop();
+  }
+  const stem = tokens.join("_");
+  return isReliableDeviceStem(stem) ? stem : "";
+}
+
+function isReliableDeviceStem(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  return Boolean(
+    normalized &&
+      normalized.length >= 2 &&
+      !["device", "equipment", "设备", "机器", "信号", "状态"].includes(
+        normalized,
+      ),
+  );
+}
+
+function deviceAssociationStrategy(
+  groupKey: string,
+): DeviceLoopRoleCandidate["association"] {
+  if (groupKey.startsWith("group:")) {
+    return "groupId";
+  }
+  return groupKey.startsWith("device:") ? "deviceId" : "nameStem";
+}
+
+function deviceAssociationWeight(
+  association: DeviceLoopRoleCandidate["association"],
+): number {
+  return association === "groupId"
+    ? 4
+    : association === "deviceId"
+      ? 3
+      : association === "descriptionStem"
+        ? 2
+        : 1;
+}
+
+function dedupeDeviceLoopCandidates(
+  candidates: DeviceLoopRoleCandidate[],
+): DeviceLoopRoleCandidate[] {
+  const seen = new Set<string>();
+  return candidates.filter((candidate) => {
+    const key = `${normalizeReference(candidate.variableName)}:${candidate.role}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
+function collectUpstreamReferences(
+  segment: DiagramSegmentSummary,
+  targetNodeId: string,
+): Set<string> {
+  const references = new Set<string>();
+  const visited = new Set<string>();
+  const queue = [...(findNode(segment, targetNodeId)?.from ?? [])];
+  while (queue.length > 0) {
+    const nodeId = queue.shift();
+    if (!nodeId || visited.has(nodeId)) {
+      continue;
+    }
+    visited.add(nodeId);
+    const node = findNode(segment, nodeId);
+    if (!node) {
+      continue;
+    }
+    for (const reference of collectNodeReferences(node)) {
+      references.add(reference);
+    }
+    queue.push(...node.from);
+  }
+  return references;
 }
 
 function normalizeReference(value: string | undefined): string {
@@ -3639,7 +4178,7 @@ function createSuggestedNode(
       name: "",
       value: addElement.variableName || "???",
       type: addElement.dataType || "BOOL",
-      scope: "VAR",
+      scope: addElement.variableScope || "VAR",
     },
   };
 }
@@ -3808,9 +4347,13 @@ function negatedContactElement(): LocalSuggestionAddElement {
 }
 
 function contactVariantElement(
-  nodeType: "negatedContact" | "risingContact" | "fallingContact",
+  nodeType: "contact" | "negatedContact" | "risingContact" | "fallingContact",
+  variableName = "",
+  dataType = "BOOL",
+  variableScope = "VAR",
 ): LocalSuggestionAddElement {
   const displayLabels = {
+    contact: "常开触点",
     negatedContact: "常闭触点",
     risingContact: "上升沿",
     fallingContact: "下降沿",
@@ -3818,10 +4361,11 @@ function contactVariantElement(
   return {
     nodeType,
     displayLabel: displayLabels[nodeType],
-    variableSource: "userInput",
-    variableName: "",
-    dataType: "BOOL",
-    userInputRequired: true,
+    variableSource: variableName ? "existingVariable" : "userInput",
+    variableName,
+    dataType: dataType || "BOOL",
+    variableScope: variableScope || "VAR",
+    userInputRequired: !variableName,
     blockType: "",
     instanceSource: "",
     instanceName: "",
@@ -4070,6 +4614,7 @@ function renderBusinessPresentation(
     actionName: string;
     groupName?: string;
     candidateName?: string;
+    candidateVar?: string;
   },
 ): BusinessSuggestionPresentation | undefined {
   const values: Record<string, string> = {
@@ -4080,6 +4625,7 @@ function renderBusinessPresentation(
     groupName: input.groupName || "当前回路",
     candidateName:
       input.candidateName || suggestion.addElement.blockType || "待补全节点",
+    candidateVar: input.candidateVar || suggestion.addElement.variableName,
     placementAction: businessPlacementAction(suggestion),
     placementText: businessPlacementText(suggestion),
     elementType: businessElementType(suggestion.addElement),
@@ -4520,6 +5066,7 @@ function dedupeSuggestions(
       suggestion.placement.branchToNodeId,
       suggestion.addElement.nodeType,
       suggestion.addElement.blockType,
+      suggestion.addElement.variableName,
     ].join("|");
 
     if (seen.has(key)) {

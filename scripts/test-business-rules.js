@@ -40,6 +40,13 @@ const motionAxisContextFixturePath = path.join(
   "fixtures",
   "motion-axis-context-fixture.json",
 );
+const deviceLoopCompletionFixturePath = path.join(
+  rootDir,
+  "src",
+  "test",
+  "fixtures",
+  "device-loop-completion-fixture.json",
+);
 const rulesPath = path.join(
   rootDir,
   "packages",
@@ -67,13 +74,18 @@ async function main() {
   await assertExpandedBusinessCoverageCases();
   await assertStableBusinessCases();
   await assertLoopSignatureCases();
+  await assertDeviceLoopCompletionCases();
   await assertTimestampDiagramWhenAvailable();
   console.log("[test-business-rules] passed");
 }
 
 function assertActiveRuleCandidatesExistInLibrary() {
   const rules = JSON.parse(fs.readFileSync(rulesPath, "utf8"));
-  assert.equal(rules.schemaVersion, "ide-agent.business-rules.v9");
+  assert.equal(rules.schemaVersion, "ide-agent.business-rules.v10");
+  assert.ok(
+    (rules.deviceLoopRules ?? []).length >= 2,
+    "deviceLoopRules must define generic ready and fault completion",
+  );
   assert.ok(rules.dataTypeGroups.NUMERIC.includes("LREAL"));
   assert.ok(rules.dataTypeGroups.INTEGER.includes("UDINT"));
   assert.ok(
@@ -112,6 +124,30 @@ function assertActiveRuleCandidatesExistInLibrary() {
   const signaturesById = new Map(
     (rules.loopSignatures ?? []).map((signature) => [signature.id, signature]),
   );
+  for (const rule of rules.deviceLoopRules ?? []) {
+    assert.ok(rule.id, "device loop rule must define id");
+    assert.ok(
+      rule.anchorRolesAny?.length > 0,
+      `${rule.id} must define anchorRolesAny`,
+    );
+    assert.ok(
+      rule.anchorRolesAny.every((role) => definedRoles.has(role)),
+      `${rule.id} anchorRolesAny must reference defined roles`,
+    );
+    assert.ok(
+      rule.candidateRolesAny?.length > 0,
+      `${rule.id} must define candidateRolesAny`,
+    );
+    assert.ok(
+      rule.candidateRolesAny.every((role) => definedRoles.has(role)),
+      `${rule.id} candidateRolesAny must reference defined roles`,
+    );
+    assert.ok(
+      ["contact", "negatedContact"].includes(rule.candidateNodeType),
+      `${rule.id} must use a supported contact node type`,
+    );
+    assertBusinessPresentation(rule.id, rule.presentation, ["candidateVar"]);
+  }
   for (const rule of rules.blockPortRoleRules ?? []) {
     assert.ok(rule.id, "block port role rule must define id");
     assert.ok(rule.blockTypes?.length > 0, `${rule.id} must define blockTypes`);
@@ -2019,6 +2055,104 @@ async function assertStableBusinessCases() {
   }
 }
 
+async function assertDeviceLoopCompletionCases() {
+  const pumpSuggestions = await suggestionsFor(
+    deviceLoopCompletionFixturePath,
+    "segment-pump-start",
+    "pump-start-coil",
+  );
+  const pumpReady = suggestionForVariable(
+    pumpSuggestions,
+    "Pump1_Ready",
+    "contact",
+  );
+  const pumpFault = suggestionForVariable(
+    pumpSuggestions,
+    "Pump1_Fault",
+    "negatedContact",
+  );
+  assert.ok(pumpReady, "a pump action loop should suggest its ready permissive");
+  assert.ok(pumpFault, "a pump action loop should suggest its fault interlock");
+  assert.match(pumpReady.title, /Pump1_Ready.*就绪许可/);
+  assert.match(pumpFault.title, /Pump1_Fault.*故障联锁/);
+  assert.match(pumpReady.text, /Pump1_Start/);
+  assert.match(pumpFault.text, /故障有效时切断动作许可/);
+  assert.equal(firstAddedNode(pumpReady)?.varName?.scope, "VAR");
+  assert.ok(pumpReady.startNodes.length > 0 && pumpReady.endNodes.length > 0);
+  assert.ok(
+    !pumpReady.startNodes.some((nodeId) => pumpReady.endNodes.includes(nodeId)),
+    "device-loop copy and binding must not alter topology boundaries",
+  );
+  assert.ok(
+    !suggestionForVariable(pumpSuggestions, "Pump1_Run_Feedback"),
+    "run feedback must not be inserted as a start permissive",
+  );
+
+  const existingReadySuggestions = await suggestionsFor(
+    deviceLoopCompletionFixturePath,
+    "segment-pump-existing-ready",
+    "pump2-command",
+  );
+  assert.ok(
+    !suggestionForVariable(existingReadySuggestions, "Pump2_Ready"),
+    "a ready signal already present upstream must not be suggested again",
+  );
+  assert.ok(
+    suggestionForVariable(
+      existingReadySuggestions,
+      "Pump2_Fault",
+      "negatedContact",
+    ),
+    "a different missing condition in the same device loop should remain available",
+  );
+
+  const commentSuggestions = await suggestionsFor(
+    deviceLoopCompletionFixturePath,
+    "segment-fan-comment",
+    "fan-command",
+  );
+  assert.ok(
+    suggestionForVariable(commentSuggestions, "X17", "contact"),
+    "comments should associate a non-semantic ready variable with its device command",
+  );
+  assert.ok(
+    suggestionForVariable(commentSuggestions, "X18", "negatedContact"),
+    "comments should associate a non-semantic fault variable with its device command",
+  );
+
+  const valveSuggestions = await suggestionsFor(
+    deviceLoopCompletionFixturePath,
+    "segment-valve-open",
+    "valve-command",
+  );
+  assert.ok(
+    suggestionForVariable(valveSuggestions, "Valve01_Ready", "contact"),
+    "the generic loop mechanism should support valve open commands",
+  );
+  assert.ok(
+    suggestionForVariable(
+      valveSuggestions,
+      "Valve01_Fault",
+      "negatedContact",
+    ),
+    "the generic loop mechanism should support valve fault interlocks",
+  );
+
+  const crossDeviceSuggestions = await suggestionsFor(
+    deviceLoopCompletionFixturePath,
+    "segment-cross-device",
+    "cross-command",
+  );
+  assert.ok(
+    !suggestionForVariable(crossDeviceSuggestions, "Pump_Ready"),
+    "conflicting explicit device ids must override a shared name stem",
+  );
+  assert.ok(
+    !suggestionForVariable(crossDeviceSuggestions, "Pump_Fault"),
+    "fault signals from another explicit device must not be mixed into the action loop",
+  );
+}
+
 async function assertTimestampDiagramWhenAvailable() {
   const diagramPath = findLatestTimestampDiagram();
   if (!diagramPath) {
@@ -2063,7 +2197,11 @@ async function assertTimestampDiagramWhenAvailable() {
   }
 }
 
-function assertBusinessPresentation(ruleId, presentation) {
+function assertBusinessPresentation(
+  ruleId,
+  presentation,
+  additionalPlaceholders = [],
+) {
   assert.ok(presentation, `${ruleId} must define presentation`);
   assert.ok(
     String(presentation.titleTemplate ?? "").trim(),
@@ -2083,6 +2221,7 @@ function assertBusinessPresentation(ruleId, presentation) {
     "placementAction",
     "placementText",
     "elementType",
+    ...additionalPlaceholders,
   ]);
   for (const template of [
     presentation.titleTemplate,
@@ -2120,6 +2259,17 @@ function suggestionForBlockType(suggestions, blockType) {
     return (
       node?.type === "FBDCompartment" &&
       String(node.childrenNode?.type ?? "").toUpperCase() === normalized
+    );
+  });
+}
+
+function suggestionForVariable(suggestions, variableName, nodeType) {
+  const normalized = String(variableName).toUpperCase();
+  return suggestions.find((suggestion) => {
+    const node = firstAddedNode(suggestion);
+    return (
+      (!nodeType || node?.type === nodeType) &&
+      String(node?.varName?.value ?? "").toUpperCase() === normalized
     );
   });
 }

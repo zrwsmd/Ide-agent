@@ -1,0 +1,185 @@
+[
+  {
+    "pouName": "PUMP_LOOP_MISSING_PERMISSIVES",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Start_Button", "type": "BOOL", "scope": "VAR", "comment": "1号泵启动按钮" },
+      { "name": "Pump1_Start", "type": "BOOL", "scope": "VAR", "comment": "1号泵启动命令" },
+      { "name": "Pump1_Ready", "type": "BOOL", "scope": "VAR", "comment": "1号泵就绪信号" },
+      { "name": "Pump1_Fault", "type": "BOOL", "scope": "VAR", "comment": "1号泵故障信号" },
+      { "name": "Pump1_Run_Feedback", "type": "BOOL", "scope": "VAR", "comment": "1号泵运行反馈" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-pump-start",
+        "label": "1号泵启动",
+        "note": "按下按钮启动水泵",
+        "nodesObj": {
+          "pump-start-line": { "id": "pump-start-line", "type": "startLine", "sourceIds": [], "targetIds": ["pump-start-button"] },
+          "pump-start-button": {
+            "id": "pump-start-button",
+            "type": "contact",
+            "sourceIds": ["pump-start-line"],
+            "targetIds": ["pump-start-coil"],
+            "varName": { "value": "Start_Button", "type": "BOOL", "scope": "VAR" }
+          },
+          "pump-start-coil": {
+            "id": "pump-start-coil",
+            "type": "coil",
+            "sourceIds": ["pump-start-button"],
+            "targetIds": ["pump-end-line"],
+            "varName": { "value": "Pump1_Start", "type": "BOOL", "scope": "VAR" }
+          },
+          "pump-end-line": { "id": "pump-end-line", "type": "endLine", "sourceIds": ["pump-start-coil"], "targetIds": [] }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "PUMP_LOOP_EXISTING_READY",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Start_Button", "type": "BOOL", "scope": "VAR" },
+      { "name": "Pump2_Start_Command", "type": "BOOL", "scope": "VAR", "comment": "2号泵启动命令" },
+      { "name": "Pump2_Ready", "type": "BOOL", "scope": "VAR", "comment": "2号泵就绪信号" },
+      { "name": "Pump2_Fault", "type": "BOOL", "scope": "VAR", "comment": "2号泵故障信号" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-pump-existing-ready",
+        "label": "2号泵启动",
+        "note": "就绪后启动",
+        "nodesObj": {
+          "pump2-start-line": { "id": "pump2-start-line", "type": "startLine", "sourceIds": [], "targetIds": ["pump2-button"] },
+          "pump2-button": {
+            "id": "pump2-button",
+            "type": "contact",
+            "sourceIds": ["pump2-start-line"],
+            "targetIds": ["pump2-ready"],
+            "varName": { "value": "Start_Button", "type": "BOOL", "scope": "VAR" }
+          },
+          "pump2-ready": {
+            "id": "pump2-ready",
+            "type": "contact",
+            "sourceIds": ["pump2-button"],
+            "targetIds": ["pump2-command"],
+            "varName": { "value": "Pump2_Ready", "type": "BOOL", "scope": "VAR" }
+          },
+          "pump2-command": {
+            "id": "pump2-command",
+            "type": "coil",
+            "sourceIds": ["pump2-ready"],
+            "targetIds": ["pump2-end-line"],
+            "varName": { "value": "Pump2_Start_Command", "type": "BOOL", "scope": "VAR" }
+          },
+          "pump2-end-line": { "id": "pump2-end-line", "type": "endLine", "sourceIds": ["pump2-command"], "targetIds": [] }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "FAN_LOOP_COMMENT_EVIDENCE",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "PB01", "type": "BOOL", "scope": "VAR", "comment": "1号风机启动按钮" },
+      { "name": "M101", "type": "BOOL", "scope": "VAR", "comment": "1号风机运行命令" },
+      { "name": "X17", "type": "BOOL", "scope": "VAR", "comment": "1号风机就绪信号" },
+      { "name": "X18", "type": "BOOL", "scope": "VAR", "comment": "1号风机故障信号" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-fan-comment",
+        "label": "风机控制",
+        "note": "按钮控制1号风机运行",
+        "nodesObj": {
+          "fan-start-line": { "id": "fan-start-line", "type": "startLine", "sourceIds": [], "targetIds": ["fan-button"] },
+          "fan-button": {
+            "id": "fan-button",
+            "type": "contact",
+            "sourceIds": ["fan-start-line"],
+            "targetIds": ["fan-command"],
+            "varName": { "value": "PB01", "type": "BOOL", "scope": "VAR" }
+          },
+          "fan-command": {
+            "id": "fan-command",
+            "type": "coil",
+            "sourceIds": ["fan-button"],
+            "targetIds": ["fan-end-line"],
+            "varName": { "value": "M101", "type": "BOOL", "scope": "VAR" }
+          },
+          "fan-end-line": { "id": "fan-end-line", "type": "endLine", "sourceIds": ["fan-command"], "targetIds": [] }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "VALVE_LOOP_GENERIC_ACTION",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Open_Request", "type": "BOOL", "scope": "VAR" },
+      { "name": "Valve01_Open_Command", "type": "BOOL", "scope": "VAR", "comment": "1号阀开阀命令" },
+      { "name": "Valve01_Ready", "type": "BOOL", "scope": "VAR", "comment": "1号阀就绪信号" },
+      { "name": "Valve01_Fault", "type": "BOOL", "scope": "VAR", "comment": "1号阀故障信号" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-valve-open",
+        "label": "1号阀开阀",
+        "note": "收到请求后打开阀门",
+        "nodesObj": {
+          "valve-start-line": { "id": "valve-start-line", "type": "startLine", "sourceIds": [], "targetIds": ["valve-request"] },
+          "valve-request": {
+            "id": "valve-request",
+            "type": "contact",
+            "sourceIds": ["valve-start-line"],
+            "targetIds": ["valve-command"],
+            "varName": { "value": "Open_Request", "type": "BOOL", "scope": "VAR" }
+          },
+          "valve-command": {
+            "id": "valve-command",
+            "type": "coil",
+            "sourceIds": ["valve-request"],
+            "targetIds": ["valve-end-line"],
+            "varName": { "value": "Valve01_Open_Command", "type": "BOOL", "scope": "VAR" }
+          },
+          "valve-end-line": { "id": "valve-end-line", "type": "endLine", "sourceIds": ["valve-command"], "targetIds": [] }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "CROSS_DEVICE_LOOP",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Start_Button", "type": "BOOL", "scope": "VAR" },
+      { "name": "Pump_Start", "type": "BOOL", "scope": "VAR", "deviceId": "Pump-A", "groupId": "Run", "comment": "水泵启动命令" },
+      { "name": "Pump_Ready", "type": "BOOL", "scope": "VAR", "deviceId": "Pump-B", "groupId": "Run", "comment": "水泵就绪信号" },
+      { "name": "Pump_Fault", "type": "BOOL", "scope": "VAR", "deviceId": "Pump-B", "groupId": "Run", "comment": "水泵故障信号" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-cross-device",
+        "label": "水泵启动",
+        "note": "不同设备的反馈不得混用",
+        "nodesObj": {
+          "cross-start-line": { "id": "cross-start-line", "type": "startLine", "sourceIds": [], "targetIds": ["cross-button"] },
+          "cross-button": {
+            "id": "cross-button",
+            "type": "contact",
+            "sourceIds": ["cross-start-line"],
+            "targetIds": ["cross-command"],
+            "varName": { "value": "Start_Button", "type": "BOOL", "scope": "VAR" }
+          },
+          "cross-command": {
+            "id": "cross-command",
+            "type": "coil",
+            "sourceIds": ["cross-button"],
+            "targetIds": ["cross-end-line"],
+            "varName": { "value": "Pump_Start", "type": "BOOL", "scope": "VAR" }
+          },
+          "cross-end-line": { "id": "cross-end-line", "type": "endLine", "sourceIds": ["cross-command"], "targetIds": [] }
+        }
+      }
+    ]
+  }
+]

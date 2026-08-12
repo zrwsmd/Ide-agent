@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "ide-agent.business-rules.v9",
+  "schemaVersion": "ide-agent.business-rules.v10",
   "enabled": true,
   "defaultBlocks": ["TON", "TOF", "TP", "R_TRIG", "F_TRIG", "CTU", "CTD", "CTUD", "SR", "RS"],
   "dataTypeGroups": {
@@ -49,6 +49,8 @@
     { "term": "fault", "literalPatterns": ["fault", "error", "fail", "故障", "错误", "异常"], "regexPatterns": [] },
     { "term": "healthy", "literalPatterns": ["正常", "健康", "完好"], "regexPatterns": ["(?:^|[^a-z0-9])(?:ok|ready|healthy|normal|closed)(?:$|[^a-z0-9])"] },
     { "term": "interlock", "literalPatterns": ["interlock", "互锁", "联锁"], "regexPatterns": [] },
+    { "term": "open", "literalPatterns": ["开门", "开阀", "打开"], "regexPatterns": ["(?:^|[^a-z0-9])open(?:$|[^a-z0-9])"] },
+    { "term": "extend", "literalPatterns": ["伸出", "推出"], "regexPatterns": ["(?:^|[^a-z0-9])extend(?:$|[^a-z0-9])"] },
     { "term": "latch", "literalPatterns": ["latch", "latched", "锁存", "自保持", "状态保持", "故障保持", "报警保持"], "regexPatterns": [] },
     { "term": "limit", "literalPatterns": ["limit", "clamp", "限幅", "上下限", "范围限制"], "regexPatterns": [] },
     { "term": "comparison", "literalPatterns": ["compare", "comparison", "比较", "大于", "小于", "等于", "不等于", "阈值"], "regexPatterns": [] },
@@ -164,10 +166,10 @@
         "acceptedDataTypes": ["BOOL"],
         "minScore": 4,
         "sources": [
-          { "source": "name", "literalPatterns": ["command", "request"], "regexPatterns": ["(?:^|[^a-z0-9])(?:cmd|req)(?:$|[^a-z0-9])"], "score": 4 },
-          { "source": "label", "literalPatterns": ["启动命令", "停止命令", "执行命令", "控制命令", "动作命令", "启动请求", "停止请求", "运行请求", "开门请求", "开阀请求", "手动强启", "command signal"], "regexPatterns": [], "score": 5 },
-          { "source": "note", "literalPatterns": ["启动命令", "停止命令", "执行命令", "控制命令", "动作命令", "启动请求", "停止请求", "运行请求", "开门请求", "开阀请求", "手动强启", "command signal"], "regexPatterns": [], "score": 5 },
-          { "source": "comment", "literalPatterns": ["启动命令", "停止命令", "执行命令", "控制命令", "动作命令", "启动请求", "停止请求", "运行请求", "开门请求", "开阀请求", "手动强启", "command signal"], "regexPatterns": [], "score": 5 }
+          { "source": "name", "literalPatterns": ["command", "request"], "regexPatterns": ["(?:^|[^a-z0-9])(?:cmd|req)(?:$|[^a-z0-9])", "(?:^|[_\\-.\\s])(?:start|run|enable|open|extend)$"], "score": 4 },
+          { "source": "label", "literalPatterns": ["启动命令", "运行命令", "使能命令", "停止命令", "执行命令", "控制命令", "动作命令", "开门命令", "开阀命令", "伸出命令", "启动请求", "停止请求", "运行请求", "开门请求", "开阀请求", "伸出请求", "手动强启", "command signal"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["启动命令", "运行命令", "使能命令", "停止命令", "执行命令", "控制命令", "动作命令", "开门命令", "开阀命令", "伸出命令", "启动请求", "停止请求", "运行请求", "开门请求", "开阀请求", "伸出请求", "手动强启", "command signal"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["启动命令", "运行命令", "使能命令", "停止命令", "执行命令", "控制命令", "动作命令", "开门命令", "开阀命令", "伸出命令", "启动请求", "停止请求", "运行请求", "开门请求", "开阀请求", "伸出请求", "手动强启", "command signal"], "regexPatterns": [], "score": 5 }
         ]
       },
       {
@@ -268,10 +270,10 @@
         "acceptedDataTypes": ["BOOL"],
         "minScore": 4,
         "sources": [
-          { "source": "name", "literalPatterns": ["ready", "available", "standby"], "regexPatterns": ["(?:^|[^a-z0-9])(?:ready|available|standby)(?:$|[^a-z0-9])"], "score": 4 },
-          { "source": "label", "literalPatterns": ["设备就绪", "就绪信号", "可用状态", "可用信号", "待机可用", "ready signal"], "regexPatterns": [], "score": 5 },
-          { "source": "note", "literalPatterns": ["设备就绪", "就绪信号", "可用状态", "可用信号", "待机可用", "ready signal"], "regexPatterns": [], "score": 5 },
-          { "source": "comment", "literalPatterns": ["设备就绪", "就绪信号", "可用状态", "可用信号", "待机可用", "ready signal"], "regexPatterns": [], "score": 5 }
+          { "source": "name", "literalPatterns": ["ready", "available", "standby", "healthy"], "regexPatterns": ["(?:^|[^a-z0-9])(?:ready|available|standby|healthy)(?:$|[^a-z0-9])"], "score": 4 },
+          { "source": "label", "literalPatterns": ["设备就绪", "就绪信号", "设备健康", "健康状态", "可用状态", "可用信号", "待机可用", "ready signal", "healthy signal"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["设备就绪", "就绪信号", "设备健康", "健康状态", "可用状态", "可用信号", "待机可用", "ready signal", "healthy signal"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["设备就绪", "就绪信号", "设备健康", "健康状态", "可用状态", "可用信号", "待机可用", "ready signal", "healthy signal"], "regexPatterns": [], "score": 5 }
         ]
       },
       {
@@ -645,6 +647,42 @@
       },
       "evidenceBlockTypesAny": ["MC_Reset", "MC_Home", "MC_MoveAbsolute", "MC_MoveRelative", "MC_Stop", "MC_Halt"],
       "targetBlockTypes": ["MC_Reset", "MC_Home", "MC_MoveAbsolute", "MC_MoveRelative", "MC_Stop", "MC_Halt"]
+    }
+  ],
+  "deviceLoopRules": [
+    {
+      "id": "DL01-action-ready-permissive",
+      "status": "active",
+      "anchorRolesAny": ["commandSignal"],
+      "anchorTermsAny": ["start", "run", "enable", "open", "extend"],
+      "candidateRolesAny": ["readySignal"],
+      "candidateNodeType": "contact",
+      "allowedPositions": ["front", "behind", "outsideFront", "outsideBehind"],
+      "excludedTerms": ["stop", "reset", "safety"],
+      "priority": 100,
+      "businessName": "设备就绪许可",
+      "reason": "动作命令与候选就绪信号属于同一设备，且当前命令路径尚未使用该信号",
+      "presentation": {
+        "titleTemplate": "{placementAction} {candidateVar} 就绪许可",
+        "textTemplate": "{actionName} 动作回路尚未使用同一设备的就绪信号 {candidateVar}；{placementText}，设备就绪后才允许动作。"
+      }
+    },
+    {
+      "id": "DL02-action-fault-interlock",
+      "status": "active",
+      "anchorRolesAny": ["commandSignal"],
+      "anchorTermsAny": ["start", "run", "enable", "open", "extend"],
+      "candidateRolesAny": ["faultSignal"],
+      "candidateNodeType": "negatedContact",
+      "allowedPositions": ["front", "behind", "outsideFront", "outsideBehind"],
+      "excludedTerms": ["stop", "reset", "safety"],
+      "priority": 100,
+      "businessName": "设备故障联锁",
+      "reason": "动作命令与候选故障信号属于同一设备，且当前命令路径尚未使用该信号",
+      "presentation": {
+        "titleTemplate": "{placementAction} {candidateVar} 故障联锁",
+        "textTemplate": "{actionName} 动作回路尚未使用同一设备的故障信号 {candidateVar}；{placementText}，故障有效时切断动作许可。"
+      }
     }
   ],
   "contactPolarityRules": [
@@ -1668,12 +1706,6 @@
     }
   ],
   "plannedRules": [
-    {
-      "id": "V2-device-command-feedback",
-      "status": "planned",
-      "capabilityNeeded": ["DeviceModel", "deviceId", "signalRole"],
-      "fallback": "不跨设备自动选择变量。"
-    },
     {
       "id": "V2-motor-valve-cylinder-template",
       "status": "planned",
