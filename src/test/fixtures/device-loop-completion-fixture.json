@@ -225,6 +225,8 @@
     "variableList": [
       { "name": "Station01_Clamp_Request", "type": "BOOL", "scope": "VAR", "comment": "夹紧工位动作请求" },
       { "name": "Station01_Clamp_Cmd", "type": "BOOL", "scope": "VAR", "comment": "夹紧动作命令" },
+      { "name": "Station01_Clamp_Ready", "type": "BOOL", "scope": "VAR", "comment": "夹紧执行机构就绪" },
+      { "name": "Station01_Clamp_Fault", "type": "BOOL", "scope": "VAR", "comment": "夹紧执行机构故障" },
       { "name": "Station01_Clamp_Permit", "type": "BOOL", "scope": "VAR", "comment": "夹紧动作许可" },
       { "name": "Station01_Push_Permit", "type": "BOOL", "scope": "VAR", "comment": "推料动作许可" },
       { "name": "Station01_Clamp_Block", "type": "BOOL", "scope": "VAR", "comment": "夹紧动作阻断" },

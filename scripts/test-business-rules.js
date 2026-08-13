@@ -2295,6 +2295,14 @@ async function assertDeviceLoopCompletionCases() {
     "a station action should suggest its same-device action permit",
   );
   assert.ok(
+    suggestionForVariable(stationSuggestions, "Station01_Clamp_Ready", "contact"),
+    "a clamp action should suggest its same-device ready permissive",
+  );
+  assert.ok(
+    suggestionForVariable(stationSuggestions, "Station01_Clamp_Fault", "negatedContact"),
+    "a clamp action should suggest its same-device fault interlock",
+  );
+  assert.ok(
     suggestionForVariable(stationSuggestions, "Station01_Clamp_Block", "negatedContact"),
     "a station action should suggest a normally-closed action block",
   );
