@@ -1,0 +1,153 @@
+[
+  {
+    "pouName": "VALVE_OPEN_CLOSE_INTERLOCK",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Valve01_Open_Request", "type": "BOOL", "scope": "VAR", "deviceId": "Valve-01", "groupId": "Open", "comment": "1号阀开阀请求" },
+      { "name": "Valve01_Open_Cmd", "type": "BOOL", "scope": "VAR", "deviceId": "Valve-01", "groupId": "Open", "comment": "1号阀开阀命令" },
+      { "name": "Valve01_Close_Cmd", "type": "BOOL", "scope": "VAR", "deviceId": "Valve-01", "groupId": "Close", "comment": "1号阀关阀命令" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-valve-open-close",
+        "label": "1号阀开阀控制",
+        "note": "开阀与关阀不得同时输出",
+        "nodesObj": {
+          "valve-start": { "id": "valve-start", "type": "startLine", "sourceIds": [], "targetIds": ["valve-request"] },
+          "valve-request": { "id": "valve-request", "type": "contact", "sourceIds": ["valve-start"], "targetIds": ["valve-open-command"], "varName": { "value": "Valve01_Open_Request", "type": "BOOL", "scope": "VAR" } },
+          "valve-open-command": { "id": "valve-open-command", "type": "coil", "sourceIds": ["valve-request"], "targetIds": ["valve-end"], "varName": { "value": "Valve01_Open_Cmd", "type": "BOOL", "scope": "VAR" } },
+          "valve-end": { "id": "valve-end", "type": "endLine", "sourceIds": ["valve-open-command"], "targetIds": [] }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "MOTOR_FORWARD_REVERSE_INTERLOCK",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Motor01_Forward_Request", "type": "BOOL", "scope": "VAR", "comment": "1号电机正转请求" },
+      { "name": "Motor01_Forward_Cmd", "type": "BOOL", "scope": "VAR", "comment": "1号电机正转命令" },
+      { "name": "Motor01_Reverse_Cmd", "type": "BOOL", "scope": "VAR", "comment": "1号电机反转命令" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-motor-forward-reverse",
+        "label": "1号电机正转控制",
+        "note": "正反转互锁",
+        "nodesObj": {
+          "motor-start": { "id": "motor-start", "type": "startLine", "sourceIds": [], "targetIds": ["motor-request"] },
+          "motor-request": { "id": "motor-request", "type": "contact", "sourceIds": ["motor-start"], "targetIds": ["motor-forward-command"], "varName": { "value": "Motor01_Forward_Request", "type": "BOOL", "scope": "VAR" } },
+          "motor-forward-command": { "id": "motor-forward-command", "type": "coil", "sourceIds": ["motor-request"], "targetIds": ["motor-end"], "varName": { "value": "Motor01_Forward_Cmd", "type": "BOOL", "scope": "VAR" } },
+          "motor-end": { "id": "motor-end", "type": "endLine", "sourceIds": ["motor-forward-command"], "targetIds": [] }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "VALVE_EXISTING_OPPOSITE_INTERLOCK",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Valve02_Open_Request", "type": "BOOL", "scope": "VAR", "deviceId": "Valve-02", "groupId": "Open", "comment": "2号阀开阀请求" },
+      { "name": "Valve02_Open_Cmd", "type": "BOOL", "scope": "VAR", "deviceId": "Valve-02", "groupId": "Open", "comment": "2号阀开阀命令" },
+      { "name": "Valve02_Close_Cmd", "type": "BOOL", "scope": "VAR", "deviceId": "Valve-02", "groupId": "Close", "comment": "2号阀关阀命令" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-existing-opposite",
+        "label": "2号阀已有关阀互锁",
+        "nodesObj": {
+          "existing-start": { "id": "existing-start", "type": "startLine", "sourceIds": [], "targetIds": ["existing-request"] },
+          "existing-request": { "id": "existing-request", "type": "contact", "sourceIds": ["existing-start"], "targetIds": ["existing-close-interlock"], "varName": { "value": "Valve02_Open_Request", "type": "BOOL", "scope": "VAR" } },
+          "existing-close-interlock": { "id": "existing-close-interlock", "type": "negatedContact", "sourceIds": ["existing-request"], "targetIds": ["existing-open-command"], "varName": { "value": "Valve02_Close_Cmd", "type": "BOOL", "scope": "VAR" } },
+          "existing-open-command": { "id": "existing-open-command", "type": "coil", "sourceIds": ["existing-close-interlock"], "targetIds": ["existing-end"], "varName": { "value": "Valve02_Open_Cmd", "type": "BOOL", "scope": "VAR" } },
+          "existing-end": { "id": "existing-end", "type": "endLine", "sourceIds": ["existing-open-command"], "targetIds": [] }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "CYLINDER_FEEDBACK_NOT_COMMAND",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Cylinder01_Extend_Request", "type": "BOOL", "scope": "VAR", "deviceId": "Cylinder-01", "groupId": "Extend", "comment": "1号气缸伸出请求" },
+      { "name": "Cylinder01_Extend_Cmd", "type": "BOOL", "scope": "VAR", "deviceId": "Cylinder-01", "groupId": "Extend", "comment": "1号气缸伸出命令" },
+      { "name": "Cylinder01_Retract_Done", "type": "BOOL", "scope": "VAR", "deviceId": "Cylinder-01", "groupId": "Retract", "comment": "1号气缸缩回到位反馈" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-feedback-not-command",
+        "label": "气缸伸出控制",
+        "nodesObj": {
+          "feedback-start": { "id": "feedback-start", "type": "startLine", "sourceIds": [], "targetIds": ["feedback-request"] },
+          "feedback-request": { "id": "feedback-request", "type": "contact", "sourceIds": ["feedback-start"], "targetIds": ["feedback-command"], "varName": { "value": "Cylinder01_Extend_Request", "type": "BOOL", "scope": "VAR" } },
+          "feedback-command": { "id": "feedback-command", "type": "coil", "sourceIds": ["feedback-request"], "targetIds": ["feedback-end"], "varName": { "value": "Cylinder01_Extend_Cmd", "type": "BOOL", "scope": "VAR" } },
+          "feedback-end": { "id": "feedback-end", "type": "endLine", "sourceIds": ["feedback-command"], "targetIds": [] }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "CROSS_DEVICE_OPEN_CLOSE",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Shared_Open_Request", "type": "BOOL", "scope": "VAR", "deviceId": "Valve-A", "groupId": "Open", "comment": "A阀开阀请求" },
+      { "name": "Shared_Open_Cmd", "type": "BOOL", "scope": "VAR", "deviceId": "Valve-A", "groupId": "Open", "comment": "A阀开阀命令" },
+      { "name": "Shared_Close_Cmd", "type": "BOOL", "scope": "VAR", "deviceId": "Valve-B", "groupId": "Close", "comment": "B阀关阀命令" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-cross-device-opposite",
+        "label": "跨设备动作不得互锁",
+        "nodesObj": {
+          "cross-start": { "id": "cross-start", "type": "startLine", "sourceIds": [], "targetIds": ["cross-request"] },
+          "cross-request": { "id": "cross-request", "type": "contact", "sourceIds": ["cross-start"], "targetIds": ["cross-open-command"], "varName": { "value": "Shared_Open_Request", "type": "BOOL", "scope": "VAR" } },
+          "cross-open-command": { "id": "cross-open-command", "type": "coil", "sourceIds": ["cross-request"], "targetIds": ["cross-end"], "varName": { "value": "Shared_Open_Cmd", "type": "BOOL", "scope": "VAR" } },
+          "cross-end": { "id": "cross-end", "type": "endLine", "sourceIds": ["cross-open-command"], "targetIds": [] }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "SAME_DEVICE_NON_OPPOSITE",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Station01_Clamp_Request", "type": "BOOL", "scope": "VAR", "deviceId": "Station-01", "groupId": "Clamp", "comment": "1号工位夹紧请求" },
+      { "name": "Station01_Clamp_Cmd", "type": "BOOL", "scope": "VAR", "deviceId": "Station-01", "groupId": "Clamp", "comment": "1号工位夹紧命令" },
+      { "name": "Station01_Push_Cmd", "type": "BOOL", "scope": "VAR", "deviceId": "Station-01", "groupId": "Push", "comment": "1号工位推料命令" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-non-opposite",
+        "label": "同设备非相反动作",
+        "nodesObj": {
+          "non-opposite-start": { "id": "non-opposite-start", "type": "startLine", "sourceIds": [], "targetIds": ["non-opposite-request"] },
+          "non-opposite-request": { "id": "non-opposite-request", "type": "contact", "sourceIds": ["non-opposite-start"], "targetIds": ["non-opposite-command"], "varName": { "value": "Station01_Clamp_Request", "type": "BOOL", "scope": "VAR" } },
+          "non-opposite-command": { "id": "non-opposite-command", "type": "coil", "sourceIds": ["non-opposite-request"], "targetIds": ["non-opposite-end"], "varName": { "value": "Station01_Clamp_Cmd", "type": "BOOL", "scope": "VAR" } },
+          "non-opposite-end": { "id": "non-opposite-end", "type": "endLine", "sourceIds": ["non-opposite-command"], "targetIds": [] }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "SAFETY_GATE_OPPOSITE_ACTION",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "SafetyGate_Open_Request", "type": "BOOL", "scope": "VAR", "deviceId": "Safety-Gate", "groupId": "Open", "comment": "安全门打开请求" },
+      { "name": "SafetyGate_Open_Cmd", "type": "BOOL", "scope": "VAR", "deviceId": "Safety-Gate", "groupId": "Open", "comment": "安全门打开命令" },
+      { "name": "SafetyGate_Close_Cmd", "type": "BOOL", "scope": "VAR", "deviceId": "Safety-Gate", "groupId": "Close", "comment": "安全门关闭命令" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-safety-opposite",
+        "label": "安全门动作",
+        "note": "安全回路不由普通规则补全",
+        "nodesObj": {
+          "safety-start": { "id": "safety-start", "type": "startLine", "sourceIds": [], "targetIds": ["safety-request"] },
+          "safety-request": { "id": "safety-request", "type": "contact", "sourceIds": ["safety-start"], "targetIds": ["safety-open-command"], "varName": { "value": "SafetyGate_Open_Request", "type": "BOOL", "scope": "VAR" } },
+          "safety-open-command": { "id": "safety-open-command", "type": "coil", "sourceIds": ["safety-request"], "targetIds": ["safety-end"], "varName": { "value": "SafetyGate_Open_Cmd", "type": "BOOL", "scope": "VAR" } },
+          "safety-end": { "id": "safety-end", "type": "endLine", "sourceIds": ["safety-open-command"], "targetIds": [] }
+        }
+      }
+    ]
+  }
+]

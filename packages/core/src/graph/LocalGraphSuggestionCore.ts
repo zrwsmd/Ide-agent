@@ -190,6 +190,21 @@ interface BusinessDeviceLoopRuleConfig {
   businessName: string;
   reason: string;
   presentation?: BusinessPresentationConfig;
+  oppositeActionCandidates?: BusinessOppositeActionCandidatesConfig;
+}
+
+interface BusinessOppositeActionPairConfig {
+  id: string;
+  leftTerms: BusinessTerm[];
+  rightTerms: BusinessTerm[];
+}
+
+interface BusinessOppositeActionCandidatesConfig {
+  rolesAny: string[];
+  pairs: BusinessOppositeActionPairConfig[];
+  businessName: string;
+  reason: string;
+  presentation?: BusinessPresentationConfig;
 }
 
 interface BusinessFaultResponseRuleConfig {
@@ -311,6 +326,9 @@ interface DeviceLoopRoleCandidate {
   evidenceScore: number;
   associationKey: string;
   association: "groupId" | "deviceId" | "descriptionStem" | "nameStem";
+  relation?: "sameAction" | "oppositeAction";
+  relationRuleId?: string;
+  relationId?: string;
 }
 
 interface DeviceLoopContext {
@@ -621,7 +639,7 @@ const FALLBACK_TERM_IMPLICATIONS: BusinessTermImplicationConfig[] = [
 ];
 
 const FALLBACK_BUSINESS_RULES_CONFIG: BusinessRulesConfig = {
-  schemaVersion: "ide-agent.business-rules.v15",
+  schemaVersion: "ide-agent.business-rules.v16",
   enabled: true,
   defaultBlocks: FALLBACK_COMMON_FUNCTION_BLOCK_TYPES,
   dataTypeGroups: FALLBACK_DATA_TYPE_GROUPS,
@@ -736,6 +754,9 @@ function parseDeviceLoopRules(value: unknown): BusinessDeviceLoopRuleConfig[] {
       businessName: asStringConfig(item.businessName),
       reason: asStringConfig(item.reason),
       presentation: parseBusinessPresentation(item.presentation),
+      oppositeActionCandidates: parseOppositeActionCandidates(
+        item.oppositeActionCandidates,
+      ),
     }))
     .filter(
       (item) =>
@@ -746,6 +767,40 @@ function parseDeviceLoopRules(value: unknown): BusinessDeviceLoopRuleConfig[] {
         Boolean(item.businessName) &&
         Boolean(item.presentation),
     );
+}
+
+function parseOppositeActionCandidates(
+  value: unknown,
+): BusinessOppositeActionCandidatesConfig | undefined {
+  const record = asPlainRecord(value);
+  if (!record) {
+    return undefined;
+  }
+  const pairs = asArrayRecord(record.pairs)
+    .map((item) => ({
+      id: asStringConfig(item.id),
+      leftTerms: stringList(item.leftTerms),
+      rightTerms: stringList(item.rightTerms),
+    }))
+    .filter(
+      (pair) =>
+        Boolean(pair.id) &&
+        pair.leftTerms.length > 0 &&
+        pair.rightTerms.length > 0,
+    );
+  const config: BusinessOppositeActionCandidatesConfig = {
+    rolesAny: stringList(record.rolesAny),
+    pairs,
+    businessName: asStringConfig(record.businessName),
+    reason: asStringConfig(record.reason),
+    presentation: parseBusinessPresentation(record.presentation),
+  };
+  return config.rolesAny.length > 0 &&
+    config.pairs.length > 0 &&
+    Boolean(config.businessName) &&
+    Boolean(config.presentation)
+    ? config
+    : undefined;
 }
 
 function parseFaultResponseRules(value: unknown): BusinessFaultResponseRuleConfig[] {
@@ -1642,11 +1697,20 @@ function addDeviceLoopSuggestions(
 
   for (const rule of matchingRules) {
     const roleCandidates = deviceLoop.candidates.filter(
-      (candidate) =>
-        rule.candidateRolesAny.includes(candidate.role) &&
+      (candidate) => {
+        const isRuleOppositeAction =
+          candidate.relation === "oppositeAction" &&
+          candidate.relationRuleId === rule.id &&
+          Boolean(rule.oppositeActionCandidates?.rolesAny.includes(candidate.role));
+        return (
+          (isRuleOppositeAction ||
+            (candidate.relation !== "oppositeAction" &&
+              rule.candidateRolesAny.includes(candidate.role))) &&
         !deviceLoop.existingCommandPathReferences.has(
           normalizeReference(candidate.variableName),
-        ),
+        )
+        );
+      },
     );
     for (const candidate of roleCandidates) {
       for (const suggestion of suggestions) {
@@ -1671,13 +1735,26 @@ function addDeviceLoopSuggestions(
             ),
           },
         };
-        const presentation = rule.presentation
-          ? renderBusinessPresentation(rule.presentation, nextDraft, {
-              ruleId: `${rule.id}:${candidate.variableName}`,
+        const oppositeActionConfig =
+          candidate.relation === "oppositeAction"
+            ? rule.oppositeActionCandidates
+            : undefined;
+        const presentationConfig =
+          oppositeActionConfig?.presentation ?? rule.presentation;
+        const presentation = presentationConfig
+          ? renderBusinessPresentation(presentationConfig, nextDraft, {
+              ruleId: [
+                rule.id,
+                candidate.relationId,
+                candidate.variableName,
+              ]
+                .filter(Boolean)
+                .join(":"),
               confidence:
                 candidate.association === "nameStem" ? 90 : 98,
-              businessName: rule.businessName,
-              reason: rule.reason,
+              businessName:
+                oppositeActionConfig?.businessName ?? rule.businessName,
+              reason: oppositeActionConfig?.reason ?? rule.reason,
               actionName: deviceLoop.action.variableName,
               candidateVar: candidate.variableName,
             })
@@ -2910,6 +2987,13 @@ function analyzeDeviceLoopContext(
   const variablesByReference = new Map(
     variables.map((variable) => [normalizeReference(variable.name), variable]),
   );
+  const rolesByReference = new Map<string, Set<string>>();
+  for (const match of roleMatches) {
+    const reference = normalizeReference(match.variableName);
+    const roles = rolesByReference.get(reference) ?? new Set<string>();
+    roles.add(match.role);
+    rolesByReference.set(reference, roles);
+  }
   const candidates: DeviceLoopRoleCandidate[] = [];
   for (const match of roleMatches) {
     if (
@@ -2950,7 +3034,75 @@ function analyzeDeviceLoopContext(
       evidenceScore: match.score,
       associationKey: association.key,
       association: association.strategy,
+      relation: "sameAction",
     });
+  }
+
+  for (const rule of BUSINESS_RULES_CONFIG.deviceLoopRules) {
+    const oppositeConfig = rule.oppositeActionCandidates;
+    if (!oppositeConfig) {
+      continue;
+    }
+    for (const match of roleMatches) {
+      if (!oppositeConfig.rolesAny.includes(match.role)) {
+        continue;
+      }
+      const candidateReference = normalizeReference(match.variableName);
+      if (!candidateReference || candidateReference === anchorReference) {
+        continue;
+      }
+      const variable = variablesByReference.get(candidateReference);
+      if (!variable || normalizeDataType(variable.type) !== "BOOL") {
+        continue;
+      }
+      const candidateRoles = rolesByReference.get(candidateReference) ?? new Set();
+      if (
+        ["runFeedback", "completionSignal", "readySignal", "faultSignal"].some(
+          (role) => candidateRoles.has(role),
+        )
+      ) {
+        continue;
+      }
+      const candidateTerms = collectBusinessTerms(variableBusinessTexts(variable));
+      if (
+        candidateTerms.has("safety") ||
+        candidateTerms.has("fault") ||
+        candidateTerms.has("alarm") ||
+        candidateTerms.has("reset") ||
+        candidateTerms.has("stop")
+      ) {
+        continue;
+      }
+      const pair = oppositeActionPair(
+        anchorTerms,
+        candidateTerms,
+        oppositeConfig.pairs,
+      );
+      if (!pair) {
+        continue;
+      }
+      const association = strongestDeviceAssociation(
+        anchorRoleMatches,
+        match,
+        anchorVariable,
+        variable,
+      );
+      if (!association) {
+        continue;
+      }
+      candidates.push({
+        variableName: variable.name,
+        dataType: variable.type,
+        scope: variable.scope || "VAR",
+        role: match.role,
+        evidenceScore: match.score,
+        associationKey: association.key,
+        association: association.strategy,
+        relation: "oppositeAction",
+        relationRuleId: rule.id,
+        relationId: pair.id,
+      });
+    }
   }
 
   if (candidates.length === 0) {
@@ -3635,6 +3787,10 @@ const DEVICE_ACTION_TERMS = new Set([
   "cut",
   "release",
   "move",
+  "forward",
+  "reverse",
+  "heat",
+  "cool",
 ]);
 
 const DEVICE_ACTION_NAME_TOKENS = new Set([
@@ -3654,6 +3810,10 @@ const DEVICE_SPECIFIC_ACTION_TERMS = new Set([
   "cut",
   "release",
   "move",
+  "forward",
+  "reverse",
+  "heat",
+  "cool",
 ]);
 
 function hasDeviceActionTerm(terms: Set<BusinessTerm>): boolean {
@@ -3675,6 +3835,25 @@ function hasConflictingDeviceActionTerms(
     candidateActions.length > 0 &&
     !anchorActions.some((term) => candidateActions.includes(term))
   );
+}
+
+function oppositeActionPair(
+  anchorTerms: Set<BusinessTerm>,
+  candidateTerms: Set<BusinessTerm>,
+  pairs: BusinessOppositeActionPairConfig[],
+): BusinessOppositeActionPairConfig | undefined {
+  return pairs.find((pair) => {
+    const anchorLeft = pair.leftTerms.some((term) => anchorTerms.has(term));
+    const anchorRight = pair.rightTerms.some((term) => anchorTerms.has(term));
+    const candidateLeft = pair.leftTerms.some((term) => candidateTerms.has(term));
+    const candidateRight = pair.rightTerms.some((term) =>
+      candidateTerms.has(term),
+    );
+    return (
+      (anchorLeft && !anchorRight && candidateRight && !candidateLeft) ||
+      (anchorRight && !anchorLeft && candidateLeft && !candidateRight)
+    );
+  });
 }
 
 function findDeviceCommandAnchorNode(
@@ -3791,8 +3970,9 @@ function deviceDescriptionStem(
           "启动命令", "运行命令", "使能命令", "执行命令", "控制命令",
           "动作命令", "启动请求", "运行请求", "开门请求", "开阀请求",
           "伸出请求", "command", "request", "start", "run", "enable",
-          "open", "extend", "cmd", "req", "命令", "请求", "启动", "运行",
-          "使能", "开门", "开阀", "伸出",
+          "open", "extend", "forward", "reverse", "heat", "cool", "cmd", "req",
+          "命令", "请求", "启动", "运行", "使能", "开门", "开阀", "伸出",
+          "正转", "反转", "加热", "冷却",
         ]
       : role === "startCommand"
         ? [
@@ -3894,8 +4074,9 @@ function deviceDescriptionStem(
   }
   for (const phrase of [
     "clamp", "retract", "extend", "open", "close", "push", "feed", "seal",
-    "cut", "release", "move", "夹紧", "缩回", "伸出", "开门", "开阀", "关门",
-    "关阀", "推料", "送料", "封口", "切断", "释放", "动作",
+    "cut", "release", "move", "forward", "reverse", "heat", "cool", "夹紧",
+    "缩回", "伸出", "开门", "开阀", "关门", "关阀", "推料", "送料",
+    "封口", "切断", "释放", "正转", "反转", "加热", "冷却", "动作",
   ]) {
     normalized = normalized.replaceAll(phrase, "");
   }
@@ -3909,7 +4090,7 @@ function deviceVariableNameStem(name: string, role: string): string {
     .filter(Boolean);
   const roleTokens = new Set(
     role === "commandSignal"
-      ? ["command", "cmd", "request", "req", "start", "run", "enable", "open", "extend"]
+      ? ["command", "cmd", "request", "req", "start", "run", "enable", "open", "extend", "forward", "reverse", "heat", "cool"]
       : role === "readySignal"
         ? ["ready", "available", "standby", "healthy", "status", "signal"]
         : role === "completionSignal"
@@ -3987,7 +4168,10 @@ function dedupeDeviceLoopCandidates(
 ): DeviceLoopRoleCandidate[] {
   const seen = new Set<string>();
   return candidates.filter((candidate) => {
-    const key = `${normalizeReference(candidate.variableName)}:${candidate.role}`;
+    const key =
+      candidate.relation === "oppositeAction"
+        ? `${normalizeReference(candidate.variableName)}:oppositeAction:${candidate.relationRuleId}`
+        : `${normalizeReference(candidate.variableName)}:${candidate.role}`;
     if (seen.has(key)) {
       return false;
     }

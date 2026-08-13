@@ -47,6 +47,13 @@ const deviceLoopCompletionFixturePath = path.join(
   "fixtures",
   "device-loop-completion-fixture.json",
 );
+const oppositeActionInterlockFixturePath = path.join(
+  rootDir,
+  "src",
+  "test",
+  "fixtures",
+  "opposite-action-interlock-fixture.json",
+);
 const faultResponseCompletionFixturePath = path.join(
   rootDir,
   "src",
@@ -103,6 +110,7 @@ async function main() {
   await assertStableBusinessCases();
   await assertLoopSignatureCases();
   await assertDeviceLoopCompletionCases();
+  await assertOppositeActionInterlockCases();
   await assertFaultResponseCompletionCases();
   await assertFaultResetCompletionCases();
   await assertActionLifecycleCompletionCases();
@@ -113,7 +121,7 @@ async function main() {
 
 function assertActiveRuleCandidatesExistInLibrary() {
   const rules = JSON.parse(fs.readFileSync(rulesPath, "utf8"));
-  assert.equal(rules.schemaVersion, "ide-agent.business-rules.v15");
+  assert.equal(rules.schemaVersion, "ide-agent.business-rules.v16");
   assert.ok(
     (rules.deviceLoopRules ?? []).length >= 2,
     "deviceLoopRules must define generic ready and fault completion",
@@ -237,6 +245,27 @@ function assertActiveRuleCandidatesExistInLibrary() {
       `${rule.id} must use a supported contact node type`,
     );
     assertBusinessPresentation(rule.id, rule.presentation, ["candidateVar"]);
+    if (rule.oppositeActionCandidates) {
+      const opposite = rule.oppositeActionCandidates;
+      assert.ok(
+        opposite.rolesAny?.length > 0 &&
+          opposite.rolesAny.every((role) => definedRoles.has(role)),
+        `${rule.id} opposite-action roles must reference defined roles`,
+      );
+      assert.ok(
+        opposite.pairs?.length > 0 &&
+          opposite.pairs.every(
+            (pair) =>
+              pair.id && pair.leftTerms?.length > 0 && pair.rightTerms?.length > 0,
+          ),
+        `${rule.id} must define complete opposite-action pairs`,
+      );
+      assertBusinessPresentation(
+        `${rule.id}.oppositeActionCandidates`,
+        opposite.presentation,
+        ["candidateVar"],
+      );
+    }
   }
   for (const rule of rules.faultResponseRules ?? []) {
     assert.ok(rule.id, "fault response rule must define id");
@@ -385,6 +414,16 @@ function assertActiveRuleCandidatesExistInLibrary() {
     ...rules.termPatterns.map((entry) => entry.term),
     ...rules.derivedTerms.map((entry) => entry.term),
   ]);
+  for (const rule of rules.deviceLoopRules ?? []) {
+    for (const pair of rule.oppositeActionCandidates?.pairs ?? []) {
+      for (const term of [...pair.leftTerms, ...pair.rightTerms]) {
+        assert.ok(
+          definedTerms.has(term),
+          `${rule.id}/${pair.id} references undefined opposite-action term: ${term}`,
+        );
+      }
+    }
+  }
   for (const implication of rules.termImplications) {
     assert.ok(
       definedTerms.has(implication.ifMatched),
@@ -2452,6 +2491,82 @@ async function assertDeviceLoopCompletionCases() {
         String(firstAddedNode(suggestion)?.childrenNode?.type ?? "").toUpperCase() === "TON",
     ),
     "an action with completion feedback and timeout should retain the generic TON recommendation",
+  );
+}
+
+async function assertOppositeActionInterlockCases() {
+  const valveSuggestions = await suggestionsFor(
+    oppositeActionInterlockFixturePath,
+    "segment-valve-open-close",
+    "valve-open-command",
+  );
+  const closeInterlock = suggestionForVariable(
+    valveSuggestions,
+    "Valve01_Close_Cmd",
+    "negatedContact",
+  );
+  assert.ok(closeInterlock, "an open command should suggest the same valve close command as a normally-closed interlock");
+  assert.match(closeInterlock.title, /Valve01_Close_Cmd.*相反动作互锁/);
+  assert.match(closeInterlock.text, /Valve01_Open_Cmd.*Valve01_Close_Cmd.*避免两个方向同时输出/);
+
+  const motorSuggestions = await suggestionsFor(
+    oppositeActionInterlockFixturePath,
+    "segment-motor-forward-reverse",
+    "motor-forward-command",
+  );
+  assert.ok(
+    suggestionForVariable(motorSuggestions, "Motor01_Reverse_Cmd", "negatedContact"),
+    "forward and reverse commands should associate through a stable name stem without explicit ids",
+  );
+
+  const existingSuggestions = await suggestionsFor(
+    oppositeActionInterlockFixturePath,
+    "segment-existing-opposite",
+    "existing-open-command",
+  );
+  assert.ok(
+    !suggestionForVariable(existingSuggestions, "Valve02_Close_Cmd", "negatedContact"),
+    "an opposite command already present upstream must not be suggested again",
+  );
+
+  const feedbackSuggestions = await suggestionsFor(
+    oppositeActionInterlockFixturePath,
+    "segment-feedback-not-command",
+    "feedback-command",
+  );
+  assert.ok(
+    !suggestionForVariable(feedbackSuggestions, "Cylinder01_Retract_Done", "negatedContact"),
+    "an opposite-position feedback must not be treated as an opposite command",
+  );
+
+  const crossDeviceSuggestions = await suggestionsFor(
+    oppositeActionInterlockFixturePath,
+    "segment-cross-device-opposite",
+    "cross-open-command",
+  );
+  assert.ok(
+    !suggestionForVariable(crossDeviceSuggestions, "Shared_Close_Cmd", "negatedContact"),
+    "opposite actions with conflicting explicit device ids must not be paired",
+  );
+
+  const nonOppositeSuggestions = await suggestionsFor(
+    oppositeActionInterlockFixturePath,
+    "segment-non-opposite",
+    "non-opposite-command",
+  );
+  assert.ok(
+    !suggestionForVariable(nonOppositeSuggestions, "Station01_Push_Cmd", "negatedContact"),
+    "same-device actions not declared as opposites must not be interlocked",
+  );
+
+  const safetySuggestions = await suggestionsFor(
+    oppositeActionInterlockFixturePath,
+    "segment-safety-opposite",
+    "safety-open-command",
+  );
+  assert.ok(
+    !suggestionForVariable(safetySuggestions, "SafetyGate_Close_Cmd", "negatedContact"),
+    "ordinary opposite-action completion must not generate safety logic",
   );
 }
 

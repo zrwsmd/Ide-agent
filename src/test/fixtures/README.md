@@ -16,6 +16,7 @@
 | `fault-reset-completion-fixture.json` | ALC-04：故障锁存缺独立复位路径 | 独立复位条件存在，且同设备同动作已有故障置位线圈时，推荐绑定同一变量的复位线圈 | 已有复位、只有变量但没有真实置位线圈、跨设备、跨动作组和安全场景均不推荐；无显式 ID 时验证稳定名称词干回退 |
 | `action-lifecycle-completion-fixture.json` | ALC-05：启停缺自保持或释放逻辑 | 启动触点驱动普通动作输出时推荐并联自保持触点和前串联停止常闭触点；独立停止条件对应置位动作时推荐同变量复位线圈 | 已有自保持或复位不得重复推荐；没有真实动作输出时不得凭按钮猜测完整回路；跨设备、跨动作和安全场景不得补全 |
 | `counter-completion-lifecycle-fixture.json` | ALC-06B-1：真实计数器完成后缺批次完成输出 | CTU/CTD/CTUD 的唯一已绑定 BOOL 完成端口存在同组批次完成变量时推荐普通线圈；明确锁存变量时推荐置位线圈；无显式 ID 时验证稳定名称词干回退 | 已有输出不得重复推荐；跨设备/批次、没有真实计数器、完成端口未绑定和安全场景不得补全 |
+| `opposite-action-interlock-fixture.json` | ALC-06B-2：同设备相反动作缺互锁 | 开/关使用显式 `deviceId` 归属，正/反使用稳定名称词干回退，缺少互锁时绑定相反命令生成常闭触点 | 已有互锁不得重复推荐；到位反馈不得作为命令互锁；跨设备、同设备非相反动作和安全场景不得补全 |
 | `edit-rect-boundaries.json` | 图拓扑和插入边界回归 | 验证 `edit-node-rect`、前/后串联、并联及并联汇合点外侧插入所使用的 `startNodes/endNodes` | `startNodes` 与 `endNodes` 不得相同；并联分支中间节点不得得到外侧后串联；外侧插入不得破坏既有分支和线圈连接 |
 
 ## ALC 路线对应关系
@@ -28,6 +29,7 @@
 | ALC-04 | `fault-reset-completion-fixture.json` | 故障锁存已有置位路径但缺少独立复位路径时补充复位线圈 |
 | ALC-05 | `action-lifecycle-completion-fixture.json` | 启停动作缺少自保持、停止释放或置位动作复位时补充对应节点 |
 | ALC-06B-1 | `counter-completion-lifecycle-fixture.json` | 真实计数器完成端口已绑定、但同设备/批次完成状态尚未输出时补充普通或置位线圈 |
+| ALC-06B-2 | `opposite-action-interlock-fixture.json` | 同设备开/关、伸/缩、正/反或加热/冷却命令缺少互斥条件时补充绑定相反命令的常闭触点 |
 
 完整阶段定义和实现状态参见 `docs/action-lifecycle-completion-roadmap.md`。
 

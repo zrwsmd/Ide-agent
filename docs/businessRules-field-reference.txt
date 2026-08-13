@@ -36,7 +36,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 
 表示规则文件的结构版本，例如：
 
-    "schemaVersion": "ide-agent.business-rules.v15"
+    "schemaVersion": "ide-agent.business-rules.v16"
 
 它用于区分配置格式版本，不是规则优先级，也不是候选分数。升级字段结构时应同步升级版本号。
 
@@ -453,6 +453,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 - 同动作组存在 `permitSignal`，动作路径未使用时，绑定该变量生成常开触点。
 - 同动作组存在 `inhibitSignal`，动作路径未使用时，绑定该变量生成常闭触点。
 - 同输送区段或工位存在 `presenceSignal`，动作路径未使用时，绑定该变量生成常开触点。
+- 同设备存在配置中明确声明的相反命令或动作输出，例如开/关、伸/缩、正/反、加热/冷却，路径未使用时绑定相反动作变量生成常闭触点。
 
 字段：
 
@@ -467,6 +468,10 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 - `priority`：多个设备闭环规则同时命中时的业务优先级。
 - `businessName` / `reason`：业务标题和解释信息。
 - `presentation`：业务文案模板，除通用占位符外支持 `{candidateVar}` 表示实际绑定的候选变量名。
+- `oppositeActionCandidates`：可选的相反动作候选配置。它只增强当前设备闭环规则，不是另一套触点极性规则。
+  - `rolesAny`：相反动作候选必须具备的变量角色，当前为 `commandSignal` 或 `actionOutput`。
+  - `pairs`：配置化动作对；每项用 `id`、`leftTerms`、`rightTerms` 声明两侧动作术语，例如 `open` 与 `close`。
+  - `businessName` / `reason` / `presentation`：相反动作建议使用的独立业务文案；节点仍沿用所属 `deviceLoopRule` 的 `candidateNodeType`，`DL04` 因而继续生成常闭触点。
 
 同一设备的判断顺序是：明确的 `groupId`、`deviceId` 优先；没有明确标识时，再使用变量名公共部分和变量注释/标签中稳定的设备描述。两个变量各自有冲突的明确设备标识时，不会因名字相似而混用。同一工位包含多个动作时还会比较明确动作术语，例如夹紧命令不会使用同工位的推料许可。
 
@@ -485,6 +490,8 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 输送区段示例：`ConveyorA_Run_Cmd` 可以使用同组的 `ConveyorA_Run_Permit` 常开触点、`ConveyorA_Jam` 常闭触点和 `ConveyorA_Occupied` 常开触点；`ConveyorA_Run_FB` 是动作结果反馈，不会被错误地串在运行命令前面。
 
 工位动作示例：`Station01_Clamp_Cmd` 可以使用 `Station01_Clamp_Permit`，但不会因为公共前缀相同而使用 `Station01_Push_Permit`。安全、急停和风险控制仍不由这些普通业务规则自动生成。
+
+相反动作示例：当前输出为 `Valve01_Open_Cmd`，同一 `deviceId` 下存在 `Valve01_Close_Cmd`，且两者分别命中 `open/close` 动作对时，系统会建议绑定 `Valve01_Close_Cmd` 的常闭触点。`Cylinder01_Retract_Done` 即使带有“缩回”文字，因为角色是到位反馈而不是命令/动作输出，也不会被当作伸出命令的互锁。不同 `deviceId`、夹紧与推料这类未声明为相反动作的组合、已有相反动作触点和安全回路同样不建议。
 
 
 ### 10.2 `faultResponseRules`

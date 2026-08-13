@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "ide-agent.business-rules.v15",
+  "schemaVersion": "ide-agent.business-rules.v16",
   "enabled": true,
   "defaultBlocks": ["TON", "TOF", "TP", "R_TRIG", "F_TRIG", "CTU", "CTD", "CTUD", "SR", "RS"],
   "dataTypeGroups": {
@@ -53,6 +53,10 @@
     { "term": "clamp", "literalPatterns": ["clamp", "夹紧", "夹持"], "regexPatterns": ["(?:^|[^a-z0-9])clamp(?:$|[^a-z0-9])"] },
     { "term": "retract", "literalPatterns": ["retract", "缩回", "退回"], "regexPatterns": ["(?:^|[^a-z0-9])retract(?:$|[^a-z0-9])"] },
     { "term": "close", "literalPatterns": ["close", "关门", "关阀", "关闭"], "regexPatterns": ["(?:^|[^a-z0-9])close(?:$|[^a-z0-9])"] },
+    { "term": "forward", "literalPatterns": ["正转", "前进"], "regexPatterns": ["(?:^|[^a-z0-9])forward(?:$|[^a-z0-9])"] },
+    { "term": "reverse", "literalPatterns": ["反转", "后退"], "regexPatterns": ["(?:^|[^a-z0-9])reverse(?:$|[^a-z0-9])"] },
+    { "term": "heat", "literalPatterns": ["加热", "升温"], "regexPatterns": ["(?:^|[^a-z0-9])heat(?:ing)?(?:$|[^a-z0-9])"] },
+    { "term": "cool", "literalPatterns": ["冷却", "降温"], "regexPatterns": ["(?:^|[^a-z0-9])cool(?:ing)?(?:$|[^a-z0-9])"] },
     { "term": "push", "literalPatterns": ["push", "推料", "推出", "推送"], "regexPatterns": ["(?:^|[^a-z0-9])push(?:$|[^a-z0-9])"] },
     { "term": "feed", "literalPatterns": ["feed", "送料", "进料", "给料"], "regexPatterns": ["(?:^|[^a-z0-9])feed(?:$|[^a-z0-9])"] },
     { "term": "seal", "literalPatterns": ["seal", "封口", "封装"], "regexPatterns": ["(?:^|[^a-z0-9])seal(?:$|[^a-z0-9])"] },
@@ -195,10 +199,10 @@
         "acceptedDataTypes": ["BOOL"],
         "minScore": 4,
         "sources": [
-          { "source": "name", "literalPatterns": ["command", "request"], "regexPatterns": ["(?:^|[^a-z0-9])(?:cmd|req)(?:$|[^a-z0-9])", "(?:^|[_\\-.\\s])(?:start|run|enable|open|extend)$"], "score": 4 },
-          { "source": "label", "literalPatterns": ["启动命令", "运行命令", "使能命令", "停止命令", "执行命令", "控制命令", "动作命令", "开门命令", "开阀命令", "伸出命令", "夹紧命令", "缩回命令", "推料命令", "送料命令", "封口命令", "切断命令", "释放命令", "启动请求", "停止请求", "运行请求", "开门请求", "开阀请求", "伸出请求", "夹紧请求", "缩回请求", "推料请求", "送料请求", "手动强启", "command signal"], "regexPatterns": [], "score": 5 },
-          { "source": "note", "literalPatterns": ["启动命令", "运行命令", "使能命令", "停止命令", "执行命令", "控制命令", "动作命令", "开门命令", "开阀命令", "伸出命令", "夹紧命令", "缩回命令", "推料命令", "送料命令", "封口命令", "切断命令", "释放命令", "启动请求", "停止请求", "运行请求", "开门请求", "开阀请求", "伸出请求", "夹紧请求", "缩回请求", "推料请求", "送料请求", "手动强启", "command signal"], "regexPatterns": [], "score": 5 },
-          { "source": "comment", "literalPatterns": ["启动命令", "运行命令", "使能命令", "停止命令", "执行命令", "控制命令", "动作命令", "开门命令", "开阀命令", "伸出命令", "夹紧命令", "缩回命令", "推料命令", "送料命令", "封口命令", "切断命令", "释放命令", "启动请求", "停止请求", "运行请求", "开门请求", "开阀请求", "伸出请求", "夹紧请求", "缩回请求", "推料请求", "送料请求", "手动强启", "command signal"], "regexPatterns": [], "score": 5 }
+          { "source": "name", "literalPatterns": ["command", "request"], "regexPatterns": ["(?:^|[^a-z0-9])(?:cmd|req)(?:$|[^a-z0-9])", "(?:^|[_\\-.\\s])(?:start|run|enable|open|extend|forward|reverse|heat|cool)$"], "score": 4 },
+          { "source": "label", "literalPatterns": ["启动命令", "运行命令", "使能命令", "停止命令", "执行命令", "控制命令", "动作命令", "开门命令", "开阀命令", "伸出命令", "夹紧命令", "缩回命令", "推料命令", "送料命令", "封口命令", "切断命令", "释放命令", "正转命令", "反转命令", "加热命令", "冷却命令", "启动请求", "停止请求", "运行请求", "开门请求", "开阀请求", "伸出请求", "夹紧请求", "缩回请求", "推料请求", "送料请求", "正转请求", "反转请求", "加热请求", "冷却请求", "手动强启", "command signal"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["启动命令", "运行命令", "使能命令", "停止命令", "执行命令", "控制命令", "动作命令", "开门命令", "开阀命令", "伸出命令", "夹紧命令", "缩回命令", "推料命令", "送料命令", "封口命令", "切断命令", "释放命令", "正转命令", "反转命令", "加热命令", "冷却命令", "启动请求", "停止请求", "运行请求", "开门请求", "开阀请求", "伸出请求", "夹紧请求", "缩回请求", "推料请求", "送料请求", "正转请求", "反转请求", "加热请求", "冷却请求", "手动强启", "command signal"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["启动命令", "运行命令", "使能命令", "停止命令", "执行命令", "控制命令", "动作命令", "开门命令", "开阀命令", "伸出命令", "夹紧命令", "缩回命令", "推料命令", "送料命令", "封口命令", "切断命令", "释放命令", "正转命令", "反转命令", "加热命令", "冷却命令", "启动请求", "停止请求", "运行请求", "开门请求", "开阀请求", "伸出请求", "夹紧请求", "缩回请求", "推料请求", "送料请求", "正转请求", "反转请求", "加热请求", "冷却请求", "手动强启", "command signal"], "regexPatterns": [], "score": 5 }
         ]
       },
       {
@@ -352,9 +356,9 @@
         "minScore": 4,
         "sources": [
           { "source": "name", "literalPatterns": ["run", "running", "active", "output", "command", "cmd"], "regexPatterns": ["(?:^|[^a-z0-9])(?:run|running|active|output|command|cmd)(?:$|[^a-z0-9])"], "score": 4 },
-          { "source": "label", "literalPatterns": ["运行输出", "运行状态", "动作输出", "动作状态", "设备运行", "执行输出", "action output", "run output"], "regexPatterns": [], "score": 5 },
-          { "source": "note", "literalPatterns": ["运行输出", "运行状态", "动作输出", "动作状态", "设备运行", "执行输出", "action output", "run output"], "regexPatterns": [], "score": 5 },
-          { "source": "comment", "literalPatterns": ["运行输出", "运行状态", "动作输出", "动作状态", "设备运行", "执行输出", "action output", "run output"], "regexPatterns": [], "score": 5 }
+          { "source": "label", "literalPatterns": ["运行输出", "运行状态", "动作输出", "动作状态", "设备运行", "执行输出", "正转输出", "反转输出", "加热输出", "冷却输出", "action output", "run output"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["运行输出", "运行状态", "动作输出", "动作状态", "设备运行", "执行输出", "正转输出", "反转输出", "加热输出", "冷却输出", "action output", "run output"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["运行输出", "运行状态", "动作输出", "动作状态", "设备运行", "执行输出", "正转输出", "反转输出", "加热输出", "冷却输出", "action output", "run output"], "regexPatterns": [], "score": 5 }
         ]
       },
       {
@@ -852,7 +856,7 @@
       "id": "DL01-action-ready-permissive",
       "status": "active",
       "anchorRolesAny": ["commandSignal"],
-      "anchorTermsAny": ["start", "run", "enable", "open", "extend", "clamp", "retract", "close", "push", "feed", "seal", "cut", "release", "move"],
+      "anchorTermsAny": ["start", "run", "enable", "open", "extend", "clamp", "retract", "close", "push", "feed", "seal", "cut", "release", "move", "forward", "reverse", "heat", "cool"],
       "candidateRolesAny": ["readySignal"],
       "candidateNodeType": "contact",
       "allowedPositions": ["front", "behind", "outsideFront", "outsideBehind"],
@@ -869,7 +873,7 @@
       "id": "DL02-action-fault-interlock",
       "status": "active",
       "anchorRolesAny": ["commandSignal"],
-      "anchorTermsAny": ["start", "run", "enable", "open", "extend", "clamp", "retract", "close", "push", "feed", "seal", "cut", "release", "move"],
+      "anchorTermsAny": ["start", "run", "enable", "open", "extend", "clamp", "retract", "close", "push", "feed", "seal", "cut", "release", "move", "forward", "reverse", "heat", "cool"],
       "candidateRolesAny": ["faultSignal"],
       "candidateNodeType": "negatedContact",
       "allowedPositions": ["front", "behind", "outsideFront", "outsideBehind"],
@@ -886,7 +890,7 @@
       "id": "DL03-action-permit-condition",
       "status": "active",
       "anchorRolesAny": ["commandSignal"],
-      "anchorTermsAny": ["start", "run", "enable", "open", "extend", "clamp", "retract", "close", "push", "feed", "seal", "cut", "release", "move"],
+      "anchorTermsAny": ["start", "run", "enable", "open", "extend", "clamp", "retract", "close", "push", "feed", "seal", "cut", "release", "move", "forward", "reverse", "heat", "cool"],
       "candidateRolesAny": ["permitSignal"],
       "candidateNodeType": "contact",
       "allowedPositions": ["front", "behind", "outsideFront", "outsideBehind"],
@@ -903,7 +907,7 @@
       "id": "DL04-action-inhibit-interlock",
       "status": "active",
       "anchorRolesAny": ["commandSignal"],
-      "anchorTermsAny": ["start", "run", "enable", "open", "extend", "clamp", "retract", "close", "push", "feed", "seal", "cut", "release", "move"],
+      "anchorTermsAny": ["start", "run", "enable", "open", "extend", "clamp", "retract", "close", "push", "feed", "seal", "cut", "release", "move", "forward", "reverse", "heat", "cool"],
       "candidateRolesAny": ["inhibitSignal"],
       "candidateNodeType": "negatedContact",
       "allowedPositions": ["front", "behind", "outsideFront", "outsideBehind"],
@@ -914,13 +918,28 @@
       "presentation": {
         "titleTemplate": "{placementAction} {candidateVar} 阻断联锁",
         "textTemplate": "{actionName} 动作回路尚未使用同组阻断信号 {candidateVar}；{placementText}，阻断或堵料有效时禁止动作。"
+      },
+      "oppositeActionCandidates": {
+        "rolesAny": ["commandSignal", "actionOutput"],
+        "pairs": [
+          { "id": "open-close", "leftTerms": ["open"], "rightTerms": ["close"] },
+          { "id": "extend-retract", "leftTerms": ["extend", "push"], "rightTerms": ["retract"] },
+          { "id": "forward-reverse", "leftTerms": ["forward"], "rightTerms": ["reverse"] },
+          { "id": "heat-cool", "leftTerms": ["heat"], "rightTerms": ["cool"] }
+        ],
+        "businessName": "相反动作互锁",
+        "reason": "两个候选属于同一设备，并命中配置中明确声明的相反动作对",
+        "presentation": {
+          "titleTemplate": "{placementAction} {candidateVar} 相反动作互锁",
+          "textTemplate": "{actionName} 与同一设备的 {candidateVar} 是相反动作；{placementText}，避免两个方向同时输出。"
+        }
       }
     },
     {
       "id": "DL05-material-presence-condition",
       "status": "active",
       "anchorRolesAny": ["commandSignal"],
-      "anchorTermsAny": ["start", "run", "enable", "open", "extend", "clamp", "retract", "close", "push", "feed", "seal", "cut", "release", "move"],
+      "anchorTermsAny": ["start", "run", "enable", "open", "extend", "clamp", "retract", "close", "push", "feed", "seal", "cut", "release", "move", "forward", "reverse", "heat", "cool"],
       "candidateRolesAny": ["presenceSignal"],
       "candidateNodeType": "contact",
       "allowedPositions": ["front", "behind", "outsideFront", "outsideBehind"],
