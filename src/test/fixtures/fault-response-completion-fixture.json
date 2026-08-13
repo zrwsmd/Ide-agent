@@ -1,0 +1,182 @@
+[
+  {
+    "pouName": "FAULT_RESPONSE_MISSING_OUTPUT",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Pump01_Fault", "type": "BOOL", "scope": "VAR", "deviceId": "Pump-01", "groupId": "Run", "comment": "1号泵故障信号" },
+      { "name": "Pump01_Alarm", "type": "BOOL", "scope": "VAR", "deviceId": "Pump-01", "groupId": "Run", "comment": "1号泵故障报警输出" },
+      { "name": "Pump01_Fault_Latched", "type": "BOOL", "scope": "VAR", "deviceId": "Pump-01", "groupId": "Run", "comment": "1号泵故障锁存" },
+      { "name": "Pump01_Stop_Alarm", "type": "BOOL", "scope": "VAR", "deviceId": "Pump-01", "groupId": "Stop", "comment": "1号泵停止动作报警输出" },
+      { "name": "Pump02_Alarm", "type": "BOOL", "scope": "VAR", "deviceId": "Pump-02", "groupId": "Run", "comment": "2号泵故障报警输出" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-fault-response",
+        "label": "1号泵故障处理",
+        "note": "设备故障后输出报警并保持故障状态",
+        "nodesObj": {
+          "fault-response-start": { "id": "fault-response-start", "type": "startLine", "sourceIds": [], "targetIds": ["fault-response-contact"] },
+          "fault-response-contact": {
+            "id": "fault-response-contact",
+            "type": "contact",
+            "sourceIds": ["fault-response-start"],
+            "targetIds": ["fault-response-end"],
+            "varName": { "value": "Pump01_Fault", "type": "BOOL", "scope": "VAR" }
+          },
+          "fault-response-end": { "id": "fault-response-end", "type": "endLine", "sourceIds": ["fault-response-contact"], "targetIds": [] }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "TIMEOUT_RESPONSE_MISSING_ALARM",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Valve01_Open_Timeout", "type": "BOOL", "scope": "VAR", "deviceId": "Valve-01", "groupId": "Open", "comment": "1号阀开到位超时信号" },
+      { "name": "Valve01_Open_Alarm", "type": "BOOL", "scope": "VAR", "deviceId": "Valve-01", "groupId": "Open", "comment": "1号阀开到位超时报警输出" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-timeout-response",
+        "label": "1号阀开到位超时处理",
+        "note": "开阀动作超时后输出报警",
+        "nodesObj": {
+          "timeout-response-start": { "id": "timeout-response-start", "type": "startLine", "sourceIds": [], "targetIds": ["timeout-response-contact"] },
+          "timeout-response-contact": {
+            "id": "timeout-response-contact",
+            "type": "contact",
+            "sourceIds": ["timeout-response-start"],
+            "targetIds": ["timeout-response-end"],
+            "varName": { "value": "Valve01_Open_Timeout", "type": "BOOL", "scope": "VAR" }
+          },
+          "timeout-response-end": { "id": "timeout-response-end", "type": "endLine", "sourceIds": ["timeout-response-contact"], "targetIds": [] }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "TIMER_OUTPUT_RESPONSE_MISSING_ALARM",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Conveyor01_Run_Cmd", "type": "BOOL", "scope": "VAR", "deviceId": "Conveyor-01", "groupId": "Run", "comment": "1号输送段运行命令" },
+      { "name": "Conveyor01_Run_Timeout_Time", "type": "TIME", "scope": "VAR", "deviceId": "Conveyor-01", "groupId": "Run", "comment": "1号输送段运行反馈超时时间" },
+      { "name": "Conveyor01_Run_Timeout", "type": "BOOL", "scope": "VAR", "deviceId": "Conveyor-01", "groupId": "Run", "comment": "1号输送段运行反馈超时输出" },
+      { "name": "Conveyor01_Run_Alarm", "type": "BOOL", "scope": "VAR", "deviceId": "Conveyor-01", "groupId": "Run", "comment": "1号输送段运行超时报警输出" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-timer-output-response",
+        "label": "1号输送段运行反馈超时",
+        "note": "TON 输出后继续补报警",
+        "nodesObj": {
+          "timer-output-start": { "id": "timer-output-start", "type": "startLine", "sourceIds": [], "targetIds": ["timer-output-ton"] },
+          "timer-output-ton": {
+            "id": "timer-output-ton",
+            "type": "FBDCompartment",
+            "sourceIds": ["timer-output-start"],
+            "targetIds": ["timer-output-end"],
+            "childrenNode": {
+              "type": "TON",
+              "isFunction": false,
+              "varName": { "value": "Conveyor01_Run_Timeout_Timer", "type": "TON", "scope": "VAR" },
+              "portInputs": [
+                { "name": "IN", "value": "Conveyor01_Run_Cmd", "type": "BOOL", "scope": "VAR_INPUT" },
+                { "name": "PT", "value": "Conveyor01_Run_Timeout_Time", "type": "TIME", "scope": "VAR_INPUT" }
+              ],
+              "portOutputs": [
+                { "name": "Q", "value": "Conveyor01_Run_Timeout", "type": "BOOL", "scope": "VAR_OUTPUT" },
+                { "name": "ET", "value": "", "type": "TIME", "scope": "VAR_OUTPUT" }
+              ]
+            }
+          },
+          "timer-output-end": { "id": "timer-output-end", "type": "endLine", "sourceIds": ["timer-output-ton"], "targetIds": [] }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "FAULT_RESPONSE_EXISTING_OUTPUT",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Fan01_Fault", "type": "BOOL", "scope": "VAR", "deviceId": "Fan-01", "groupId": "Run", "comment": "1号风机故障信号" },
+      { "name": "Fan01_Alarm", "type": "BOOL", "scope": "VAR", "deviceId": "Fan-01", "groupId": "Run", "comment": "1号风机故障报警输出" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-existing-fault-output",
+        "label": "1号风机故障报警",
+        "note": "故障报警输出已经存在",
+        "nodesObj": {
+          "existing-fault-start": { "id": "existing-fault-start", "type": "startLine", "sourceIds": [], "targetIds": ["existing-fault-contact"] },
+          "existing-fault-contact": {
+            "id": "existing-fault-contact",
+            "type": "contact",
+            "sourceIds": ["existing-fault-start"],
+            "targetIds": ["existing-fault-coil"],
+            "varName": { "value": "Fan01_Fault", "type": "BOOL", "scope": "VAR" }
+          },
+          "existing-fault-coil": {
+            "id": "existing-fault-coil",
+            "type": "coil",
+            "sourceIds": ["existing-fault-contact"],
+            "targetIds": ["existing-fault-end"],
+            "varName": { "value": "Fan01_Alarm", "type": "BOOL", "scope": "VAR" }
+          },
+          "existing-fault-end": { "id": "existing-fault-end", "type": "endLine", "sourceIds": ["existing-fault-coil"], "targetIds": [] }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "FAULT_RESPONSE_ACTION_CONFLICT",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Valve02_Open_Timeout", "type": "BOOL", "scope": "VAR", "comment": "2号阀开到位超时信号" },
+      { "name": "Valve02_Close_Alarm", "type": "BOOL", "scope": "VAR", "comment": "2号阀关到位超时报警输出" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-fault-action-conflict",
+        "label": "2号阀开到位超时处理",
+        "note": "开阀和关阀属于不同动作",
+        "nodesObj": {
+          "action-conflict-start": { "id": "action-conflict-start", "type": "startLine", "sourceIds": [], "targetIds": ["action-conflict-contact"] },
+          "action-conflict-contact": {
+            "id": "action-conflict-contact",
+            "type": "contact",
+            "sourceIds": ["action-conflict-start"],
+            "targetIds": ["action-conflict-end"],
+            "varName": { "value": "Valve02_Open_Timeout", "type": "BOOL", "scope": "VAR" }
+          },
+          "action-conflict-end": { "id": "action-conflict-end", "type": "endLine", "sourceIds": ["action-conflict-contact"], "targetIds": [] }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "SAFETY_FAULT_RESPONSE",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Safety_Gate_Fault", "type": "BOOL", "scope": "VAR", "deviceId": "Safety-Gate", "groupId": "Safety", "comment": "安全门故障信号" },
+      { "name": "Safety_Gate_Alarm", "type": "BOOL", "scope": "VAR", "deviceId": "Safety-Gate", "groupId": "Safety", "comment": "安全门报警输出" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-safety-fault-response",
+        "label": "安全门故障回路",
+        "note": "安全功能不得由普通业务规则自动补全",
+        "nodesObj": {
+          "safety-fault-start": { "id": "safety-fault-start", "type": "startLine", "sourceIds": [], "targetIds": ["safety-fault-contact"] },
+          "safety-fault-contact": {
+            "id": "safety-fault-contact",
+            "type": "contact",
+            "sourceIds": ["safety-fault-start"],
+            "targetIds": ["safety-fault-end"],
+            "varName": { "value": "Safety_Gate_Fault", "type": "BOOL", "scope": "VAR" }
+          },
+          "safety-fault-end": { "id": "safety-fault-end", "type": "endLine", "sourceIds": ["safety-fault-contact"], "targetIds": [] }
+        }
+      }
+    ]
+  }
+]

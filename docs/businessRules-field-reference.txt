@@ -36,7 +36,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 
 表示规则文件的结构版本，例如：
 
-    "schemaVersion": "ide-agent.business-rules.v11"
+    "schemaVersion": "ide-agent.business-rules.v12"
 
 它用于区分配置格式版本，不是规则优先级，也不是候选分数。升级字段结构时应同步升级版本号。
 
@@ -485,6 +485,32 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 输送区段示例：`ConveyorA_Run_Cmd` 可以使用同组的 `ConveyorA_Run_Permit` 常开触点、`ConveyorA_Jam` 常闭触点和 `ConveyorA_Occupied` 常开触点；`ConveyorA_Run_FB` 是动作结果反馈，不会被错误地串在运行命令前面。
 
 工位动作示例：`Station01_Clamp_Cmd` 可以使用 `Station01_Clamp_Permit`，但不会因为公共前缀相同而使用 `Station01_Push_Permit`。安全、急停和风险控制仍不由这些普通业务规则自动生成。
+
+
+### 10.2 `faultResponseRules`
+
+类型：对象数组。
+
+作用：选中故障触点、超时触点，或输出端已经绑定故障/超时 BOOL 变量的功能块时，检查同一设备或动作组是否有尚未接入的报警输出或故障锁存变量。
+
+当前支持两类渐进式建议：
+
+- `faultSignal` 或 `timeoutSignal` 条件与同组 `alarmOutput` 变量配对，生成普通报警线圈。
+- `faultSignal` 或 `timeoutSignal` 条件与同组 `faultLatch` 变量配对，生成置位线圈，后续由独立复位路径清除。
+
+字段与 `deviceLoopRules` 类似：
+
+- `anchorRolesAny`：故障响应锚点角色，当前为 `faultSignal`、`timeoutSignal`。
+- `anchorTermsAny`：锚点还必须具备故障、报警、反馈超时或定时器结果等业务语义。
+- `candidateRolesAny`：候选输出角色，当前为 `alarmOutput` 或 `faultLatch`。
+- `candidateNodeType`：报警输出使用 `coil`，锁存输出使用 `setCoil`。
+- `allowedPositions`：只在原拓扑允许添加输出线圈的位置生成建议。
+- `excludedTerms`：安全或复位上下文不使用普通故障响应补全。
+- `presentation`：业务标题和说明，可以使用 `{candidateVar}` 显示实际绑定变量。
+
+同组判断优先使用 `groupId/deviceId`，没有显式标识时使用变量名、注释和标签中的稳定设备/动作部分。开阀超时不会配对关阀报警，其他设备的报警也不会串入当前回路。候选变量已在下游路径中使用时不重复建议；没有可靠候选变量时保留原有 `???` 输出线圈建议。
+
+功能块入口只读取真实输出端口绑定。比如 TON 的 `Q` 已绑定到一个被识别为 `timeoutSignal` 的 BOOL 变量时，可以继续补同组报警；输出没有绑定、存在多个故障/超时输出歧义或变量无法分组时不猜测。
 
 
 四、触点极性层

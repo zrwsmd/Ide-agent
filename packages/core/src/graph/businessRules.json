@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "ide-agent.business-rules.v11",
+  "schemaVersion": "ide-agent.business-rules.v12",
   "enabled": true,
   "defaultBlocks": ["TON", "TOF", "TP", "R_TRIG", "F_TRIG", "CTU", "CTD", "CTUD", "SR", "RS"],
   "dataTypeGroups": {
@@ -138,7 +138,10 @@
       { "suffix": "_Occupied", "role": "presenceSignal", "acceptedDataTypes": ["BOOL"] },
       { "suffix": "_Present", "role": "presenceSignal", "acceptedDataTypes": ["BOOL"] },
       { "suffix": "_Entry_Sensor", "role": "presenceSignal", "acceptedDataTypes": ["BOOL"] },
-      { "suffix": "_Exit_Sensor", "role": "presenceSignal", "acceptedDataTypes": ["BOOL"] }
+      { "suffix": "_Exit_Sensor", "role": "presenceSignal", "acceptedDataTypes": ["BOOL"] },
+      { "suffix": "_Alarm", "role": "alarmOutput", "acceptedDataTypes": ["BOOL"] },
+      { "suffix": "_Fault_Latched", "role": "faultLatch", "acceptedDataTypes": ["BOOL"] },
+      { "suffix": "_Alarm_Latched", "role": "faultLatch", "acceptedDataTypes": ["BOOL"] }
     ],
     "roleEvidenceRules": [
       {
@@ -373,6 +376,45 @@
           { "source": "label", "literalPatterns": ["入口检测", "出口检测", "入口光电", "出口光电", "物料存在", "工件存在", "有料状态", "占位状态", "光电传感器", "presence signal"], "regexPatterns": [], "score": 5 },
           { "source": "note", "literalPatterns": ["入口检测", "出口检测", "入口光电", "出口光电", "物料存在", "工件存在", "有料状态", "占位状态", "光电传感器", "presence signal"], "regexPatterns": [], "score": 5 },
           { "source": "comment", "literalPatterns": ["入口检测", "出口检测", "入口光电", "出口光电", "物料存在", "工件存在", "有料状态", "占位状态", "光电传感器", "presence signal"], "regexPatterns": [], "score": 5 }
+        ]
+      },
+      {
+        "id": "VR19-timeout-signal",
+        "status": "active",
+        "role": "timeoutSignal",
+        "acceptedDataTypes": ["BOOL"],
+        "minScore": 4,
+        "sources": [
+          { "source": "name", "literalPatterns": ["timeout_active", "timeout_fault", "timeout_alarm", "timedout", "timed_out"], "regexPatterns": ["(?:^|[^a-z0-9])timeout(?:$|[^a-z0-9])"], "score": 4 },
+          { "source": "label", "literalPatterns": ["超时条件", "超时信号", "超时状态", "反馈超时输出", "动作超时输出", "timeout signal"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["超时条件", "超时信号", "超时状态", "反馈超时输出", "动作超时输出", "timeout signal"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["超时条件", "超时信号", "超时状态", "反馈超时输出", "动作超时输出", "timeout signal"], "regexPatterns": [], "score": 5 }
+        ]
+      },
+      {
+        "id": "VR20-alarm-output",
+        "status": "active",
+        "role": "alarmOutput",
+        "acceptedDataTypes": ["BOOL"],
+        "minScore": 4,
+        "sources": [
+          { "source": "name", "literalPatterns": ["alarmoutput", "alarm_output", "faultalarm", "fault_alarm", "warningoutput", "warning_output"], "regexPatterns": ["(?:^|[^a-z0-9])(?:alarm|warning)(?:[_\\-.\\s]*output)?(?:$|[^a-z0-9])"], "score": 4 },
+          { "source": "label", "literalPatterns": ["报警输出", "告警输出", "故障报警输出", "超时报警输出", "alarm output"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["报警输出", "告警输出", "故障报警输出", "超时报警输出", "alarm output"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["报警输出", "告警输出", "故障报警输出", "超时报警输出", "alarm output"], "regexPatterns": [], "score": 5 }
+        ]
+      },
+      {
+        "id": "VR21-fault-latch",
+        "status": "active",
+        "role": "faultLatch",
+        "acceptedDataTypes": ["BOOL"],
+        "minScore": 4,
+        "sources": [
+          { "source": "name", "literalPatterns": ["faultlatched", "fault_latched", "alarmlatched", "alarm_latched", "faultlatch", "fault_latch"], "regexPatterns": ["(?:^|[^a-z0-9])(?:fault|alarm)[_\\-.\\s]*(?:latched|latch)(?:$|[^a-z0-9])"], "score": 4 },
+          { "source": "label", "literalPatterns": ["故障锁存", "报警锁存", "故障保持输出", "报警保持输出", "fault latch"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["故障锁存", "报警锁存", "故障保持输出", "报警保持输出", "fault latch"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["故障锁存", "报警锁存", "故障保持输出", "报警保持输出", "fault latch"], "regexPatterns": [], "score": 5 }
         ]
       }
     ],
@@ -819,6 +861,42 @@
       "presentation": {
         "titleTemplate": "{placementAction} {candidateVar} 物料检测",
         "textTemplate": "{actionName} 动作回路尚未使用同组物料或工件检测 {candidateVar}；{placementText}，检测到目标后才允许动作。"
+      }
+    }
+  ],
+  "faultResponseRules": [
+    {
+      "id": "FR01-fault-alarm-output",
+      "status": "active",
+      "anchorRolesAny": ["faultSignal", "timeoutSignal"],
+      "anchorTermsAny": ["fault", "alarm", "feedbackTimeout", "timer"],
+      "candidateRolesAny": ["alarmOutput"],
+      "candidateNodeType": "coil",
+      "allowedPositions": ["behind", "outsideBehind"],
+      "excludedTerms": ["safety", "reset"],
+      "priority": 100,
+      "businessName": "故障报警输出",
+      "reason": "故障或超时条件与候选报警变量属于同一设备或动作组，且当前路径尚未输出该报警",
+      "presentation": {
+        "titleTemplate": "{placementAction} {candidateVar} 报警线圈",
+        "textTemplate": "{actionName} 已形成明确的故障或超时条件；{placementText}并绑定 {candidateVar}，用于输出同组报警。"
+      }
+    },
+    {
+      "id": "FR02-fault-latch-output",
+      "status": "active",
+      "anchorRolesAny": ["faultSignal", "timeoutSignal"],
+      "anchorTermsAny": ["fault", "alarm", "feedbackTimeout", "timer", "latch"],
+      "candidateRolesAny": ["faultLatch"],
+      "candidateNodeType": "setCoil",
+      "allowedPositions": ["behind", "outsideBehind"],
+      "excludedTerms": ["safety", "reset"],
+      "priority": 98,
+      "businessName": "故障锁存",
+      "reason": "故障或超时条件与候选锁存变量属于同一设备或动作组，且当前路径尚未置位该锁存状态",
+      "presentation": {
+        "titleTemplate": "{placementAction} {candidateVar} 故障锁存",
+        "textTemplate": "{actionName} 已形成明确的故障或超时条件；{placementText}并绑定 {candidateVar}，故障发生后保持状态，后续由独立复位路径清除。"
       }
     }
   ],

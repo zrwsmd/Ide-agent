@@ -47,6 +47,13 @@ const deviceLoopCompletionFixturePath = path.join(
   "fixtures",
   "device-loop-completion-fixture.json",
 );
+const faultResponseCompletionFixturePath = path.join(
+  rootDir,
+  "src",
+  "test",
+  "fixtures",
+  "fault-response-completion-fixture.json",
+);
 const rulesPath = path.join(
   rootDir,
   "packages",
@@ -75,16 +82,29 @@ async function main() {
   await assertStableBusinessCases();
   await assertLoopSignatureCases();
   await assertDeviceLoopCompletionCases();
+  await assertFaultResponseCompletionCases();
   await assertTimestampDiagramWhenAvailable();
   console.log("[test-business-rules] passed");
 }
 
 function assertActiveRuleCandidatesExistInLibrary() {
   const rules = JSON.parse(fs.readFileSync(rulesPath, "utf8"));
-  assert.equal(rules.schemaVersion, "ide-agent.business-rules.v11");
+  assert.equal(rules.schemaVersion, "ide-agent.business-rules.v12");
   assert.ok(
     (rules.deviceLoopRules ?? []).length >= 2,
     "deviceLoopRules must define generic ready and fault completion",
+  );
+  assert.ok(
+    (rules.faultResponseRules ?? []).some(
+      (rule) => rule.id === "FR01-fault-alarm-output",
+    ),
+    "fault response rules must define generic alarm output completion",
+  );
+  assert.ok(
+    (rules.faultResponseRules ?? []).some(
+      (rule) => rule.id === "FR02-fault-latch-output",
+    ),
+    "fault response rules must define generic fault latch completion",
   );
   assert.ok(
     rules.variablePatterns.suffixRoles.some(
@@ -169,6 +189,24 @@ function assertActiveRuleCandidatesExistInLibrary() {
     assert.ok(
       ["contact", "negatedContact"].includes(rule.candidateNodeType),
       `${rule.id} must use a supported contact node type`,
+    );
+    assertBusinessPresentation(rule.id, rule.presentation, ["candidateVar"]);
+  }
+  for (const rule of rules.faultResponseRules ?? []) {
+    assert.ok(rule.id, "fault response rule must define id");
+    assert.ok(
+      rule.anchorRolesAny?.length > 0 &&
+        rule.anchorRolesAny.every((role) => definedRoles.has(role)),
+      `${rule.id} anchorRolesAny must reference defined roles`,
+    );
+    assert.ok(
+      rule.candidateRolesAny?.length > 0 &&
+        rule.candidateRolesAny.every((role) => definedRoles.has(role)),
+      `${rule.id} candidateRolesAny must reference defined roles`,
+    );
+    assert.ok(
+      ["coil", "setCoil"].includes(rule.candidateNodeType),
+      `${rule.id} must use a supported output node type`,
     );
     assertBusinessPresentation(rule.id, rule.presentation, ["candidateVar"]);
   }
@@ -273,6 +311,7 @@ function assertActiveRuleCandidatesExistInLibrary() {
   for (const rule of [
     ...(rules.contactPolarityRules ?? []),
     ...(rules.nodeIntentRules ?? []),
+    ...(rules.faultResponseRules ?? []),
     ...(rules.libraryRules ?? []),
     ...(rules.rankingRules ?? []),
   ]) {
@@ -2323,6 +2362,87 @@ async function assertDeviceLoopCompletionCases() {
         String(firstAddedNode(suggestion)?.childrenNode?.type ?? "").toUpperCase() === "TON",
     ),
     "an action with completion feedback and timeout should retain the generic TON recommendation",
+  );
+}
+
+async function assertFaultResponseCompletionCases() {
+  const faultSuggestions = await suggestionsFor(
+    faultResponseCompletionFixturePath,
+    "segment-fault-response",
+    "fault-response-contact",
+  );
+  const alarmSuggestion = suggestionForVariable(
+    faultSuggestions,
+    "Pump01_Alarm",
+    "coil",
+  );
+  const latchSuggestion = suggestionForVariable(
+    faultSuggestions,
+    "Pump01_Fault_Latched",
+    "setCoil",
+  );
+  assert.ok(alarmSuggestion, "a device fault should suggest its same-group alarm output");
+  assert.ok(latchSuggestion, "a device fault should suggest its same-group fault latch");
+  assert.match(alarmSuggestion.title, /Pump01_Alarm.*报警线圈/);
+  assert.match(latchSuggestion.title, /Pump01_Fault_Latched.*故障锁存/);
+  assert.match(latchSuggestion.text, /独立复位路径/);
+  assert.ok(
+    !suggestionForVariable(faultSuggestions, "Pump02_Alarm", "coil"),
+    "an alarm output from another device must not be mixed into the fault response",
+  );
+  assert.ok(
+    !suggestionForVariable(faultSuggestions, "Pump01_Stop_Alarm", "coil"),
+    "an alarm output from another explicit action group must not be mixed into the fault response",
+  );
+
+  const timeoutSuggestions = await suggestionsFor(
+    faultResponseCompletionFixturePath,
+    "segment-timeout-response",
+    "timeout-response-contact",
+  );
+  assert.ok(
+    suggestionForVariable(timeoutSuggestions, "Valve01_Open_Alarm", "coil"),
+    "a BOOL timeout result should suggest its same-action alarm output",
+  );
+
+  const timerOutputSuggestions = await suggestionsFor(
+    faultResponseCompletionFixturePath,
+    "segment-timer-output-response",
+    "timer-output-ton",
+  );
+  assert.ok(
+    suggestionForVariable(timerOutputSuggestions, "Conveyor01_Run_Alarm", "coil"),
+    "a TON with a bound BOOL timeout output should suggest its same-group alarm output",
+  );
+
+  const existingOutputSuggestions = await suggestionsFor(
+    faultResponseCompletionFixturePath,
+    "segment-existing-fault-output",
+    "existing-fault-contact",
+  );
+  assert.ok(
+    !suggestionForVariable(existingOutputSuggestions, "Fan01_Alarm", "coil"),
+    "an alarm output already present downstream must not be suggested again",
+  );
+
+  const actionConflictSuggestions = await suggestionsFor(
+    faultResponseCompletionFixturePath,
+    "segment-fault-action-conflict",
+    "action-conflict-contact",
+  );
+  assert.ok(
+    !suggestionForVariable(actionConflictSuggestions, "Valve02_Close_Alarm", "coil"),
+    "an alarm output for a different action on the same device must not be suggested",
+  );
+
+  const safetySuggestions = await suggestionsFor(
+    faultResponseCompletionFixturePath,
+    "segment-safety-fault-response",
+    "safety-fault-contact",
+  );
+  assert.ok(
+    !suggestionForVariable(safetySuggestions, "Safety_Gate_Alarm", "coil"),
+    "safety fault logic must not receive ordinary business alarm completion",
   );
 }
 

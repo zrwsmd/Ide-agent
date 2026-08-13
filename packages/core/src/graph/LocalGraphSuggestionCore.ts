@@ -192,6 +192,21 @@ interface BusinessDeviceLoopRuleConfig {
   presentation?: BusinessPresentationConfig;
 }
 
+interface BusinessFaultResponseRuleConfig {
+  id: string;
+  status: string;
+  anchorRolesAny: string[];
+  anchorTermsAny: BusinessTerm[];
+  candidateRolesAny: string[];
+  candidateNodeType: "coil" | "setCoil";
+  allowedPositions: LocalSuggestionPosition[];
+  excludedTerms: BusinessTerm[];
+  priority: number;
+  businessName: string;
+  reason: string;
+  presentation?: BusinessPresentationConfig;
+}
+
 interface LocalSuggestionAddElement {
   nodeType: string;
   displayLabel: string;
@@ -265,6 +280,12 @@ interface DeviceLoopContext {
   existingCommandPathReferences: Set<string>;
 }
 
+interface FaultResponseContext {
+  condition: DeviceCommandAnchor;
+  candidates: DeviceLoopRoleCandidate[];
+  existingOutputPathReferences: Set<string>;
+}
+
 interface BusinessSuggestionContext {
   hasBusinessContext: boolean;
   hasLocalBusinessContext: boolean;
@@ -295,6 +316,7 @@ interface BusinessSuggestionContext {
   actionAnchorRoles: Set<string>;
   motionAxisContext?: MotionAxisContext;
   deviceLoopContext?: DeviceLoopContext;
+  faultResponseContext?: FaultResponseContext;
 }
 
 interface BusinessRulesConfig {
@@ -310,6 +332,7 @@ interface BusinessRulesConfig {
   blockPortRoleRules: BusinessBlockPortRoleRuleConfig[];
   loopSignatures: BusinessLoopSignatureConfig[];
   deviceLoopRules: BusinessDeviceLoopRuleConfig[];
+  faultResponseRules: BusinessFaultResponseRuleConfig[];
   contactPolarityRules: BusinessContactPolarityRuleConfig[];
   nodeIntentRules: BusinessNodeIntentRuleConfig[];
   libraryRules: BusinessLibraryRuleConfig[];
@@ -540,7 +563,7 @@ const FALLBACK_TERM_IMPLICATIONS: BusinessTermImplicationConfig[] = [
 ];
 
 const FALLBACK_BUSINESS_RULES_CONFIG: BusinessRulesConfig = {
-  schemaVersion: "ide-agent.business-rules.v11",
+  schemaVersion: "ide-agent.business-rules.v12",
   enabled: true,
   defaultBlocks: FALLBACK_COMMON_FUNCTION_BLOCK_TYPES,
   dataTypeGroups: FALLBACK_DATA_TYPE_GROUPS,
@@ -575,6 +598,7 @@ const FALLBACK_BUSINESS_RULES_CONFIG: BusinessRulesConfig = {
   blockPortRoleRules: EMPTY_BLOCK_PORT_ROLE_RULES,
   loopSignatures: EMPTY_LOOP_SIGNATURES,
   deviceLoopRules: [],
+  faultResponseRules: [],
   contactPolarityRules: [],
   nodeIntentRules: [],
   libraryRules: [],
@@ -619,6 +643,7 @@ function loadBusinessRulesConfig(): BusinessRulesConfig {
     blockPortRoleRules: parseBlockPortRoleRules(record.blockPortRoleRules),
     loopSignatures: parseLoopSignatures(record.loopSignatures),
     deviceLoopRules: parseDeviceLoopRules(record.deviceLoopRules),
+    faultResponseRules: parseFaultResponseRules(record.faultResponseRules),
     contactPolarityRules: parseContactPolarityRules(
       record.contactPolarityRules,
     ),
@@ -654,6 +679,38 @@ function parseDeviceLoopRules(value: unknown): BusinessDeviceLoopRuleConfig[] {
         Boolean(item.id) &&
         item.candidateRolesAny.length > 0 &&
         ["contact", "negatedContact"].includes(item.candidateNodeType) &&
+        Boolean(item.businessName) &&
+        Boolean(item.presentation),
+    );
+}
+
+function parseFaultResponseRules(value: unknown): BusinessFaultResponseRuleConfig[] {
+  return asArrayRecord(value)
+    .map((item) => ({
+      id: asStringConfig(item.id),
+      status: asStringConfig(item.status) || "active",
+      anchorRolesAny: stringList(item.anchorRolesAny),
+      anchorTermsAny: stringList(item.anchorTermsAny),
+      candidateRolesAny: stringList(item.candidateRolesAny),
+      candidateNodeType: asStringConfig(item.candidateNodeType) as
+        | "coil"
+        | "setCoil",
+      allowedPositions: stringList(
+        item.allowedPositions,
+      ) as LocalSuggestionPosition[],
+      excludedTerms: stringList(item.excludedTerms),
+      priority: asOptionalNumberConfig(item.priority) ?? 0,
+      businessName: asStringConfig(item.businessName),
+      reason: asStringConfig(item.reason),
+      presentation: parseBusinessPresentation(item.presentation),
+    }))
+    .filter(
+      (item) =>
+        item.status.toLowerCase() === "active" &&
+        Boolean(item.id) &&
+        item.anchorRolesAny.length > 0 &&
+        item.candidateRolesAny.length > 0 &&
+        ["coil", "setCoil"].includes(item.candidateNodeType) &&
         Boolean(item.businessName) &&
         Boolean(item.presentation),
     );
@@ -1207,7 +1264,10 @@ function rankBusinessSuggestions(
   }
 
   const contactAwareSuggestions = addBusinessContactVariants(
-    addDeviceLoopSuggestions(suggestions, context, focus),
+    addFaultResponseSuggestions(
+      addDeviceLoopSuggestions(suggestions, context, focus),
+      context,
+    ),
     context,
   );
   const enhancedSuggestions = applyBusinessLibraryEnhancements(
@@ -1490,6 +1550,118 @@ function addDeviceLoopSuggestions(
   }
 
   return dedupeSuggestions([...generated, ...suggestions]);
+}
+
+function addFaultResponseSuggestions(
+  suggestions: LocalSuggestionDraft[],
+  context: BusinessSuggestionContext,
+): LocalSuggestionDraft[] {
+  const responseContext = context.faultResponseContext;
+  if (!BUSINESS_RULES_CONFIG.enabled || !responseContext) {
+    return suggestions;
+  }
+
+  const generated: LocalSuggestionDraft[] = [];
+  const matchingRules = BUSINESS_RULES_CONFIG.faultResponseRules
+    .filter((rule) => matchesFaultResponseRule(rule, context, responseContext))
+    .sort((left, right) => right.priority - left.priority);
+
+  for (const rule of matchingRules) {
+    const roleCandidates = responseContext.candidates.filter(
+      (candidate) =>
+        rule.candidateRolesAny.includes(candidate.role) &&
+        !responseContext.existingOutputPathReferences.has(
+          normalizeReference(candidate.variableName),
+        ),
+    );
+    for (const candidate of roleCandidates) {
+      for (const suggestion of suggestions) {
+        if (!isFaultResponseInsertion(suggestion, rule)) {
+          continue;
+        }
+        const addElement =
+          rule.candidateNodeType === "setCoil"
+            ? setCoilElement(candidate.variableName)
+            : coilElement(candidate.variableName);
+        addElement.variableScope = candidate.scope;
+        const nextDraft: LocalSuggestionDraft = {
+          ...suggestion,
+          addElement,
+          placement: {
+            ...suggestion.placement,
+            text: suggestion.placement.text.replaceAll(
+              "输出线圈",
+              addElement.displayLabel,
+            ),
+          },
+        };
+        const presentation = rule.presentation
+          ? renderBusinessPresentation(rule.presentation, nextDraft, {
+              ruleId: `${rule.id}:${candidate.variableName}`,
+              confidence: candidate.association === "nameStem" ? 90 : 98,
+              businessName: rule.businessName,
+              reason: rule.reason,
+              actionName: responseContext.condition.variableName,
+              candidateVar: candidate.variableName,
+            })
+          : undefined;
+        generated.push(
+          presentation
+            ? { ...nextDraft, businessPresentation: presentation }
+            : nextDraft,
+        );
+      }
+    }
+  }
+
+  return dedupeSuggestions([...generated, ...suggestions]);
+}
+
+function matchesFaultResponseRule(
+  rule: BusinessFaultResponseRuleConfig,
+  context: BusinessSuggestionContext,
+  responseContext: FaultResponseContext,
+): boolean {
+  if (
+    rule.excludedTerms.some(
+      (term) =>
+        responseContext.condition.terms.has(term) ||
+        localBusinessTermWeight(context, term) > 0,
+    )
+  ) {
+    return false;
+  }
+  if (
+    !rule.anchorRolesAny.some((role) =>
+      responseContext.condition.roles.has(role),
+    )
+  ) {
+    return false;
+  }
+  return (
+    rule.anchorTermsAny.length === 0 ||
+    rule.anchorTermsAny.some((term) =>
+      responseContext.condition.terms.has(term),
+    )
+  );
+}
+
+function isFaultResponseInsertion(
+  suggestion: LocalSuggestionDraft,
+  rule: BusinessFaultResponseRuleConfig,
+): boolean {
+  if (
+    suggestion.mode !== "outputCoil" ||
+    suggestion.addElement.nodeType !== "coil" ||
+    inferSerialOrParallel(suggestion) !== "serial"
+  ) {
+    return false;
+  }
+  const position = suggestion.position ?? inferPosition(suggestion);
+  return (
+    rule.allowedPositions.length === 0 ||
+    rule.allowedPositions.includes(position)
+  );
 }
 
 function matchesDeviceLoopRule(
@@ -2043,6 +2215,11 @@ function buildBusinessSuggestionContext(
     variableRoleMatches,
     actionAnchor.name,
   );
+  const faultResponseContext = analyzeFaultResponseContext(
+    focus,
+    pouVariables,
+    variableRoleMatches,
+  );
   const signatureMatches = evaluateLoopSignatures(
     BUSINESS_RULES_CONFIG.variablePatterns,
     BUSINESS_RULES_CONFIG.loopSignatures,
@@ -2083,6 +2260,7 @@ function buildBusinessSuggestionContext(
       matchedLoopSignatures.size > 0 ||
       observedLoopSignatures.size > 0 ||
       Boolean(deviceLoopContext) ||
+      Boolean(faultResponseContext) ||
       isBusinessBlockType(focusBlockType) ||
       [...segmentBlockTypes].some((value) => isBusinessBlockType(value)),
     hasLocalBusinessContext,
@@ -2113,6 +2291,7 @@ function buildBusinessSuggestionContext(
     actionAnchorRoles,
     motionAxisContext,
     deviceLoopContext,
+    faultResponseContext,
   };
 }
 
@@ -2421,6 +2600,150 @@ function analyzeDeviceLoopContext(
   };
 }
 
+function analyzeFaultResponseContext(
+  focus: FocusContext,
+  variables: DiagramVariableSummary[],
+  roleMatches: BusinessVariableRoleMatch[],
+): FaultResponseContext | undefined {
+  const anchorNode = focus.node;
+  if (!anchorNode) {
+    return undefined;
+  }
+
+  const candidateAnchorReferences = isContactKind(anchorNode.kind)
+    ? [normalizeReference(anchorNode.var)]
+    : anchorNode.kind === "FBDCompartment"
+      ? (anchorNode.outputPorts ?? [])
+          .map((port) => normalizeReference(port.value))
+          .filter(Boolean)
+      : [];
+  const responseAnchorReferences = uniqueDisplayNames(
+    candidateAnchorReferences,
+  ).filter((reference) =>
+    roleMatches.some(
+      (match) =>
+        normalizeReference(match.variableName) === reference &&
+        ["faultSignal", "timeoutSignal"].includes(match.role) &&
+        !roleMatches.some(
+          (other) =>
+            normalizeReference(other.variableName) === reference &&
+            ["alarmOutput", "faultLatch"].includes(other.role),
+        ),
+    ),
+  );
+  if (responseAnchorReferences.length !== 1) {
+    return undefined;
+  }
+  const anchorReference = responseAnchorReferences[0];
+  const anchorVariable = variables.find(
+    (variable) => normalizeReference(variable.name) === anchorReference,
+  );
+  const anchorRoleMatches = roleMatches.filter(
+    (match) => normalizeReference(match.variableName) === anchorReference,
+  );
+  const anchorRoles = new Set(anchorRoleMatches.map((match) => match.role));
+  const anchorTerms = collectBusinessTerms([
+    ...nodeBusinessTexts(anchorNode),
+    ...(anchorVariable ? variableBusinessTexts(anchorVariable) : []),
+  ]);
+  if (
+    !["faultSignal", "timeoutSignal"].some((role) => anchorRoles.has(role)) ||
+    anchorRoles.has("alarmOutput") ||
+    anchorRoles.has("faultLatch") ||
+    anchorTerms.has("safety") ||
+    anchorTerms.has("reset")
+  ) {
+    return undefined;
+  }
+
+  const variablesByReference = new Map(
+    variables.map((variable) => [normalizeReference(variable.name), variable]),
+  );
+  const candidates: DeviceLoopRoleCandidate[] = [];
+  for (const match of roleMatches) {
+    if (!["alarmOutput", "faultLatch"].includes(match.role)) {
+      continue;
+    }
+    const variable = variablesByReference.get(
+      normalizeReference(match.variableName),
+    );
+    if (!variable || normalizeDataType(variable.type) !== "BOOL") {
+      continue;
+    }
+    if (hasConflictingExplicitGroups(anchorRoleMatches, match)) {
+      continue;
+    }
+    const candidateTerms = collectBusinessTerms(variableBusinessTexts(variable));
+    if (hasConflictingDeviceActionTerms(anchorTerms, candidateTerms)) {
+      continue;
+    }
+    const association = strongestDeviceAssociation(
+      anchorRoleMatches,
+      match,
+      anchorVariable,
+      variable,
+    );
+    if (!association) {
+      continue;
+    }
+    candidates.push({
+      variableName: variable.name,
+      dataType: variable.type,
+      scope: variable.scope || "VAR",
+      role: match.role,
+      evidenceScore: match.score,
+      associationKey: association.key,
+      association: association.strategy,
+    });
+  }
+  if (candidates.length === 0) {
+    return undefined;
+  }
+
+  candidates.sort(
+    (left, right) =>
+      deviceAssociationWeight(right.association) -
+        deviceAssociationWeight(left.association) ||
+      right.evidenceScore - left.evidenceScore ||
+      left.variableName.localeCompare(right.variableName),
+  );
+  return {
+    condition: {
+      nodeId: anchorNode.id,
+      variableName:
+        variables.find(
+          (variable) => normalizeReference(variable.name) === anchorReference,
+        )?.name ?? anchorReference,
+      roles: anchorRoles,
+      terms: anchorTerms,
+    },
+    candidates: dedupeDeviceLoopCandidates(candidates),
+    existingOutputPathReferences: collectDownstreamReferences(
+      focus.segment,
+      anchorNode.id,
+    ),
+  };
+}
+
+function hasConflictingExplicitGroups(
+  anchorMatches: BusinessVariableRoleMatch[],
+  candidate: BusinessVariableRoleMatch,
+): boolean {
+  const anchorGroups = new Set(
+    anchorMatches
+      .flatMap((match) => match.groupKeys)
+      .filter((key) => key.startsWith("group:")),
+  );
+  const candidateGroups = candidate.groupKeys.filter((key) =>
+    key.startsWith("group:"),
+  );
+  return (
+    anchorGroups.size > 0 &&
+    candidateGroups.length > 0 &&
+    !candidateGroups.some((key) => anchorGroups.has(key))
+  );
+}
+
 const DEVICE_ACTION_TERMS = new Set([
   "start",
   "run",
@@ -2613,18 +2936,35 @@ function deviceDescriptionStem(
                 "堵料状态", "跳闸信号", "blocksignal", "inhibitsignal",
                 "blocked", "inhibit", "jam", "trip", "阻断", "禁止", "堵料", "跳闸",
               ]
-            : role === "presenceSignal"
+              : role === "presenceSignal"
               ? [
                   "入口检测", "出口检测", "入口光电", "出口光电", "物料存在",
                   "工件存在", "有料状态", "占位状态", "present", "occupied",
                   "entrysensor", "exitsensor", "photoelectric", "photoeye",
                   "material", "workpiece", "part", "传感器", "检测", "光电",
                 ]
-              : [
+              : role === "alarmOutput"
+                ? [
+                    "故障报警输出", "超时报警输出", "报警输出", "告警输出",
+                    "alarmoutput", "warningoutput", "faultalarm", "报警", "告警",
+                    "输出", "状态", "信号",
+                  ]
+                : role === "faultLatch"
+                  ? [
+                      "故障锁存", "报警锁存", "故障保持输出", "报警保持输出",
+                      "faultlatched", "alarmlatched", "faultlatch", "alarmlatch",
+                      "锁存", "保持", "输出", "状态", "信号",
+                    ]
+                  : role === "timeoutSignal"
+                    ? [
+                        "反馈超时输出", "动作超时输出", "超时条件", "超时信号",
+                        "超时状态", "timeoutsignal", "timeout", "超时", "状态", "信号",
+                      ]
+                    : [
                   "故障信号", "故障状态", "设备故障", "错误信号", "过载信号",
                   "过载状态", "变频器故障", "faultsignal", "failure", "overload",
                   "error", "fault", "故障", "错误", "异常", "过载", "状态", "信号",
-                ];
+                      ];
   for (const phrase of rolePhrases.sort((left, right) => right.length - left.length)) {
     normalized = normalized.replaceAll(phrase, "");
   }
@@ -2657,7 +2997,13 @@ function deviceVariableNameStem(name: string, role: string): string {
                   "present", "occupied", "entry", "exit", "sensor", "photoelectric",
                   "photoeye", "material", "workpiece", "part", "pe", "status", "signal",
                 ]
-              : ["fault", "failure", "error", "overload", "ol", "status", "signal"],
+              : role === "alarmOutput"
+                ? ["alarm", "warning", "fault", "output", "out", "status", "signal"]
+                : role === "faultLatch"
+                  ? ["fault", "alarm", "latched", "latch", "hold", "output", "status", "signal"]
+                  : role === "timeoutSignal"
+                    ? ["feedback", "action", "timeout", "timed", "out", "status", "signal"]
+                    : ["fault", "failure", "error", "overload", "ol", "status", "signal"],
   );
   for (const token of DEVICE_ACTION_NAME_TOKENS) {
     roleTokens.add(token);
@@ -2736,6 +3082,31 @@ function collectUpstreamReferences(
       references.add(reference);
     }
     queue.push(...node.from);
+  }
+  return references;
+}
+
+function collectDownstreamReferences(
+  segment: DiagramSegmentSummary,
+  sourceNodeId: string,
+): Set<string> {
+  const references = new Set<string>();
+  const visited = new Set<string>();
+  const queue = [...(findNode(segment, sourceNodeId)?.to ?? [])];
+  while (queue.length > 0) {
+    const nodeId = queue.shift();
+    if (!nodeId || visited.has(nodeId)) {
+      continue;
+    }
+    visited.add(nodeId);
+    const node = findNode(segment, nodeId);
+    if (!node) {
+      continue;
+    }
+    for (const reference of collectNodeReferences(node)) {
+      references.add(reference);
+    }
+    queue.push(...node.to);
   }
   return references;
 }
