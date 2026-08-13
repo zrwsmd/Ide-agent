@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "ide-agent.business-rules.v13",
+  "schemaVersion": "ide-agent.business-rules.v14",
   "enabled": true,
   "defaultBlocks": ["TON", "TOF", "TP", "R_TRIG", "F_TRIG", "CTU", "CTD", "CTUD", "SR", "RS"],
   "dataTypeGroups": {
@@ -311,6 +311,45 @@
           { "source": "label", "literalPatterns": ["复位按钮", "复位命令", "故障复位", "确认复位", "reset command"], "regexPatterns": [], "score": 5 },
           { "source": "note", "literalPatterns": ["复位按钮", "复位命令", "故障复位", "确认复位", "reset command"], "regexPatterns": [], "score": 5 },
           { "source": "comment", "literalPatterns": ["复位按钮", "复位命令", "故障复位", "确认复位", "reset command"], "regexPatterns": [], "score": 5 }
+        ]
+      },
+      {
+        "id": "VR22-start-command",
+        "status": "active",
+        "role": "startCommand",
+        "acceptedDataTypes": ["BOOL"],
+        "minScore": 4,
+        "sources": [
+          { "source": "name", "literalPatterns": ["startbutton", "start_button", "startcommand", "start_command", "runbutton", "run_button"], "regexPatterns": ["(?:^|[^a-z0-9])(?:start|run)[_\\-.\\s]*(?:button|command|cmd|request|req)(?:$|[^a-z0-9])"], "score": 4 },
+          { "source": "label", "literalPatterns": ["启动按钮", "启动命令", "启动请求", "运行按钮", "运行命令", "运行请求", "start command"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["启动按钮", "启动命令", "启动请求", "运行按钮", "运行命令", "运行请求", "start command"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["启动按钮", "启动命令", "启动请求", "运行按钮", "运行命令", "运行请求", "start command"], "regexPatterns": [], "score": 5 }
+        ]
+      },
+      {
+        "id": "VR23-stop-command",
+        "status": "active",
+        "role": "stopCommand",
+        "acceptedDataTypes": ["BOOL"],
+        "minScore": 4,
+        "sources": [
+          { "source": "name", "literalPatterns": ["stopbutton", "stop_button", "stopcommand", "stop_command", "stoprequest", "stop_request"], "regexPatterns": ["(?:^|[^a-z0-9])stop[_\\-.\\s]*(?:button|command|cmd|request|req)(?:$|[^a-z0-9])"], "score": 4 },
+          { "source": "label", "literalPatterns": ["停止按钮", "停止命令", "停止请求", "停机按钮", "停机命令", "stop command"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["停止按钮", "停止命令", "停止请求", "停机按钮", "停机命令", "stop command"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["停止按钮", "停止命令", "停止请求", "停机按钮", "停机命令", "stop command"], "regexPatterns": [], "score": 5 }
+        ]
+      },
+      {
+        "id": "VR24-action-output",
+        "status": "active",
+        "role": "actionOutput",
+        "acceptedDataTypes": ["BOOL"],
+        "minScore": 4,
+        "sources": [
+          { "source": "name", "literalPatterns": ["run", "running", "active", "output", "command", "cmd"], "regexPatterns": ["(?:^|[^a-z0-9])(?:run|running|active|output|command|cmd)(?:$|[^a-z0-9])"], "score": 4 },
+          { "source": "label", "literalPatterns": ["运行输出", "运行状态", "动作输出", "动作状态", "设备运行", "执行输出", "action output", "run output"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["运行输出", "运行状态", "动作输出", "动作状态", "设备运行", "执行输出", "action output", "run output"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["运行输出", "运行状态", "动作输出", "动作状态", "设备运行", "执行输出", "action output", "run output"], "regexPatterns": [], "score": 5 }
         ]
       },
       {
@@ -915,6 +954,59 @@
       "presentation": {
         "titleTemplate": "{placementAction} {candidateVar} 故障复位",
         "textTemplate": "{actionName} 是同组复位命令，且 {candidateVar} 已由另一独立回路的置位线圈锁存；{placementText}并绑定同一变量，复位条件成立时清除故障锁存。"
+      }
+    }
+  ],
+  "actionLifecycleRules": [
+    {
+      "id": "AL01-start-self-hold",
+      "status": "active",
+      "kind": "selfHold",
+      "anchorRolesAny": ["startCommand", "commandSignal"],
+      "candidateRolesAny": ["actionOutput"],
+      "candidateNodeType": "contact",
+      "allowedPositions": ["parallel"],
+      "excludedTerms": ["safety", "reset", "fault", "alarm"],
+      "priority": 110,
+      "businessName": "启动自保持",
+      "reason": "当前启动条件与同组动作输出已确认，但启动触点尚未形成自保持支路",
+      "presentation": {
+        "titleTemplate": "并联 {candidateVar} 自保持触点",
+        "textTemplate": "{actionName} 是同组动作输出；与启动条件并联 {candidateVar}，使启动按钮释放后动作仍保持，直到停止或故障释放。"
+      }
+    },
+    {
+      "id": "AL02-stop-interlock",
+      "status": "active",
+      "kind": "stopInterlock",
+      "anchorRolesAny": ["startCommand", "commandSignal"],
+      "candidateRolesAny": ["stopCommand"],
+      "candidateNodeType": "negatedContact",
+      "allowedPositions": ["front", "outsideFront"],
+      "excludedTerms": ["safety"],
+      "priority": 106,
+      "businessName": "停止释放条件",
+      "reason": "同组停止命令应作为常闭释放条件串入启动保持回路",
+      "presentation": {
+        "titleTemplate": "前串联 {candidateVar} 停止释放常闭触点",
+        "textTemplate": "{candidateVar} 是与 {actionName} 同组的停止命令；在启动保持回路前串联常闭触点，停止请求成立时释放动作。"
+      }
+    },
+    {
+      "id": "AL03-latched-release",
+      "status": "active",
+      "kind": "latchedRelease",
+      "anchorRolesAny": ["stopCommand"],
+      "candidateRolesAny": ["actionOutput"],
+      "candidateNodeType": "resetCoil",
+      "allowedPositions": ["behind", "outsideBehind"],
+      "excludedTerms": ["safety"],
+      "priority": 108,
+      "businessName": "动作状态释放",
+      "reason": "同组动作已由置位线圈保持，停止命令区段缺少对应复位线圈",
+      "presentation": {
+        "titleTemplate": "{placementAction} {candidateVar} 停止复位",
+        "textTemplate": "{actionName} 是同组停止命令，且 {candidateVar} 已由置位线圈保持；{placementText}并复位同一动作状态。"
       }
     }
   ],

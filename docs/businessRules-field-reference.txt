@@ -36,7 +36,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 
 表示规则文件的结构版本，例如：
 
-    "schemaVersion": "ide-agent.business-rules.v13"
+    "schemaVersion": "ide-agent.business-rules.v14"
 
 它用于区分配置格式版本，不是规则优先级，也不是候选分数。升级字段结构时应同步升级版本号。
 
@@ -540,6 +540,54 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 规则还要求目标变量已经真实出现在另一独立区段的 `setCoil` 上；只有变量声明、没有置位线圈时不推荐。整个 POU 中已经存在绑定同一变量的 `resetCoil` 时也不重复推荐。同组判断优先使用 `groupId/deviceId`，缺少显式标识时才使用稳定的变量名或注释公共部分。
 
 当前不支持在“只有故障置位线圈、完全没有复位条件”的情况下自动生成一个新区段；这属于多节点或多区段模板能力，不在本阶段单节点建议的拓扑边界内。
+
+
+### 10.4 `actionLifecycleRules`
+
+类型：对象数组。
+
+作用：补齐通用动作回路中“启动后保持、停止时释放”的缺失节点。它只在已经存在真实动作输出、且设备/动作归属能够确认时生效。
+
+当前支持三类规则：
+
+- `selfHold`：选中启动触点时，与它并联一个绑定同组动作输出变量的常开触点，形成启动自保持。
+- `stopInterlock`：仍选中启动触点时，在启动回路前串联同组停止命令的常闭触点；停止请求成立时切断启动保持回路。
+- `latchedRelease`：选中独立停止触点时，如果同组动作输出已经由 `setCoil` 保持且没有对应 `resetCoil`，则补绑定同一变量的复位线圈。
+
+例如：
+
+    Pump01_Start -> Pump01_Run 普通线圈
+
+选中 `Pump01_Start` 后，可以得到：
+
+    与启动条件并联 Pump01_Run 常开触点（自保持）
+    在启动回路前串联 Pump01_Stop 常闭触点（停止释放）
+
+如果另一段是：
+
+    Pump01_Start -> Pump01_Run 置位线圈
+    Pump01_Stop -> 尚无输出
+
+选中 `Pump01_Stop` 后，才推荐：
+
+    Pump01_Run 复位线圈
+
+关键字段：
+
+- `kind`：`selfHold`、`stopInterlock` 或 `latchedRelease`。
+- `anchorRolesAny`：当前选中条件需要具备的角色，分别使用 `startCommand`、`commandSignal` 或 `stopCommand`。
+- `candidateRolesAny`：要绑定的候选变量角色，当前使用 `actionOutput` 或 `stopCommand`。
+- `candidateNodeType`：候选节点类型，分别为 `contact`、`negatedContact` 或 `resetCoil`。
+- `allowedPositions`：限制在当前建议草案已有的并联、前串联或后串联位置生成，不跨区段改拓扑。
+- `excludedTerms`：安全、复位、故障等不适合普通启停补全的语义排除项。
+- `presentation`：可靠匹配时显示动作变量和启动/停止业务含义。
+
+触发门槛：
+
+- 必须存在同一 POU 中的真实动作输出线圈或置位线圈，只有“启动按钮 + 另一个触点”时不推断完整自保持。
+- 同组判断优先使用 `groupId/deviceId`，缺少显式标识时才使用变量名、标签和注释中的稳定公共部分。
+- 已经存在同变量自保持触点或复位线圈时去重；跨设备、跨动作和安全回路不自动绑定。
+- 本阶段不创建新的区段，也不把一个独立停止区段隐式跨接到启动区段。
 
 
 四、触点极性层

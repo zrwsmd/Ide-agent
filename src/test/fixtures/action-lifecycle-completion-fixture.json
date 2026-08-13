@@ -1,0 +1,120 @@
+[
+  {
+    "pouName": "ACTION_LIFECYCLE_MISSING_HOLD",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Pump01_Start", "type": "BOOL", "scope": "VAR", "deviceId": "Pump-01", "groupId": "Run", "comment": "1号泵启动按钮" },
+      { "name": "Pump01_Stop", "type": "BOOL", "scope": "VAR", "deviceId": "Pump-01", "groupId": "Run", "comment": "1号泵停止按钮" },
+      { "name": "Pump01_Run", "type": "BOOL", "scope": "VAR", "deviceId": "Pump-01", "groupId": "Run", "comment": "1号泵运行输出" },
+      { "name": "Pump02_Run", "type": "BOOL", "scope": "VAR", "deviceId": "Pump-02", "groupId": "Run", "comment": "2号泵运行输出" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-pump01-start",
+        "label": "1号泵启动回路",
+        "note": "启动按钮接运行输出，缺少自保持和停止释放条件",
+        "nodesObj": {
+          "pump01-start-rail": { "id": "pump01-start-rail", "type": "startLine", "sourceIds": [], "targetIds": ["pump01-start-contact"] },
+          "pump01-start-contact": { "id": "pump01-start-contact", "type": "contact", "sourceIds": ["pump01-start-rail"], "targetIds": ["pump01-run-coil"], "varName": { "value": "Pump01_Start", "type": "BOOL", "scope": "VAR" } },
+          "pump01-run-coil": { "id": "pump01-run-coil", "type": "coil", "sourceIds": ["pump01-start-contact"], "targetIds": ["pump01-start-end"], "varName": { "value": "Pump01_Run", "type": "BOOL", "scope": "VAR" } },
+          "pump01-start-end": { "id": "pump01-start-end", "type": "endLine", "sourceIds": ["pump01-run-coil"], "targetIds": [] }
+        }
+      },
+      {
+        "id": "segment-pump01-stop",
+        "label": "1号泵停止释放",
+        "nodesObj": {
+          "pump01-stop-rail": { "id": "pump01-stop-rail", "type": "startLine", "sourceIds": [], "targetIds": ["pump01-stop-contact"] },
+          "pump01-stop-contact": { "id": "pump01-stop-contact", "type": "contact", "sourceIds": ["pump01-stop-rail"], "targetIds": ["pump01-stop-end"], "varName": { "value": "Pump01_Stop", "type": "BOOL", "scope": "VAR" } },
+          "pump01-stop-end": { "id": "pump01-stop-end", "type": "endLine", "sourceIds": ["pump01-stop-contact"], "targetIds": [] }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "ACTION_LIFECYCLE_EXISTING_HOLD",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Fan01_Start", "type": "BOOL", "scope": "VAR", "deviceId": "Fan-01", "groupId": "Run", "comment": "风机启动按钮" },
+      { "name": "Fan01_Run", "type": "BOOL", "scope": "VAR", "deviceId": "Fan-01", "groupId": "Run", "comment": "风机运行输出" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-fan01-existing-hold",
+        "nodesObj": {
+          "fan01-rail": { "id": "fan01-rail", "type": "startLine", "sourceIds": [], "targetIds": ["fan01-start-contact", "fan01-hold-contact"] },
+          "fan01-start-contact": { "id": "fan01-start-contact", "type": "contact", "sourceIds": ["fan01-rail"], "targetIds": ["fan01-run-coil"], "varName": { "value": "Fan01_Start", "type": "BOOL", "scope": "VAR" } },
+          "fan01-hold-contact": { "id": "fan01-hold-contact", "type": "contact", "sourceIds": ["fan01-rail"], "targetIds": ["fan01-run-coil"], "varName": { "value": "Fan01_Run", "type": "BOOL", "scope": "VAR" } },
+          "fan01-run-coil": { "id": "fan01-run-coil", "type": "coil", "sourceIds": ["fan01-start-contact", "fan01-hold-contact"], "targetIds": ["fan01-end"], "varName": { "value": "Fan01_Run", "type": "BOOL", "scope": "VAR" } },
+          "fan01-end": { "id": "fan01-end", "type": "endLine", "sourceIds": ["fan01-run-coil"], "targetIds": [] }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "ACTION_LIFECYCLE_LATCHED_RELEASE",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Valve01_Start", "type": "BOOL", "scope": "VAR", "deviceId": "Valve-01", "groupId": "Run", "comment": "阀启动命令" },
+      { "name": "Valve01_Stop", "type": "BOOL", "scope": "VAR", "deviceId": "Valve-01", "groupId": "Run", "comment": "阀停止命令" },
+      { "name": "Valve01_Run", "type": "BOOL", "scope": "VAR", "deviceId": "Valve-01", "groupId": "Run", "comment": "阀运行状态" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-valve01-latch",
+        "nodesObj": {
+          "valve01-latch-rail": { "id": "valve01-latch-rail", "type": "startLine", "sourceIds": [], "targetIds": ["valve01-start-contact"] },
+          "valve01-start-contact": { "id": "valve01-start-contact", "type": "contact", "sourceIds": ["valve01-latch-rail"], "targetIds": ["valve01-set-coil"], "varName": { "value": "Valve01_Start", "type": "BOOL", "scope": "VAR" } },
+          "valve01-set-coil": { "id": "valve01-set-coil", "type": "setCoil", "sourceIds": ["valve01-start-contact"], "targetIds": [], "varName": { "value": "Valve01_Run", "type": "BOOL", "scope": "VAR" } }
+        }
+      },
+      {
+        "id": "segment-valve01-stop",
+        "nodesObj": {
+          "valve01-stop-rail": { "id": "valve01-stop-rail", "type": "startLine", "sourceIds": [], "targetIds": ["valve01-stop-contact"] },
+          "valve01-stop-contact": { "id": "valve01-stop-contact", "type": "contact", "sourceIds": ["valve01-stop-rail"], "targetIds": ["valve01-stop-end"], "varName": { "value": "Valve01_Stop", "type": "BOOL", "scope": "VAR" } },
+          "valve01-stop-end": { "id": "valve01-stop-end", "type": "endLine", "sourceIds": ["valve01-stop-contact"], "targetIds": [] }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "ACTION_LIFECYCLE_NO_OUTPUT",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Motor01_Start", "type": "BOOL", "scope": "VAR", "deviceId": "Motor-01", "groupId": "Run", "comment": "电机启动按钮" },
+      { "name": "Motor01_Stop", "type": "BOOL", "scope": "VAR", "deviceId": "Motor-01", "groupId": "Run", "comment": "电机停止按钮" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-motor01-buttons",
+        "nodesObj": {
+          "motor01-rail": { "id": "motor01-rail", "type": "startLine", "sourceIds": [], "targetIds": ["motor01-start"] },
+          "motor01-start": { "id": "motor01-start", "type": "contact", "sourceIds": ["motor01-rail"], "targetIds": ["motor01-end"], "varName": { "value": "Motor01_Start", "type": "BOOL", "scope": "VAR" } },
+          "motor01-end": { "id": "motor01-end", "type": "endLine", "sourceIds": ["motor01-start"], "targetIds": [] }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "SAFETY_ACTION_LIFECYCLE",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "SafetyGate_Start", "type": "BOOL", "scope": "VAR", "deviceId": "Safety-Gate", "groupId": "Safety", "comment": "安全门启动按钮" },
+      { "name": "SafetyGate_Stop", "type": "BOOL", "scope": "VAR", "deviceId": "Safety-Gate", "groupId": "Safety", "comment": "安全门停止按钮" },
+      { "name": "SafetyGate_Run", "type": "BOOL", "scope": "VAR", "deviceId": "Safety-Gate", "groupId": "Safety", "comment": "安全门运行输出" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-safety-start",
+        "label": "安全门启停",
+        "note": "安全回路不由普通动作生命周期规则自动改写",
+        "nodesObj": {
+          "safety-rail": { "id": "safety-rail", "type": "startLine", "sourceIds": [], "targetIds": ["safety-start"] },
+          "safety-start": { "id": "safety-start", "type": "contact", "sourceIds": ["safety-rail"], "targetIds": ["safety-run-coil"], "varName": { "value": "SafetyGate_Start", "type": "BOOL", "scope": "VAR" } },
+          "safety-run-coil": { "id": "safety-run-coil", "type": "coil", "sourceIds": ["safety-start"], "targetIds": [], "varName": { "value": "SafetyGate_Run", "type": "BOOL", "scope": "VAR" } }
+        }
+      }
+    ]
+  }
+]

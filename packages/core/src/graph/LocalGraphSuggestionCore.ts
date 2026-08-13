@@ -221,6 +221,21 @@ interface BusinessFaultResetRuleConfig {
   presentation?: BusinessPresentationConfig;
 }
 
+interface BusinessActionLifecycleRuleConfig {
+  id: string;
+  status: string;
+  kind: "selfHold" | "stopInterlock" | "latchedRelease";
+  anchorRolesAny: string[];
+  candidateRolesAny: string[];
+  candidateNodeType: "contact" | "negatedContact" | "resetCoil";
+  allowedPositions: LocalSuggestionPosition[];
+  excludedTerms: BusinessTerm[];
+  priority: number;
+  businessName: string;
+  reason: string;
+  presentation?: BusinessPresentationConfig;
+}
+
 interface LocalSuggestionAddElement {
   nodeType: string;
   displayLabel: string;
@@ -305,6 +320,16 @@ interface FaultResetContext {
   candidates: DeviceLoopRoleCandidate[];
 }
 
+interface ActionLifecycleCandidate extends DeviceLoopRoleCandidate {
+  kind: BusinessActionLifecycleRuleConfig["kind"];
+  actionName: string;
+}
+
+interface ActionLifecycleContext {
+  anchor: DeviceCommandAnchor;
+  candidates: ActionLifecycleCandidate[];
+}
+
 interface BusinessSuggestionContext {
   hasBusinessContext: boolean;
   hasLocalBusinessContext: boolean;
@@ -337,6 +362,7 @@ interface BusinessSuggestionContext {
   deviceLoopContext?: DeviceLoopContext;
   faultResponseContext?: FaultResponseContext;
   faultResetContext?: FaultResetContext;
+  actionLifecycleContext?: ActionLifecycleContext;
 }
 
 interface BusinessRulesConfig {
@@ -354,6 +380,7 @@ interface BusinessRulesConfig {
   deviceLoopRules: BusinessDeviceLoopRuleConfig[];
   faultResponseRules: BusinessFaultResponseRuleConfig[];
   faultResetRules: BusinessFaultResetRuleConfig[];
+  actionLifecycleRules: BusinessActionLifecycleRuleConfig[];
   contactPolarityRules: BusinessContactPolarityRuleConfig[];
   nodeIntentRules: BusinessNodeIntentRuleConfig[];
   libraryRules: BusinessLibraryRuleConfig[];
@@ -584,7 +611,7 @@ const FALLBACK_TERM_IMPLICATIONS: BusinessTermImplicationConfig[] = [
 ];
 
 const FALLBACK_BUSINESS_RULES_CONFIG: BusinessRulesConfig = {
-  schemaVersion: "ide-agent.business-rules.v13",
+  schemaVersion: "ide-agent.business-rules.v14",
   enabled: true,
   defaultBlocks: FALLBACK_COMMON_FUNCTION_BLOCK_TYPES,
   dataTypeGroups: FALLBACK_DATA_TYPE_GROUPS,
@@ -621,6 +648,7 @@ const FALLBACK_BUSINESS_RULES_CONFIG: BusinessRulesConfig = {
   deviceLoopRules: [],
   faultResponseRules: [],
   faultResetRules: [],
+  actionLifecycleRules: [],
   contactPolarityRules: [],
   nodeIntentRules: [],
   libraryRules: [],
@@ -667,6 +695,9 @@ function loadBusinessRulesConfig(): BusinessRulesConfig {
     deviceLoopRules: parseDeviceLoopRules(record.deviceLoopRules),
     faultResponseRules: parseFaultResponseRules(record.faultResponseRules),
     faultResetRules: parseFaultResetRules(record.faultResetRules),
+    actionLifecycleRules: parseActionLifecycleRules(
+      record.actionLifecycleRules,
+    ),
     contactPolarityRules: parseContactPolarityRules(
       record.contactPolarityRules,
     ),
@@ -763,6 +794,43 @@ function parseFaultResetRules(value: unknown): BusinessFaultResetRuleConfig[] {
         item.anchorRolesAny.length > 0 &&
         item.candidateRolesAny.length > 0 &&
         item.candidateNodeType === "resetCoil" &&
+        Boolean(item.businessName) &&
+        Boolean(item.presentation),
+    );
+}
+
+function parseActionLifecycleRules(
+  value: unknown,
+): BusinessActionLifecycleRuleConfig[] {
+  return asArrayRecord(value)
+    .map((item) => ({
+      id: asStringConfig(item.id),
+      status: asStringConfig(item.status) || "active",
+      kind: asStringConfig(item.kind) as BusinessActionLifecycleRuleConfig["kind"],
+      anchorRolesAny: stringList(item.anchorRolesAny),
+      candidateRolesAny: stringList(item.candidateRolesAny),
+      candidateNodeType: asStringConfig(
+        item.candidateNodeType,
+      ) as BusinessActionLifecycleRuleConfig["candidateNodeType"],
+      allowedPositions: stringList(
+        item.allowedPositions,
+      ) as LocalSuggestionPosition[],
+      excludedTerms: stringList(item.excludedTerms),
+      priority: asOptionalNumberConfig(item.priority) ?? 0,
+      businessName: asStringConfig(item.businessName),
+      reason: asStringConfig(item.reason),
+      presentation: parseBusinessPresentation(item.presentation),
+    }))
+    .filter(
+      (item) =>
+        item.status.toLowerCase() === "active" &&
+        Boolean(item.id) &&
+        ["selfHold", "stopInterlock", "latchedRelease"].includes(item.kind) &&
+        item.anchorRolesAny.length > 0 &&
+        item.candidateRolesAny.length > 0 &&
+        ["contact", "negatedContact", "resetCoil"].includes(
+          item.candidateNodeType,
+        ) &&
         Boolean(item.businessName) &&
         Boolean(item.presentation),
     );
@@ -1316,9 +1384,12 @@ function rankBusinessSuggestions(
   }
 
   const contactAwareSuggestions = addBusinessContactVariants(
-    addFaultResetSuggestions(
-      addFaultResponseSuggestions(
-        addDeviceLoopSuggestions(suggestions, context, focus),
+    addActionLifecycleSuggestions(
+      addFaultResetSuggestions(
+        addFaultResponseSuggestions(
+          addDeviceLoopSuggestions(suggestions, context, focus),
+          context,
+        ),
         context,
       ),
       context,
@@ -1811,6 +1882,119 @@ function isFaultResetInsertion(
   return (
     rule.allowedPositions.length === 0 ||
     rule.allowedPositions.includes(position)
+  );
+}
+
+function addActionLifecycleSuggestions(
+  suggestions: LocalSuggestionDraft[],
+  context: BusinessSuggestionContext,
+): LocalSuggestionDraft[] {
+  const lifecycle = context.actionLifecycleContext;
+  if (!BUSINESS_RULES_CONFIG.enabled || !lifecycle) {
+    return suggestions;
+  }
+
+  const generated: LocalSuggestionDraft[] = [];
+  const matchingRules = BUSINESS_RULES_CONFIG.actionLifecycleRules
+    .filter((rule) => matchesActionLifecycleRule(rule, context, lifecycle))
+    .sort((left, right) => right.priority - left.priority);
+  for (const rule of matchingRules) {
+    const candidates = lifecycle.candidates.filter(
+      (candidate) =>
+        candidate.kind === rule.kind &&
+        rule.candidateRolesAny.includes(candidate.role),
+    );
+    for (const candidate of candidates) {
+      for (const suggestion of suggestions) {
+        if (!isActionLifecycleInsertion(suggestion, rule)) {
+          continue;
+        }
+        const addElement =
+          rule.candidateNodeType === "resetCoil"
+            ? resetCoilElement(candidate.variableName)
+            : contactVariantElement(
+                rule.candidateNodeType,
+                candidate.variableName,
+                candidate.dataType,
+                candidate.scope,
+              );
+        addElement.variableScope = candidate.scope;
+        const nextDraft: LocalSuggestionDraft = {
+          ...suggestion,
+          addElement,
+          placement: {
+            ...suggestion.placement,
+            text: suggestion.placement.text
+              .replaceAll("常开触点", addElement.displayLabel)
+              .replaceAll("输出线圈", addElement.displayLabel),
+          },
+        };
+        const presentation = rule.presentation
+          ? renderBusinessPresentation(rule.presentation, nextDraft, {
+              ruleId: `${rule.id}:${candidate.variableName}`,
+              confidence: candidate.association === "nameStem" ? 90 : 98,
+              businessName: rule.businessName,
+              reason: rule.reason,
+              actionName: candidate.actionName,
+              candidateVar: candidate.variableName,
+            })
+          : undefined;
+        generated.push(
+          presentation
+            ? { ...nextDraft, businessPresentation: presentation }
+            : nextDraft,
+        );
+      }
+    }
+  }
+  return dedupeSuggestions([...generated, ...suggestions]);
+}
+
+function matchesActionLifecycleRule(
+  rule: BusinessActionLifecycleRuleConfig,
+  context: BusinessSuggestionContext,
+  lifecycle: ActionLifecycleContext,
+): boolean {
+  if (
+    rule.excludedTerms.some(
+      (term) =>
+        lifecycle.anchor.terms.has(term) ||
+        localBusinessTermWeight(context, term) > 0,
+    )
+  ) {
+    return false;
+  }
+  return rule.anchorRolesAny.some((role) => lifecycle.anchor.roles.has(role));
+}
+
+function isActionLifecycleInsertion(
+  suggestion: LocalSuggestionDraft,
+  rule: BusinessActionLifecycleRuleConfig,
+): boolean {
+  const position = suggestion.position ?? inferPosition(suggestion);
+  if (
+    rule.allowedPositions.length > 0 &&
+    !rule.allowedPositions.includes(position)
+  ) {
+    return false;
+  }
+  if (rule.kind === "selfHold") {
+    return (
+      suggestion.mode === "parallelBranch" &&
+      suggestion.addElement.nodeType === "contact" &&
+      inferSerialOrParallel(suggestion) === "parallel"
+    );
+  }
+  if (rule.kind === "stopInterlock") {
+    return (
+      suggestion.addElement.nodeType === "contact" &&
+      inferSerialOrParallel(suggestion) === "serial"
+    );
+  }
+  return (
+    suggestion.mode === "outputCoil" &&
+    suggestion.addElement.nodeType === "coil" &&
+    inferSerialOrParallel(suggestion) === "serial"
   );
 }
 
@@ -2376,6 +2560,12 @@ function buildBusinessSuggestionContext(
     pouVariables,
     variableRoleMatches,
   );
+  const actionLifecycleContext = analyzeActionLifecycleContext(
+    summary,
+    focus,
+    pouVariables,
+    variableRoleMatches,
+  );
   const signatureMatches = evaluateLoopSignatures(
     BUSINESS_RULES_CONFIG.variablePatterns,
     BUSINESS_RULES_CONFIG.loopSignatures,
@@ -2418,6 +2608,7 @@ function buildBusinessSuggestionContext(
       Boolean(deviceLoopContext) ||
       Boolean(faultResponseContext) ||
       Boolean(faultResetContext) ||
+      Boolean(actionLifecycleContext) ||
       isBusinessBlockType(focusBlockType) ||
       [...segmentBlockTypes].some((value) => isBusinessBlockType(value)),
     hasLocalBusinessContext,
@@ -2450,6 +2641,7 @@ function buildBusinessSuggestionContext(
     deviceLoopContext,
     faultResponseContext,
     faultResetContext,
+    actionLifecycleContext,
   };
 }
 
@@ -3007,6 +3199,230 @@ function analyzeFaultResetContext(
   };
 }
 
+function analyzeActionLifecycleContext(
+  summary: DiagramSummary,
+  focus: FocusContext,
+  variables: DiagramVariableSummary[],
+  roleMatches: BusinessVariableRoleMatch[],
+): ActionLifecycleContext | undefined {
+  const anchorNode = focus.node;
+  if (!anchorNode || !isContactKind(anchorNode.kind)) {
+    return undefined;
+  }
+  const anchorReference = normalizeReference(anchorNode.var);
+  if (!anchorReference) {
+    return undefined;
+  }
+  const anchorVariable = variables.find(
+    (variable) => normalizeReference(variable.name) === anchorReference,
+  );
+  const anchorRoleMatches = roleMatches.filter(
+    (match) => normalizeReference(match.variableName) === anchorReference,
+  );
+  const anchorRoles = new Set(anchorRoleMatches.map((match) => match.role));
+  const anchorTerms = collectBusinessTerms([
+    ...nodeBusinessTexts(anchorNode),
+    ...(anchorVariable ? variableBusinessTexts(anchorVariable) : []),
+    focus.segment.label,
+    focus.segment.note,
+  ]);
+  if (anchorTerms.has("safety")) {
+    return undefined;
+  }
+
+  const pouName = (focus.segment.pouName || summary.pouName).trim();
+  const samePouSegments = summary.segments.filter(
+    (segment) => (segment.pouName || summary.pouName).trim() === pouName,
+  );
+  const variablesByReference = new Map(
+    variables.map((variable) => [normalizeReference(variable.name), variable]),
+  );
+  const outputNodes = samePouSegments.flatMap((segment) =>
+    segment.nodes.filter((node) => isCoilKind(node.kind)),
+  );
+  const actionOutputs = outputNodes
+    .map((node) => {
+      const reference = normalizeReference(node.var);
+      const variable = variablesByReference.get(reference);
+      const matches = roleMatches.filter(
+        (match) =>
+          normalizeReference(match.variableName) === reference &&
+          ["actionOutput", "commandSignal"].includes(match.role),
+      );
+      if (!reference || !variable || normalizeDataType(variable.type) !== "BOOL") {
+        return undefined;
+      }
+      const outputTerms = collectBusinessTerms([
+        ...nodeBusinessTexts(node),
+        ...variableBusinessTexts(variable),
+      ]);
+      return { node, variable, matches, terms: outputTerms };
+    })
+    .filter(
+      (
+        item,
+      ): item is {
+        node: DiagramNodeSummary;
+        variable: DiagramVariableSummary;
+        matches: BusinessVariableRoleMatch[];
+        terms: Set<BusinessTerm>;
+      } => Boolean(item),
+    );
+  const candidates: ActionLifecycleCandidate[] = [];
+  const existingUpstreamReferences = collectUpstreamReferences(
+    focus.segment,
+    anchorNode.id,
+  );
+
+  for (const output of actionOutputs) {
+    if (output.matches.length === 0) {
+      continue;
+    }
+    if (hasConflictingDeviceActionTerms(anchorTerms, output.terms)) {
+      continue;
+    }
+    const outputRole = output.matches.find((match) => match.role === "actionOutput") ?? output.matches[0];
+    const association = strongestDeviceAssociation(
+      anchorRoleMatches,
+      outputRole,
+      anchorVariable,
+      output.variable,
+      anchorRoles.has("stopCommand") ? "stopCommand" : "startCommand",
+    );
+    if (!association) {
+      continue;
+    }
+    if (
+      anchorRoles.has("startCommand") &&
+      existingUpstreamReferences.has(normalizeReference(output.variable.name))
+    ) {
+      continue;
+    }
+    const roleForAction = anchorRoles.has("stopCommand")
+      ? "stopCommand"
+      : anchorRoles.has("startCommand")
+        ? "startCommand"
+        : "commandSignal";
+    const actionName = output.variable.name;
+    if (roleForAction === "startCommand" || roleForAction === "commandSignal") {
+      if (
+        !samePouSegments.some(
+          (segment) =>
+            segment.segmentId === focus.segment.segmentId &&
+            canReachNode(segment, anchorNode.id, output.node.id),
+        )
+      ) {
+        continue;
+      }
+      const existingSelfHold = samePouSegments.some((segment) =>
+        segment.nodes.some(
+          (node) =>
+            isContactKind(node.kind) &&
+            node.id !== anchorNode.id &&
+            normalizeReference(node.var) ===
+              normalizeReference(output.variable.name) &&
+            canReachNode(segment, node.id, output.node.id),
+        ),
+      );
+      if (!existingSelfHold) {
+        candidates.push({
+          variableName: output.variable.name,
+          dataType: output.variable.type,
+          scope: output.variable.scope || "VAR",
+          role: "actionOutput",
+          evidenceScore: outputRole.score,
+          associationKey: association.key,
+          association: association.strategy,
+          kind: "selfHold",
+          actionName,
+        });
+      }
+    }
+    if (anchorRoles.has("stopCommand")) {
+      const existingReset = samePouSegments.some((segment) =>
+        segment.nodes.some(
+          (node) =>
+            node.kind === "resetCoil" &&
+            normalizeReference(node.var) ===
+              normalizeReference(output.variable.name),
+        ),
+      );
+      if (!existingReset && outputNodes.some((node) => node.kind === "setCoil")) {
+        candidates.push({
+          variableName: output.variable.name,
+          dataType: output.variable.type,
+          scope: output.variable.scope || "VAR",
+          role: "actionOutput",
+          evidenceScore: outputRole.score,
+          associationKey: association.key,
+          association: association.strategy,
+          kind: "latchedRelease",
+          actionName,
+        });
+      }
+    }
+  }
+
+  const stopRole = anchorRoles.has("stopCommand") || anchorTerms.has("stop");
+  const startRole = anchorRoles.has("startCommand") || anchorTerms.has("start");
+  if (!stopRole && !startRole) {
+    return undefined;
+  }
+  for (const match of roleMatches) {
+    if (match.role !== "stopCommand" || !startRole) {
+      continue;
+    }
+    const variable = variablesByReference.get(normalizeReference(match.variableName));
+    if (!variable || normalizeDataType(variable.type) !== "BOOL") {
+      continue;
+    }
+    if (hasConflictingExplicitGroups(anchorRoleMatches, match)) {
+      continue;
+    }
+    const association = strongestDeviceAssociation(
+      anchorRoleMatches,
+      match,
+      anchorVariable,
+      variable,
+      "startCommand",
+    );
+    if (!association) {
+      continue;
+    }
+    candidates.push({
+      variableName: variable.name,
+      dataType: variable.type,
+      scope: variable.scope || "VAR",
+      role: "stopCommand",
+      evidenceScore: match.score,
+      associationKey: association.key,
+      association: association.strategy,
+      kind: "stopInterlock",
+      actionName: anchorVariable?.name ?? anchorNode.var ?? "",
+    });
+  }
+  if (candidates.length === 0) {
+    return undefined;
+  }
+  return {
+    anchor: {
+      nodeId: anchorNode.id,
+      variableName: anchorVariable?.name ?? anchorNode.var?.trim() ?? "",
+      roles: anchorRoles,
+      terms: anchorTerms,
+    },
+    candidates: candidates.filter(
+      (candidate, index, all) =>
+        all.findIndex(
+          (item) =>
+            item.kind === candidate.kind &&
+            normalizeReference(item.variableName) ===
+              normalizeReference(candidate.variableName),
+        ) === index,
+    ),
+  };
+}
+
 function hasConflictingExplicitGroups(
   anchorMatches: BusinessVariableRoleMatch[],
   candidate: BusinessVariableRoleMatch,
@@ -3200,6 +3616,22 @@ function deviceDescriptionStem(
           "open", "extend", "cmd", "req", "命令", "请求", "启动", "运行",
           "使能", "开门", "开阀", "伸出",
         ]
+      : role === "startCommand"
+        ? [
+            "启动按钮", "启动命令", "启动请求", "运行按钮", "运行命令", "运行请求",
+            "startbutton", "startcommand", "runbutton", "runcommand", "start", "run",
+            "按钮", "命令", "请求", "信号",
+          ]
+        : role === "stopCommand"
+          ? [
+              "停止按钮", "停止命令", "停止请求", "停机按钮", "停机命令",
+              "stopbutton", "stopcommand", "stoprequest", "stop", "按钮", "命令", "请求", "信号",
+            ]
+          : role === "actionOutput"
+            ? [
+                "运行输出", "运行状态", "动作输出", "动作状态", "设备运行", "执行输出",
+                "actionoutput", "runoutput", "running", "active", "运行", "输出", "状态", "信号",
+              ]
       : role === "readySignal"
         ? [
             "设备就绪", "就绪信号", "设备健康", "健康状态", "可用状态",
@@ -3207,6 +3639,12 @@ function deviceDescriptionStem(
             "available", "standby", "healthy", "ready", "就绪", "健康", "可用",
             "状态", "信号",
           ]
+        : role === "startCommand"
+          ? ["start", "run", "button", "command", "cmd", "request", "req", "signal"]
+        : role === "stopCommand"
+          ? ["stop", "button", "command", "cmd", "request", "req", "signal"]
+        : role === "actionOutput"
+          ? ["run", "running", "active", "output", "out", "command", "cmd", "status", "signal"]
         : role === "resetCommand"
           ? [
               "故障复位命令", "报警复位命令", "故障复位按钮", "报警复位按钮",

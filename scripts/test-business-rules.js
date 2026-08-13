@@ -61,6 +61,13 @@ const faultResetCompletionFixturePath = path.join(
   "fixtures",
   "fault-reset-completion-fixture.json",
 );
+const actionLifecycleCompletionFixturePath = path.join(
+  rootDir,
+  "src",
+  "test",
+  "fixtures",
+  "action-lifecycle-completion-fixture.json",
+);
 const rulesPath = path.join(
   rootDir,
   "packages",
@@ -91,13 +98,14 @@ async function main() {
   await assertDeviceLoopCompletionCases();
   await assertFaultResponseCompletionCases();
   await assertFaultResetCompletionCases();
+  await assertActionLifecycleCompletionCases();
   await assertTimestampDiagramWhenAvailable();
   console.log("[test-business-rules] passed");
 }
 
 function assertActiveRuleCandidatesExistInLibrary() {
   const rules = JSON.parse(fs.readFileSync(rulesPath, "utf8"));
-  assert.equal(rules.schemaVersion, "ide-agent.business-rules.v13");
+  assert.equal(rules.schemaVersion, "ide-agent.business-rules.v14");
   assert.ok(
     (rules.deviceLoopRules ?? []).length >= 2,
     "deviceLoopRules must define generic ready and fault completion",
@@ -119,6 +127,10 @@ function assertActiveRuleCandidatesExistInLibrary() {
       (rule) => rule.id === "FRS01-latched-fault-reset",
     ),
     "fault reset rules must bind an existing latch to a reset coil",
+  );
+  assert.ok(
+    (rules.actionLifecycleRules ?? []).length >= 3,
+    "action lifecycle rules must define self-hold, stop release and latched release",
   );
   assert.ok(
     rules.variablePatterns.suffixRoles.some(
@@ -240,6 +252,24 @@ function assertActiveRuleCandidatesExistInLibrary() {
       rule.candidateNodeType,
       "resetCoil",
       `${rule.id} must use resetCoil`,
+    );
+    assertBusinessPresentation(rule.id, rule.presentation, ["candidateVar"]);
+  }
+  for (const rule of rules.actionLifecycleRules ?? []) {
+    assert.ok(rule.id, "action lifecycle rule must define id");
+    assert.ok(
+      ["selfHold", "stopInterlock", "latchedRelease"].includes(rule.kind),
+      `${rule.id} must use a supported lifecycle kind`,
+    );
+    assert.ok(
+      rule.anchorRolesAny?.length > 0 &&
+        rule.anchorRolesAny.every((role) => definedRoles.has(role)),
+      `${rule.id} anchorRolesAny must reference defined roles`,
+    );
+    assert.ok(
+      rule.candidateRolesAny?.length > 0 &&
+        rule.candidateRolesAny.every((role) => definedRoles.has(role)),
+      `${rule.id} candidateRolesAny must reference defined roles`,
     );
     assertBusinessPresentation(rule.id, rule.presentation, ["candidateVar"]);
   }
@@ -2590,6 +2620,84 @@ async function assertFaultResetCompletionCases() {
       "resetCoil",
     ),
     "name fallback must not mix different actions on one device",
+  );
+}
+
+async function assertActionLifecycleCompletionCases() {
+  const startSuggestions = await suggestionsFor(
+    actionLifecycleCompletionFixturePath,
+    "segment-pump01-start",
+    "pump01-start-contact",
+  );
+  const selfHold = suggestionForVariable(
+    startSuggestions,
+    "Pump01_Run",
+    "contact",
+  );
+  assert.ok(selfHold, "a start condition with an action output should suggest self-hold");
+  assert.equal(selfHold.position, "parallel");
+  assert.equal(selfHold.serialOrParallel, "parallel");
+  assert.match(selfHold.title, /Pump01_Run.*自保持/);
+  assert.match(selfHold.text, /启动按钮释放后动作仍保持/);
+  assert.deepStrictEqual(selfHold.startNodes, ["pump01-start-rail"]);
+  assert.deepStrictEqual(selfHold.endNodes, ["pump01-run-coil"]);
+
+  const stopSuggestions = await suggestionsFor(
+    actionLifecycleCompletionFixturePath,
+    "segment-pump01-start",
+    "pump01-start-contact",
+  );
+  const stopInterlock = suggestionForVariable(
+    stopSuggestions,
+    "Pump01_Stop",
+    "negatedContact",
+  );
+  assert.ok(stopInterlock, "a same-group stop command should suggest a normally-closed release condition");
+  assert.match(stopInterlock.title, /Pump01_Stop.*停止释放/);
+  assert.deepStrictEqual(stopInterlock.startNodes, ["pump01-start-rail"]);
+  assert.deepStrictEqual(stopInterlock.endNodes, ["pump01-start-contact"]);
+
+  const latchedReleaseSuggestions = await suggestionsFor(
+    actionLifecycleCompletionFixturePath,
+    "segment-valve01-stop",
+    "valve01-stop-contact",
+  );
+  const latchedRelease = suggestionForVariable(
+    latchedReleaseSuggestions,
+    "Valve01_Run",
+    "resetCoil",
+  );
+  assert.ok(latchedRelease, "a stop command should release an existing same-group latched action");
+  assert.match(latchedRelease.title, /Valve01_Run.*停止复位/);
+
+  const existingHoldSuggestions = await suggestionsFor(
+    actionLifecycleCompletionFixturePath,
+    "segment-fan01-existing-hold",
+    "fan01-start-contact",
+  );
+  assert.ok(
+    !suggestionForVariable(existingHoldSuggestions, "Fan01_Run", "contact"),
+    "an existing same-variable hold branch must suppress duplicate self-hold",
+  );
+
+  const noOutputSuggestions = await suggestionsFor(
+    actionLifecycleCompletionFixturePath,
+    "segment-motor01-buttons",
+    "motor01-start",
+  );
+  assert.ok(
+    !suggestionForVariable(noOutputSuggestions, "Motor01_Run", "contact"),
+    "start and stop context without a real action output must not infer self-hold",
+  );
+
+  const safetySuggestions = await suggestionsFor(
+    actionLifecycleCompletionFixturePath,
+    "segment-safety-start",
+    "safety-start",
+  );
+  assert.ok(
+    !suggestionForVariable(safetySuggestions, "SafetyGate_Run", "contact"),
+    "safety action logic must not receive ordinary self-hold completion",
   );
 }
 
