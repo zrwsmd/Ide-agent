@@ -1,0 +1,88 @@
+[
+  {
+    "segmentList": [
+      {
+        "id": "segment-2",
+        "label": "",
+        "note": "",
+        "height": 166,
+        "width": 610,
+        "isExpand": true,
+        "nodesObj": {
+          "start-node-line": {
+            "id": "start-node-line",
+            "type": "startLine",
+            "Xlayer": 0,
+            "Ylayer": 0,
+            "sourceIds": [],
+            "targetIds": ["edit-node-rect"]
+          },
+          "edit-node-rect": {
+            "id": "edit-node-rect",
+            "type": "editRect",
+            "sourceIds": ["start-node-line"],
+            "targetIds": [
+              "contact-HjIByZ-1785485481179",
+              "coil-qMtHZ2-1785485500620"
+            ],
+            "children": [
+              {
+                "id": "edit-node-rect-left-port",
+                "type": "node:edgePort",
+                "side": "left",
+                "parentId": "edit-node-rect",
+                "cssClasses": ["contact-left-port"],
+                "position": { "x": -45, "y": 0 },
+                "size": { "width": 45, "height": 22 }
+              },
+              {
+                "id": "edit-node-rect-bottom-port",
+                "type": "node:edgeBottomPort",
+                "side": "bottom",
+                "parentId": "edit-node-rect",
+                "cssClasses": ["contact-bottom-port"],
+                "position": { "x": 0, "y": 0 },
+                "size": { "width": 70, "height": 22 }
+              }
+            ]
+          },
+          "contact-HjIByZ-1785485481179": {
+            "id": "contact-HjIByZ-1785485481179",
+            "type": "contact",
+            "sourceIds": ["edit-node-rect"],
+            "targetIds": ["branch-NczXVN-1785485500620"],
+            "varName": { "name": "", "value": "a", "type": "BOOL", "scope": "VAR" }
+          },
+          "coil-yU8EmF-1785485483508": {
+            "id": "coil-yU8EmF-1785485483508",
+            "type": "coil",
+            "sourceIds": ["branch-NczXVN-1785485500620"],
+            "targetIds": [],
+            "varName": { "name": "", "value": "c", "type": "BOOL", "scope": "VAR" }
+          },
+          "coil-qMtHZ2-1785485500620": {
+            "id": "coil-qMtHZ2-1785485500620",
+            "type": "coil",
+            "sourceIds": ["edit-node-rect"],
+            "targetIds": [],
+            "varName": { "name": "", "value": "b", "type": "BOOL", "scope": "VAR" }
+          },
+          "branch-NczXVN-1785485500620": {
+            "id": "branch-NczXVN-1785485500620",
+            "type": "branchRect",
+            "sourceIds": ["contact-HjIByZ-1785485481179"],
+            "targetIds": ["coil-yU8EmF-1785485483508"]
+          }
+        }
+      }
+    ],
+    "variableList": [
+      { "scope": "VAR", "name": "a", "type": "BOOL", "initValue": "", "address": "", "comment": "", "pathLabels": ["base", "BOOL"], "id": "A", "isShow": true },
+      { "scope": "VAR", "name": "b", "type": "BOOL", "initValue": "", "address": "", "comment": "", "pathLabels": ["base", "BOOL"], "id": "B", "isShow": true },
+      { "scope": "VAR", "name": "c", "type": "BOOL", "initValue": "", "address": "", "comment": "", "pathLabels": ["base", "BOOL"], "id": "C", "isShow": true }
+    ],
+    "pouType": "PROGRAM",
+    "pouName": "TEST1",
+    "extensionPath": ""
+  }
+]

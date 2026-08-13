@@ -2,10 +2,18 @@ import * as assert from "assert";
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
+import { getLocalGraphSuggestions } from "@ide-agent/core";
 import { loadDiagramSummary } from "../diagram/DiagramSummary";
 
-const DIAGRAM_PATH =
-  "E:\\bbb\\1785489875402.txt";
+const DIAGRAM_PATH = path.resolve(
+  __dirname,
+  "..",
+  "..",
+  "src",
+  "test",
+  "fixtures",
+  "local-graph-command-fixture.json",
+);
 const SUGGESTABLE_NODE_KINDS = new Set([
   "contact",
   "negatedContact",
@@ -192,6 +200,17 @@ export async function run(): Promise<void> {
   assertNoAuxiliaryBoundaryText(
     byNode.payload?.suggestions,
     "selectedNodeId suggestions",
+  );
+
+  const byDirectImport = await getLocalGraphSuggestions({
+    diagramPath: DIAGRAM_PATH,
+    segmentId: selectedSegment.segmentId,
+    selectedNodeId: selectedNode.id,
+  });
+  assert.deepStrictEqual(
+    byNode,
+    byDirectImport,
+    "VS Code command and @ide-agent/core import should use the same suggestion engine",
   );
 
   const coilWithAuxiliaryInput = summary.segments
