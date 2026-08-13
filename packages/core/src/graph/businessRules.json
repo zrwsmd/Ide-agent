@@ -1,4 +1,5 @@
 {
+  "$schema": "./businessRules.schema.json",
   "schemaVersion": "ide-agent.business-rules.v17",
   "enabled": true,
   "defaultBlocks": ["TON", "TOF", "TP", "R_TRIG", "F_TRIG", "CTU", "CTD", "CTUD", "SR", "RS"],

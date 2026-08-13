@@ -9,7 +9,7 @@
     "dist"
   ],
   "scripts": {
-    "compile": "tsc -p ./ && node scripts/copy-runtime-assets.js"
+    "compile": "node ../../scripts/validate-business-rules.js && tsc -p ./ && node scripts/copy-runtime-assets.js"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

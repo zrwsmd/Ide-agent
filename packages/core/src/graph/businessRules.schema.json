@@ -1,0 +1,622 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ide-agent.local/schemas/businessRules.schema.json",
+  "title": "Ide Agent local business rules",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "enabled",
+    "defaultBlocks",
+    "dataTypeGroups",
+    "typeCapabilities",
+    "derivedTerms",
+    "termImplications",
+    "termPatterns",
+    "variablePatterns",
+    "blockPortRoleRules",
+    "motionCommandProfiles",
+    "loopSignatures",
+    "deviceLoopRules",
+    "faultResponseRules",
+    "faultResetRules",
+    "actionLifecycleRules",
+    "contactPolarityRules",
+    "nodeIntentRules",
+    "libraryRules",
+    "rankingRules",
+    "plannedRules"
+  ],
+  "properties": {
+    "$schema": { "type": "string", "const": "./businessRules.schema.json" },
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^ide-agent\\.business-rules\\.v[1-9][0-9]*$"
+    },
+    "enabled": { "type": "boolean" },
+    "defaultBlocks": { "$ref": "#/$defs/nonEmptyStringArray" },
+    "dataTypeGroups": { "$ref": "#/$defs/stringListMap" },
+    "typeCapabilities": { "$ref": "#/$defs/stringListMap" },
+    "derivedTerms": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/derivedTerm" }
+    },
+    "termImplications": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/termImplication" }
+    },
+    "termPatterns": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/termPattern" }
+    },
+    "variablePatterns": { "$ref": "#/$defs/variablePatterns" },
+    "blockPortRoleRules": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/blockPortRoleRule" }
+    },
+    "motionCommandProfiles": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/motionCommandProfile" }
+    },
+    "loopSignatures": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/loopSignature" }
+    },
+    "deviceLoopRules": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/deviceLoopRule" }
+    },
+    "faultResponseRules": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/faultResponseRule" }
+    },
+    "faultResetRules": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/faultResetRule" }
+    },
+    "actionLifecycleRules": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/actionLifecycleRule" }
+    },
+    "contactPolarityRules": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/contactPolarityRule" }
+    },
+    "nodeIntentRules": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/nodeIntentRule" }
+    },
+    "libraryRules": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/libraryRule" }
+    },
+    "rankingRules": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/rankingRule" }
+    },
+    "plannedRules": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/plannedRule" }
+    }
+  },
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1 },
+    "stringArray": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/nonEmptyString" },
+      "uniqueItems": true
+    },
+    "nonEmptyStringArray": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/nonEmptyString" },
+      "uniqueItems": true
+    },
+    "stringListMap": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "$ref": "#/$defs/nonEmptyString" },
+      "additionalProperties": { "$ref": "#/$defs/nonEmptyStringArray" }
+    },
+    "activeRule": {
+      "type": "object",
+      "required": ["id", "status"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "status": { "const": "active" }
+      }
+    },
+    "presentation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["titleTemplate", "textTemplate"],
+      "properties": {
+        "titleTemplate": { "$ref": "#/$defs/nonEmptyString" },
+        "textTemplate": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "position": {
+      "enum": ["front", "behind", "outsideFront", "outsideBehind", "parallel", "replace"]
+    },
+    "positions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/position" },
+      "uniqueItems": true
+    },
+    "nodeType": {
+      "enum": [
+        "contact",
+        "negatedContact",
+        "risingContact",
+        "fallingContact",
+        "coil",
+        "setCoil",
+        "resetCoil",
+        "FBDCompartment"
+      ]
+    },
+    "mode": {
+      "enum": ["functionBlockAfter", "functionBlockBefore", "parallelBranch", "outputFunctionBlock"]
+    },
+    "modes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/mode" },
+      "uniqueItems": true
+    },
+    "derivedTerm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["term"],
+      "properties": {
+        "term": { "$ref": "#/$defs/nonEmptyString" },
+        "whenDataTypesAny": { "$ref": "#/$defs/stringArray" },
+        "whenTypeCapabilitiesAny": { "$ref": "#/$defs/stringArray" }
+      },
+      "minProperties": 2
+    },
+    "termImplication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ifMatched", "alsoMatch"],
+      "properties": {
+        "ifMatched": { "$ref": "#/$defs/nonEmptyString" },
+        "alsoMatch": { "$ref": "#/$defs/nonEmptyStringArray" }
+      }
+    },
+    "termPattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["term", "literalPatterns", "regexPatterns"],
+      "properties": {
+        "term": { "$ref": "#/$defs/nonEmptyString" },
+        "literalPatterns": { "$ref": "#/$defs/stringArray" },
+        "regexPatterns": { "$ref": "#/$defs/stringArray" }
+      }
+    },
+    "rolePatternBase": {
+      "type": "object",
+      "required": ["role", "acceptedDataTypes"],
+      "properties": {
+        "role": { "$ref": "#/$defs/nonEmptyString" },
+        "controller": { "$ref": "#/$defs/nonEmptyString" },
+        "acceptedDataTypes": { "$ref": "#/$defs/stringArray" }
+      }
+    },
+    "prefixRolePattern": {
+      "allOf": [
+        { "$ref": "#/$defs/rolePatternBase" },
+        {
+          "type": "object",
+          "required": ["prefix"],
+          "properties": { "prefix": { "$ref": "#/$defs/nonEmptyString" } }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "suffixRolePattern": {
+      "allOf": [
+        { "$ref": "#/$defs/rolePatternBase" },
+        {
+          "type": "object",
+          "required": ["suffix"],
+          "properties": { "suffix": { "$ref": "#/$defs/nonEmptyString" } }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "roleEvidenceSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "literalPatterns", "regexPatterns", "score"],
+      "properties": {
+        "source": { "enum": ["name", "label", "note", "comment"] },
+        "literalPatterns": { "$ref": "#/$defs/stringArray" },
+        "regexPatterns": { "$ref": "#/$defs/stringArray" },
+        "score": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "roleEvidenceRule": {
+      "allOf": [
+        { "$ref": "#/$defs/activeRule" },
+        {
+          "type": "object",
+          "required": ["role", "acceptedDataTypes", "minScore", "sources"],
+          "properties": {
+            "role": { "$ref": "#/$defs/nonEmptyString" },
+            "acceptedDataTypes": { "$ref": "#/$defs/stringArray" },
+            "minScore": { "type": "number", "exclusiveMinimum": 0 },
+            "sources": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/roleEvidenceSource" }
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "physicalTerm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["physical", "literalPatterns", "regexPatterns"],
+      "properties": {
+        "physical": { "$ref": "#/$defs/nonEmptyString" },
+        "literalPatterns": { "$ref": "#/$defs/stringArray" },
+        "regexPatterns": { "$ref": "#/$defs/stringArray" }
+      }
+    },
+    "variablePatterns": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["prefixRoles", "suffixRoles", "roleEvidenceRules", "physicalTerms"],
+      "properties": {
+        "prefixRoles": { "type": "array", "items": { "$ref": "#/$defs/prefixRolePattern" } },
+        "suffixRoles": { "type": "array", "items": { "$ref": "#/$defs/suffixRolePattern" } },
+        "roleEvidenceRules": { "type": "array", "items": { "$ref": "#/$defs/roleEvidenceRule" } },
+        "physicalTerms": { "type": "array", "items": { "$ref": "#/$defs/physicalTerm" } }
+      }
+    },
+    "blockPortRole": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["port", "direction"],
+      "properties": {
+        "port": { "$ref": "#/$defs/nonEmptyString" },
+        "direction": { "enum": ["input", "output", "any"] },
+        "role": { "$ref": "#/$defs/nonEmptyString" },
+        "roles": { "$ref": "#/$defs/nonEmptyStringArray" },
+        "acceptedDataTypes": { "$ref": "#/$defs/stringArray" },
+        "score": { "type": "number", "exclusiveMinimum": 0 }
+      },
+      "oneOf": [
+        { "required": ["role"], "not": { "required": ["roles"] } },
+        { "required": ["roles"], "not": { "required": ["role"] } }
+      ]
+    },
+    "blockPortRoleRule": {
+      "allOf": [
+        { "$ref": "#/$defs/activeRule" },
+        {
+          "type": "object",
+          "required": ["blockTypes", "ports"],
+          "properties": {
+            "blockTypes": { "$ref": "#/$defs/nonEmptyStringArray" },
+            "ports": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/blockPortRole" }
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "motionCommandProfile": {
+      "allOf": [
+        { "$ref": "#/$defs/activeRule" },
+        {
+          "type": "object",
+          "required": [
+            "blockTypes",
+            "triggerModel",
+            "triggerPort",
+            "completionPorts",
+            "activePorts",
+            "busyPorts",
+            "faultPorts",
+            "abortedPorts",
+            "locksAxisWhileTriggerTrue"
+          ],
+          "properties": {
+            "blockTypes": { "$ref": "#/$defs/nonEmptyStringArray" },
+            "triggerModel": { "enum": ["level", "risingEdge"] },
+            "triggerPort": { "$ref": "#/$defs/nonEmptyString" },
+            "completionPorts": { "$ref": "#/$defs/stringArray" },
+            "activePorts": { "$ref": "#/$defs/stringArray" },
+            "busyPorts": { "$ref": "#/$defs/stringArray" },
+            "faultPorts": { "$ref": "#/$defs/stringArray" },
+            "abortedPorts": { "$ref": "#/$defs/stringArray" },
+            "locksAxisWhileTriggerTrue": { "type": "boolean" }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "loopSignature": {
+      "allOf": [
+        { "$ref": "#/$defs/activeRule" },
+        {
+          "type": "object",
+          "required": ["kind", "groupStrategies", "requiredRolesAll", "requiredRoleTypes", "targetBlockTypes"],
+          "properties": {
+            "kind": { "enum": ["completion", "observed"] },
+            "groupStrategies": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "enum": ["groupId", "deviceId", "namePrefix", "fbInstancePorts"] },
+              "uniqueItems": true
+            },
+            "requiredRolesAll": { "$ref": "#/$defs/nonEmptyStringArray" },
+            "requiredRoleTypes": { "$ref": "#/$defs/stringListMap" },
+            "requiredPhysicalTerms": { "$ref": "#/$defs/stringArray" },
+            "requiredPhysicalTermsAny": { "$ref": "#/$defs/stringArray" },
+            "evidenceRolesAny": { "$ref": "#/$defs/stringArray" },
+            "missingRolesAny": { "$ref": "#/$defs/stringArray" },
+            "evidenceTermsAny": { "$ref": "#/$defs/stringArray" },
+            "evidenceBlockTypesAny": { "$ref": "#/$defs/stringArray" },
+            "targetBlockTypes": { "$ref": "#/$defs/stringArray" }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "oppositeActionPair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "leftTerms", "rightTerms"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "leftTerms": { "$ref": "#/$defs/nonEmptyStringArray" },
+        "rightTerms": { "$ref": "#/$defs/nonEmptyStringArray" }
+      }
+    },
+    "oppositeActionCandidates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rolesAny", "pairs", "businessName", "reason", "presentation"],
+      "properties": {
+        "rolesAny": { "$ref": "#/$defs/nonEmptyStringArray" },
+        "pairs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/oppositeActionPair" }
+        },
+        "businessName": { "$ref": "#/$defs/nonEmptyString" },
+        "reason": { "$ref": "#/$defs/nonEmptyString" },
+        "presentation": { "$ref": "#/$defs/presentation" }
+      }
+    },
+    "deviceLoopRule": {
+      "allOf": [
+        { "$ref": "#/$defs/activeRule" },
+        {
+          "type": "object",
+          "required": ["anchorRolesAny", "anchorTermsAny", "candidateRolesAny", "candidateNodeType", "allowedPositions", "excludedTerms", "priority", "businessName", "reason", "presentation"],
+          "properties": {
+            "anchorRolesAny": { "$ref": "#/$defs/stringArray" },
+            "anchorTermsAny": { "$ref": "#/$defs/stringArray" },
+            "candidateRolesAny": { "$ref": "#/$defs/nonEmptyStringArray" },
+            "candidateNodeType": { "enum": ["contact", "negatedContact"] },
+            "allowedPositions": { "$ref": "#/$defs/positions" },
+            "excludedTerms": { "$ref": "#/$defs/stringArray" },
+            "priority": { "type": "number" },
+            "businessName": { "$ref": "#/$defs/nonEmptyString" },
+            "reason": { "$ref": "#/$defs/nonEmptyString" },
+            "presentation": { "$ref": "#/$defs/presentation" },
+            "oppositeActionCandidates": { "$ref": "#/$defs/oppositeActionCandidates" }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "faultResponseRule": {
+      "allOf": [
+        { "$ref": "#/$defs/activeRule" },
+        {
+          "type": "object",
+          "required": ["anchorRolesAny", "anchorTermsAny", "candidateRolesAny", "candidateNodeType", "allowedPositions", "excludedTerms", "priority", "businessName", "reason", "presentation"],
+          "properties": {
+            "anchorRolesAny": { "$ref": "#/$defs/nonEmptyStringArray" },
+            "anchorTermsAny": { "$ref": "#/$defs/stringArray" },
+            "candidateRolesAny": { "$ref": "#/$defs/nonEmptyStringArray" },
+            "candidateNodeType": { "enum": ["coil", "setCoil"] },
+            "allowedPositions": { "$ref": "#/$defs/positions" },
+            "excludedTerms": { "$ref": "#/$defs/stringArray" },
+            "priority": { "type": "number" },
+            "businessName": { "$ref": "#/$defs/nonEmptyString" },
+            "reason": { "$ref": "#/$defs/nonEmptyString" },
+            "presentation": { "$ref": "#/$defs/presentation" }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "faultResetRule": {
+      "allOf": [
+        { "$ref": "#/$defs/activeRule" },
+        {
+          "type": "object",
+          "required": ["anchorRolesAny", "candidateRolesAny", "candidateNodeType", "allowedPositions", "excludedTerms", "priority", "businessName", "reason", "presentation"],
+          "properties": {
+            "anchorRolesAny": { "$ref": "#/$defs/nonEmptyStringArray" },
+            "candidateRolesAny": { "$ref": "#/$defs/nonEmptyStringArray" },
+            "candidateNodeType": { "const": "resetCoil" },
+            "allowedPositions": { "$ref": "#/$defs/positions" },
+            "excludedTerms": { "$ref": "#/$defs/stringArray" },
+            "priority": { "type": "number" },
+            "businessName": { "$ref": "#/$defs/nonEmptyString" },
+            "reason": { "$ref": "#/$defs/nonEmptyString" },
+            "presentation": { "$ref": "#/$defs/presentation" }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "actionLifecycleRule": {
+      "allOf": [
+        { "$ref": "#/$defs/activeRule" },
+        {
+          "type": "object",
+          "required": ["kind", "anchorRolesAny", "candidateRolesAny", "candidateNodeType", "allowedPositions", "excludedTerms", "priority", "businessName", "reason", "presentation"],
+          "properties": {
+            "kind": { "enum": ["selfHold", "stopInterlock", "latchedRelease", "countCompletionOutput", "countCompletionLatch"] },
+            "anchorRolesAny": { "$ref": "#/$defs/nonEmptyStringArray" },
+            "candidateRolesAny": { "$ref": "#/$defs/nonEmptyStringArray" },
+            "candidateNodeType": { "$ref": "#/$defs/nodeType" },
+            "allowedPositions": { "$ref": "#/$defs/positions" },
+            "excludedTerms": { "$ref": "#/$defs/stringArray" },
+            "priority": { "type": "number" },
+            "businessName": { "$ref": "#/$defs/nonEmptyString" },
+            "reason": { "$ref": "#/$defs/nonEmptyString" },
+            "presentation": { "$ref": "#/$defs/presentation" }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "contactPolarityRule": {
+      "allOf": [
+        { "$ref": "#/$defs/activeRule" },
+        {
+          "type": "object",
+          "required": ["polarity", "priority", "termsAny", "termsAll", "reason"],
+          "properties": {
+            "polarity": { "enum": ["normal", "negated"] },
+            "priority": { "type": "number" },
+            "termsAny": { "$ref": "#/$defs/stringArray" },
+            "termsAll": { "$ref": "#/$defs/stringArray" },
+            "excludedTerms": { "$ref": "#/$defs/stringArray" },
+            "excludedAnchorTerms": { "$ref": "#/$defs/stringArray" },
+            "anchorTermScope": { "enum": ["selectedNode", "selectedNodeOrDirectNeighbors"] },
+            "reason": { "$ref": "#/$defs/nonEmptyString" }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "nodeIntentRule": {
+      "allOf": [
+        { "$ref": "#/$defs/activeRule" },
+        {
+          "type": "object",
+          "required": ["nodeTypes", "excludedTerms", "minimumEvidenceCount", "priority", "businessName", "reason", "presentation"],
+          "properties": {
+            "nodeTypes": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/nodeType" },
+              "uniqueItems": true
+            },
+            "positions": { "$ref": "#/$defs/positions" },
+            "termsAny": { "$ref": "#/$defs/stringArray" },
+            "termsAll": { "$ref": "#/$defs/stringArray" },
+            "excludedTerms": { "$ref": "#/$defs/stringArray" },
+            "actionRolesAny": { "$ref": "#/$defs/stringArray" },
+            "chainRolesAny": { "$ref": "#/$defs/stringArray" },
+            "requireActionAnchor": { "type": "boolean" },
+            "minimumEvidenceCount": { "type": "number", "minimum": 1 },
+            "priority": { "type": "number" },
+            "businessName": { "$ref": "#/$defs/nonEmptyString" },
+            "reason": { "$ref": "#/$defs/nonEmptyString" },
+            "presentation": { "$ref": "#/$defs/presentation" }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "portRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["port", "required", "acceptedDataTypes"],
+      "properties": {
+        "port": { "$ref": "#/$defs/nonEmptyString" },
+        "direction": { "enum": ["input", "output", "any"] },
+        "required": { "type": "boolean" },
+        "acceptedDataTypes": { "$ref": "#/$defs/stringArray" },
+        "allowCreateParameter": { "type": "boolean" }
+      }
+    },
+    "libraryRule": {
+      "allOf": [
+        { "$ref": "#/$defs/activeRule" },
+        {
+          "type": "object",
+          "required": ["candidateNames", "allowedModes", "priority", "reason"],
+          "properties": {
+            "termsAny": { "$ref": "#/$defs/stringArray" },
+            "termsAll": { "$ref": "#/$defs/stringArray" },
+            "excludedTerms": { "$ref": "#/$defs/stringArray" },
+            "focusKinds": { "$ref": "#/$defs/stringArray" },
+            "requiredAnyDataTypes": { "$ref": "#/$defs/stringArray" },
+            "requiredAllDataTypes": { "$ref": "#/$defs/stringArray" },
+            "excludedDataTypes": { "$ref": "#/$defs/stringArray" },
+            "requiredTypeCapabilities": { "$ref": "#/$defs/stringArray" },
+            "signatureRefsAny": { "$ref": "#/$defs/stringArray" },
+            "excludedExistingBlockTypes": { "$ref": "#/$defs/stringArray" },
+            "portRequirements": { "type": "array", "items": { "$ref": "#/$defs/portRequirement" } },
+            "candidateNames": { "$ref": "#/$defs/nonEmptyStringArray" },
+            "priority": { "type": "number" },
+            "baseScore": { "type": "number" },
+            "allowedModes": { "$ref": "#/$defs/modes" },
+            "allowedPositions": { "$ref": "#/$defs/positions" },
+            "preferredModes": { "$ref": "#/$defs/modes" },
+            "preferredPositions": { "$ref": "#/$defs/positions" },
+            "reason": { "$ref": "#/$defs/nonEmptyString" },
+            "fallback": { "$ref": "#/$defs/nonEmptyString" },
+            "presentation": { "$ref": "#/$defs/presentation" }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "rankingRule": {
+      "allOf": [
+        { "$ref": "#/$defs/activeRule" },
+        {
+          "type": "object",
+          "required": ["candidateNodeTypes", "priority", "baseScore", "termMultiplier"],
+          "properties": {
+            "termsAny": { "$ref": "#/$defs/stringArray" },
+            "termsAll": { "$ref": "#/$defs/stringArray" },
+            "excludedTerms": { "$ref": "#/$defs/stringArray" },
+            "candidateNodeTypes": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/nodeType" },
+              "uniqueItems": true
+            },
+            "candidateBlockTypes": { "$ref": "#/$defs/stringArray" },
+            "modes": { "$ref": "#/$defs/modes" },
+            "positions": { "$ref": "#/$defs/positions" },
+            "priority": { "type": "number" },
+            "baseScore": { "type": "number" },
+            "termMultiplier": { "type": "number" }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "plannedRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "status", "capabilityNeeded", "fallback"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "status": { "const": "planned" },
+        "capabilityNeeded": { "$ref": "#/$defs/nonEmptyStringArray" },
+        "fallback": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    }
+  }
+}
