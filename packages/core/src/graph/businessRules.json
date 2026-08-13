@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "ide-agent.business-rules.v16",
+  "schemaVersion": "ide-agent.business-rules.v17",
   "enabled": true,
   "defaultBlocks": ["TON", "TOF", "TP", "R_TRIG", "F_TRIG", "CTU", "CTD", "CTUD", "SR", "RS"],
   "dataTypeGroups": {
@@ -559,21 +559,36 @@
       ]
     },
     {
-      "id": "BPR05-motion",
+      "id": "BPR05-motion-common",
       "status": "active",
       "blockTypes": ["MC_Power", "MC_Reset", "MC_Home", "MC_MoveAbsolute", "MC_MoveRelative", "MC_MoveVelocity", "MC_Stop", "MC_Halt"],
       "ports": [
         { "port": "Axis", "direction": "any", "role": "axisReference", "acceptedDataTypes": ["AXIS_REF", "AXIS_REF_SM3"] },
-        { "port": "Enable", "direction": "input", "role": "enableSignal", "acceptedDataTypes": ["BOOL"] },
-        { "port": "Execute", "direction": "input", "role": "commandSignal", "acceptedDataTypes": ["BOOL"] },
         { "port": "Deceleration", "direction": "input", "role": "deceleration", "acceptedDataTypes": ["REAL", "LREAL"] },
-        { "port": "Done", "direction": "output", "role": "completionSignal", "acceptedDataTypes": ["BOOL"] },
-        { "port": "InVelocity", "direction": "output", "role": "completionSignal", "acceptedDataTypes": ["BOOL"] },
-        { "port": "Status", "direction": "output", "role": "runFeedback", "acceptedDataTypes": ["BOOL"] },
-        { "port": "Active", "direction": "output", "role": "runFeedback", "acceptedDataTypes": ["BOOL"] },
         { "port": "Busy", "direction": "output", "role": "busySignal", "acceptedDataTypes": ["BOOL"] },
         { "port": "Error", "direction": "output", "role": "faultSignal", "acceptedDataTypes": ["BOOL"] },
         { "port": "ErrorID", "direction": "output", "role": "faultCode" }
+      ]
+    },
+    {
+      "id": "BPR13-motion-power-level",
+      "status": "active",
+      "blockTypes": ["MC_Power"],
+      "ports": [
+        { "port": "Enable", "direction": "input", "role": "enableSignal", "acceptedDataTypes": ["BOOL"] },
+        { "port": "Status", "direction": "output", "role": "runFeedback", "acceptedDataTypes": ["BOOL"] }
+      ]
+    },
+    {
+      "id": "BPR14-motion-execution-cycle",
+      "status": "active",
+      "blockTypes": ["MC_Reset", "MC_Home", "MC_MoveAbsolute", "MC_MoveRelative", "MC_MoveVelocity", "MC_Stop", "MC_Halt"],
+      "ports": [
+        { "port": "Execute", "direction": "input", "role": "commandSignal", "acceptedDataTypes": ["BOOL"] },
+        { "port": "Done", "direction": "output", "role": "completionSignal", "acceptedDataTypes": ["BOOL"] },
+        { "port": "InVelocity", "direction": "output", "role": "completionSignal", "acceptedDataTypes": ["BOOL"] },
+        { "port": "Active", "direction": "output", "role": "runFeedback", "acceptedDataTypes": ["BOOL"] },
+        { "port": "CommandAborted", "direction": "output", "role": "commandAbortedSignal", "acceptedDataTypes": ["BOOL"] }
       ]
     },
     {
@@ -653,6 +668,47 @@
         { "port": "IN", "direction": "input", "role": "stringInput", "acceptedDataTypes": ["STRING"] },
         { "port": "OUT", "direction": "output", "role": "stringLength", "acceptedDataTypes": ["INT"] }
       ]
+    }
+  ],
+  "motionCommandProfiles": [
+    {
+      "id": "MCP01-power-level",
+      "status": "active",
+      "blockTypes": ["MC_Power"],
+      "triggerModel": "level",
+      "triggerPort": "Enable",
+      "completionPorts": [],
+      "activePorts": ["Status"],
+      "busyPorts": ["Busy"],
+      "faultPorts": ["Error", "ErrorID"],
+      "abortedPorts": [],
+      "locksAxisWhileTriggerTrue": false
+    },
+    {
+      "id": "MCP02-execution-cycle",
+      "status": "active",
+      "blockTypes": ["MC_Reset", "MC_Home", "MC_MoveAbsolute", "MC_MoveRelative", "MC_MoveAdditive", "MC_MoveSuperimposed", "MC_MoveVelocity", "MC_PositionProfile", "MC_VelocityProfile", "MC_AccelerationProfile", "MC_Halt", "SMC_MoveContinuousAbsolute", "SMC_MoveContinuousRelative"],
+      "triggerModel": "risingEdge",
+      "triggerPort": "Execute",
+      "completionPorts": ["Done", "InVelocity", "InEndVelocity", "PositionReached", "DistanceTravelled"],
+      "activePorts": ["Active"],
+      "busyPorts": ["Busy"],
+      "faultPorts": ["Error", "ErrorID"],
+      "abortedPorts": ["CommandAborted"],
+      "locksAxisWhileTriggerTrue": false
+    },
+    {
+      "id": "MCP03-stop-locking-cycle",
+      "status": "active",
+      "blockTypes": ["MC_Stop"],
+      "triggerModel": "risingEdge",
+      "triggerPort": "Execute",
+      "completionPorts": ["Done"],
+      "activePorts": [],
+      "busyPorts": ["Busy"],
+      "faultPorts": ["Error", "ErrorID"],
+      "abortedPorts": [],
+      "locksAxisWhileTriggerTrue": true
     }
   ],
   "loopSignatures": [
@@ -847,8 +903,8 @@
         "commandSignal": ["BOOL"],
         "completionSignal": ["BOOL"]
       },
-      "evidenceBlockTypesAny": ["MC_Reset", "MC_Home", "MC_MoveAbsolute", "MC_MoveRelative", "MC_Stop", "MC_Halt"],
-      "targetBlockTypes": ["MC_Reset", "MC_Home", "MC_MoveAbsolute", "MC_MoveRelative", "MC_Stop", "MC_Halt"]
+      "evidenceBlockTypesAny": ["MC_Reset", "MC_Home", "MC_MoveAbsolute", "MC_MoveRelative", "MC_MoveVelocity", "MC_Stop", "MC_Halt"],
+      "targetBlockTypes": ["MC_Reset", "MC_Home", "MC_MoveAbsolute", "MC_MoveRelative", "MC_MoveVelocity", "MC_Stop", "MC_Halt"]
     }
   ],
   "deviceLoopRules": [

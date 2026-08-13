@@ -61,7 +61,7 @@
 | ALC-06A | 四份题库能力盘点与现有规则映射 | `completed` | 逐项判断题库场景为已支持、部分支持、未支持或不纳入，并记录对应的现有规则、实现入口和测试；本阶段只形成能力矩阵，不修改代码，也不把未实现能力写成已支持。 |
 | ALC-06B-1 | 计数完成后的动作闭环 | `completed` | 复用计数端口角色、设备/动作分组和现有生命周期机制；真实 CTU/CTD/CTUD 的唯一已绑定 BOOL 完成端口存在同组批次完成变量时补普通或置位线圈，已有输出、跨组、未绑定端口、缺少真实计数器或安全场景不推荐。 |
 | ALC-06B-2 | 相反动作互锁证据 | `completed` | 增强现有动作角色和 `DL04` 阻断逻辑，通用覆盖开/关、伸/缩、正/反、加热/冷却等同设备相反动作；不得为每类设备复制规则，也不得把反馈误作命令互锁。 |
-| ALC-06B-3 | 运动动作组合证据 | `pending` | 增强现有 MC 规则、端口角色和同轴上下文，识别回零、移动、点动、限位、到位和超时的同轴关系，以及 Enable 型与 Execute 型命令差异；不接管完整运动步骤。 |
+| ALC-06B-3 | 运动动作组合证据 | `completed` | 在现有 MC 规则、端口角色和同轴上下文上区分 Enable 保持型与 Execute 上升沿型命令，采集同轴真实状态端口，改善业务说明并对同轴同命令同触发变量去重；不接管完整运动步骤。 |
 | ALC-06B-4 | 同类设备选择与轮换输入模型评估 | `pending` | 评估泵、风机、压缩机等同类设备的设备集合、可用状态、首选状态、累计运行量和故障跳过证据能否可靠获得；本任务不直接启用轮换建议。 |
 | ALC-06B-5 | 共享资源请求仲裁输入模型评估 | `pending` | 评估多请求方、共享资源、占用状态、优先级和释放条件能否可靠表达；本任务不根据变量名直接生成仲裁逻辑。 |
 | ALC-06C | 已实现能力的正反例回归收口 | `pending` | 为 ALC-01 至 ALC-06B 中已真实实现的能力补齐题库来源、正例、已有逻辑去重、跨设备/动作、缺证据和安全排除测试；测试不得代替功能实现。 |
@@ -187,19 +187,21 @@ ALC-06B-1 本次验收只纳入第一项，即“真实计数器完成端口 -> 
 
 #### 5.3.3 ALC-06B-3：运动动作组合证据
 
+状态：`completed`（2026-08-13）
+
 目标是在现有 `MC02`～`MC10` 和同轴上下文上补充动作关系，不重新定义 MC 功能块推荐。
 
 优先复用：
 
-- `BPR05-motion`、`LS04/LS09` 和已有 MC `libraryRules`。
+- `BPR05-motion-common`、`BPR13-motion-power-level`、`BPR14-motion-execution-cycle`、`LS04/LS09` 和已有 MC `libraryRules`。
 - `analyzeMotionAxisContext` 的 `AXIS_REF` 同轴判断。
 - 库文件中的真实端口方向和类型，特别是 `VAR_IN_OUT` Axis 端口。
 
 拟增强内容：
 
-- 区分 `MC_Power.Enable` 的保持型使能语义与运动命令 `Execute` 的触发周期语义。
-- 在同一轴内利用 Home、Done、Busy、Error、限位、到位和超时证据改善建议与业务说明。
-- 对同轴相反或冲突命令提供互锁候选证据，但不根据静态图假定运行时命令正在执行。
+- 通过 `motionCommandProfiles` 区分 `MC_Power.Enable` 的保持型使能语义与运动命令 `Execute` 的触发周期语义。
+- 在同一轴内采集 Home、Done/InVelocity、Active/Status、Busy、Error/ErrorID 等真实端口绑定，改善建议与业务说明；静态图不伪造限位、实时状态或超时结论。
+- 对同轴已存在的命令提供组合证据，并仅在同一轴、同一种功能块、同一个 Enable/Execute 变量已存在时去重，不误删不同请求的合理建议。
 
 不纳入：
 
@@ -207,7 +209,7 @@ ALC-06B-1 本次验收只纳入第一项，即“真实计数器完成端口 -> 
 - 根据静态图推断轴实时状态、命令调度器或厂商运动状态机。
 - 修改当前 MC_Stop/MC_Halt 已验证的区分和端口生成格式。
 
-验收至少覆盖同轴组合正例、不同轴排除、Axis 未绑定降级、已有命令去重和 MC_Power/Execute 语义不混淆。
+验收已覆盖同轴组合正例、不同轴排除、Axis 未绑定降级、同请求已有命令去重、真实状态端口采集和 MC_Power/Execute 语义不混淆。
 
 #### 5.3.4 ALC-06B-4：同类设备选择与轮换输入模型评估
 
@@ -389,3 +391,14 @@ ALC-06C 完成后，必须能够从任一纳入的题库场景追溯到：
 - 新增 `opposite-action-interlock-fixture.json`，覆盖开/关、正/反正例和已有互锁、反馈误用、跨设备、非相反动作、安全排除反例。
 - 规则 schema 升级为 `ide-agent.business-rules.v16`，字段参考文档已同步更新。
 - 验证命令：`npm run test:business-rules`、`npm run test:edit-rect-suggestions`。
+
+### ALC-06B-3（2026-08-13）
+
+- 将原 `BPR05-motion` 拆为公共轴/状态角色、`MC_Power` 保持使能角色和 Execute 命令周期角色，避免把 `Enable` 与 `Execute` 当成同一种触发。
+- 新增 `motionCommandProfiles`，按真实库块声明 `level` 或 `risingEdge` 触发模型，以及完成/到位、活动、忙、故障和中止端口；它只提供同轴上下文，不直接决定候选。
+- 扩展 `analyzeMotionAxisContext`，按真实 `AXIS_REF` 收集同轴 MC_Power/Reset/Home/Move/Stop/Halt 实例及端口绑定，同时保留旧 `executeReference` 输出兼容。
+- 现有 MC 建议在同轴证据可靠时展示 Enable/Execute 差异和真实状态变量；静态图只提示命令组合与互锁责任，不声称某条命令正在运行。
+- 去重仅在同一轴、同一种 MC 块和同一个 Enable/Execute 变量全部一致时生效；同轴不同请求仍保持原有合理建议，MC_Stop/MC_Halt 区分和 Axis `VAR_IN_OUT` 端口格式未修改。
+- 扩展 `motion-axis-context-fixture.json`，覆盖 MC_Power 保持使能、MC_MoveVelocity Execute 周期、完成/活动/忙/故障端口、MC_Home 文案、不同轴排除、Axis 未绑定降级和同触发变量去重。
+- 规则 schema 升级为 `ide-agent.business-rules.v17`，字段参考和 fixture README 已同步更新。
+- 验证命令：`npm run test:business-rules`、`npm run test:edit-rect-suggestions`、`npm run test:local-graph-command`。

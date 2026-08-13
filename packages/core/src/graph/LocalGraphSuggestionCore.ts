@@ -302,6 +302,15 @@ interface MotionAxisCommandInstance {
   instance: string;
   axisReference: string;
   executeReference: string;
+  triggerModel: "level" | "risingEdge";
+  triggerPort: string;
+  triggerReference: string;
+  completionReferences: string[];
+  activeReferences: string[];
+  busyReferences: string[];
+  faultReferences: string[];
+  abortedReferences: string[];
+  locksAxisWhileTriggerTrue: boolean;
 }
 
 interface MotionAxisContext {
@@ -309,6 +318,20 @@ interface MotionAxisContext {
   resolution: "focusPort" | "neighborPort" | "segmentUniquePort";
   commands: MotionAxisCommandInstance[];
   lockingStops: MotionAxisCommandInstance[];
+}
+
+interface BusinessMotionCommandProfileConfig {
+  id: string;
+  status: string;
+  blockTypes: string[];
+  triggerModel: "level" | "risingEdge";
+  triggerPort: string;
+  completionPorts: string[];
+  activePorts: string[];
+  busyPorts: string[];
+  faultPorts: string[];
+  abortedPorts: string[];
+  locksAxisWhileTriggerTrue: boolean;
 }
 
 interface DeviceCommandAnchor {
@@ -383,6 +406,7 @@ interface BusinessSuggestionContext {
   descriptorTerms: Set<BusinessTerm>;
   localVariableRoles: BusinessVariableRoleMatch[];
   coherentRoleCount: number;
+  focusReferences: Set<string>;
   actionAnchorName: string;
   actionAnchorTerms: Set<BusinessTerm>;
   actionAnchorRoles: Set<string>;
@@ -404,6 +428,7 @@ interface BusinessRulesConfig {
   termPatterns: BusinessTermPatternConfig[];
   variablePatterns: BusinessVariablePatternsConfig;
   blockPortRoleRules: BusinessBlockPortRoleRuleConfig[];
+  motionCommandProfiles: BusinessMotionCommandProfileConfig[];
   loopSignatures: BusinessLoopSignatureConfig[];
   deviceLoopRules: BusinessDeviceLoopRuleConfig[];
   faultResponseRules: BusinessFaultResponseRuleConfig[];
@@ -557,21 +582,6 @@ const FALLBACK_COMMON_FUNCTION_BLOCK_TYPES = [
   "SR",
   "RS",
 ];
-const MOTION_AXIS_COMMAND_BLOCK_TYPES = new Set([
-  "MC_HOME",
-  "MC_MOVEABSOLUTE",
-  "MC_MOVERELATIVE",
-  "MC_MOVEADDITIVE",
-  "MC_MOVESUPERIMPOSED",
-  "MC_MOVEVELOCITY",
-  "MC_POSITIONPROFILE",
-  "MC_VELOCITYPROFILE",
-  "MC_ACCELERATIONPROFILE",
-  "MC_STOP",
-  "MC_HALT",
-  "SMC_MOVECONTINUOUSABSOLUTE",
-  "SMC_MOVECONTINUOUSRELATIVE",
-]);
 const MAX_RETURNED_SUGGESTIONS = 16;
 const FALLBACK_DATA_TYPE_GROUPS: Record<string, string[]> = {
   NUMERIC: [
@@ -672,6 +682,7 @@ const FALLBACK_BUSINESS_RULES_CONFIG: BusinessRulesConfig = {
   ],
   variablePatterns: EMPTY_VARIABLE_PATTERNS,
   blockPortRoleRules: EMPTY_BLOCK_PORT_ROLE_RULES,
+  motionCommandProfiles: [],
   loopSignatures: EMPTY_LOOP_SIGNATURES,
   deviceLoopRules: [],
   faultResponseRules: [],
@@ -719,6 +730,9 @@ function loadBusinessRulesConfig(): BusinessRulesConfig {
     termPatterns: parseTermPatterns(record.termPatterns),
     variablePatterns: parseVariablePatterns(record.variablePatterns),
     blockPortRoleRules: parseBlockPortRoleRules(record.blockPortRoleRules),
+    motionCommandProfiles: parseMotionCommandProfiles(
+      record.motionCommandProfiles,
+    ),
     loopSignatures: parseLoopSignatures(record.loopSignatures),
     deviceLoopRules: parseDeviceLoopRules(record.deviceLoopRules),
     faultResponseRules: parseFaultResponseRules(record.faultResponseRules),
@@ -733,6 +747,38 @@ function loadBusinessRulesConfig(): BusinessRulesConfig {
     libraryRules: parseBusinessRules(record.libraryRules ?? record.rules),
     rankingRules: parseBusinessRankingRules(record.rankingRules),
   };
+}
+
+function parseMotionCommandProfiles(
+  value: unknown,
+): BusinessMotionCommandProfileConfig[] {
+  return asArrayRecord(value)
+    .map((item) => ({
+      id: asStringConfig(item.id),
+      status: asStringConfig(item.status) || "active",
+      blockTypes: stringList(item.blockTypes),
+      triggerModel:
+        asStringConfig(item.triggerModel).toLowerCase() === "level"
+          ? ("level" as const)
+          : ("risingEdge" as const),
+      triggerPort: asStringConfig(item.triggerPort),
+      completionPorts: stringList(item.completionPorts),
+      activePorts: stringList(item.activePorts),
+      busyPorts: stringList(item.busyPorts),
+      faultPorts: stringList(item.faultPorts),
+      abortedPorts: stringList(item.abortedPorts),
+      locksAxisWhileTriggerTrue: asBooleanConfig(
+        item.locksAxisWhileTriggerTrue,
+        false,
+      ),
+    }))
+    .filter(
+      (item) =>
+        item.status.toLowerCase() === "active" &&
+        Boolean(item.id) &&
+        item.blockTypes.length > 0 &&
+        Boolean(item.triggerPort),
+    );
 }
 
 function parseDeviceLoopRules(value: unknown): BusinessDeviceLoopRuleConfig[] {
@@ -1371,6 +1417,14 @@ function buildLocalPayload(
                 blockType: command.blockType,
                 instance: command.instance,
                 executeReference: command.executeReference,
+                triggerModel: command.triggerModel,
+                triggerPort: command.triggerPort,
+                triggerReference: command.triggerReference,
+                completionReferences: command.completionReferences,
+                activeReferences: command.activeReferences,
+                busyReferences: command.busyReferences,
+                faultReferences: command.faultReferences,
+                abortedReferences: command.abortedReferences,
               })),
               lockingStops: motionAxisContext.lockingStops.map((command) => ({
                 nodeId: command.nodeId,
@@ -2422,6 +2476,7 @@ function matchBusinessRule(
         context.observedLoopBlockTypes.has(
           normalizeBlockType(libraryElement.name),
         )) ||
+      hasExistingSameAxisMotionCommand(libraryElement.name, context) ||
       !matchesPortRequirements(
         rule.portRequirements ?? [],
         libraryElement,
@@ -2449,6 +2504,25 @@ function matchBusinessRule(
         completionMatch: matchingCompletionMatches[0],
       },
     ];
+  });
+}
+
+function hasExistingSameAxisMotionCommand(
+  candidateName: string,
+  context: BusinessSuggestionContext,
+): boolean {
+  if (!context.motionAxisContext || context.focusReferences.size === 0) {
+    return false;
+  }
+
+  const normalizedCandidateName = normalizeBlockType(candidateName);
+  return context.motionAxisContext.commands.some((command) => {
+    const triggerReference = normalizeReference(command.triggerReference);
+    return (
+      normalizeBlockType(command.blockType) === normalizedCandidateName &&
+      Boolean(triggerReference) &&
+      context.focusReferences.has(triggerReference)
+    );
   });
 }
 
@@ -2638,6 +2712,11 @@ function buildBusinessSuggestionContext(
     focus.segment.note,
   ]);
   const actionAnchor = findBusinessActionAnchor(focus);
+  const focusReferences = new Set(
+    collectFocusVariableNames(focus, surroundingNodes)
+      .map((reference) => normalizeReference(reference))
+      .filter(Boolean),
+  );
   const motionAxisContext = analyzeMotionAxisContext(summary, focus);
   const actionAnchorRoles = new Set(
     localVariableRoles
@@ -2681,7 +2760,7 @@ function buildBusinessSuggestionContext(
     signatureContextTerms,
     BUSINESS_RULES_CONFIG.blockPortRoleRules,
     blockInstances,
-    collectFocusVariableNames(focus, surroundingNodes),
+    [...focusReferences],
   );
   const completionLoopMatches = signatureMatches.filter(
     (match) => match.kind === "completion",
@@ -2741,6 +2820,7 @@ function buildBusinessSuggestionContext(
     descriptorTerms,
     localVariableRoles,
     coherentRoleCount,
+    focusReferences,
     actionAnchorName: actionAnchor.name,
     actionAnchorTerms: actionAnchor.terms,
     actionAnchorRoles,
@@ -4267,7 +4347,8 @@ function analyzeMotionAxisContext(
   const commands = samePouSegments.flatMap((segment) =>
     segment.nodes.flatMap((node): MotionAxisCommandInstance[] => {
       const blockType = normalizeBlockType(node.blockType);
-      if (!MOTION_AXIS_COMMAND_BLOCK_TYPES.has(blockType)) {
+      const profile = motionCommandProfileForBlockType(blockType);
+      if (!profile) {
         return [];
       }
 
@@ -4276,16 +4357,51 @@ function analyzeMotionAxisContext(
         return [];
       }
 
-      return [
-        {
-          nodeId: node.id,
-          segmentId: segment.segmentId,
-          blockType: node.blockType?.trim() || blockType,
-          instance: node.instance?.trim() || "",
-          axisReference,
-          executeReference: motionExecuteReferenceForNode(node),
-        },
-      ];
+      const triggerReference = motionPortReferencesForNode(
+        node,
+        [profile.triggerPort],
+        "input",
+      )[0] ?? "";
+      return [{
+        nodeId: node.id,
+        segmentId: segment.segmentId,
+        blockType: node.blockType?.trim() || blockType,
+        instance: node.instance?.trim() || "",
+        axisReference,
+        executeReference:
+          profile.triggerPort.trim().toUpperCase() === "EXECUTE"
+            ? triggerReference
+            : "",
+        triggerModel: profile.triggerModel,
+        triggerPort: profile.triggerPort,
+        triggerReference,
+        completionReferences: motionPortReferencesForNode(
+          node,
+          profile.completionPorts,
+          "output",
+        ),
+        activeReferences: motionPortReferencesForNode(
+          node,
+          profile.activePorts,
+          "output",
+        ),
+        busyReferences: motionPortReferencesForNode(
+          node,
+          profile.busyPorts,
+          "output",
+        ),
+        faultReferences: motionPortReferencesForNode(
+          node,
+          profile.faultPorts,
+          "output",
+        ),
+        abortedReferences: motionPortReferencesForNode(
+          node,
+          profile.abortedPorts,
+          "output",
+        ),
+        locksAxisWhileTriggerTrue: profile.locksAxisWhileTriggerTrue,
+      }];
     }),
   );
 
@@ -4294,9 +4410,21 @@ function analyzeMotionAxisContext(
     resolution: resolvedAxis.resolution,
     commands,
     lockingStops: commands.filter(
-      (command) => normalizeBlockType(command.blockType) === "MC_STOP",
+      (command) => command.locksAxisWhileTriggerTrue,
     ),
   };
+}
+
+function motionCommandProfileForBlockType(
+  blockType: string,
+): BusinessMotionCommandProfileConfig | undefined {
+  const normalizedBlockType = normalizeBlockType(blockType);
+  return BUSINESS_RULES_CONFIG.motionCommandProfiles.find((profile) =>
+    profile.blockTypes.some(
+      (configuredBlockType) =>
+        normalizeBlockType(configuredBlockType) === normalizedBlockType,
+    ),
+  );
 }
 
 function resolveMotionAxisReference(
@@ -4369,13 +4497,20 @@ function motionAxisReferenceForNode(node: DiagramNodeSummary): string {
   return normalizeReference(axisPort?.value) ? axisPort?.value.trim() ?? "" : "";
 }
 
-function motionExecuteReferenceForNode(node: DiagramNodeSummary): string {
-  const executePort = (node.inputPorts ?? []).find(
-    (port) => port.name.trim().toUpperCase() === "EXECUTE",
+function motionPortReferencesForNode(
+  node: DiagramNodeSummary,
+  portNames: string[],
+  direction: "input" | "output",
+): string[] {
+  const normalizedPortNames = new Set(
+    portNames.map((portName) => portName.trim().toUpperCase()),
   );
-  return normalizeReference(executePort?.value)
-    ? executePort?.value.trim() ?? ""
-    : "";
+  return uniqueDisplayNames(
+    (direction === "input" ? node.inputPorts ?? [] : node.outputPorts ?? [])
+      .filter((port) => normalizedPortNames.has(port.name.trim().toUpperCase()))
+      .map((port) => port.value)
+      .filter((reference) => normalizeReference(reference)),
+  );
 }
 
 function intersection<T>(left: Set<T>, right: Set<T>): Set<T> {
@@ -6131,6 +6266,93 @@ function replaceFunctionBlockDraft(
 }
 
 function buildMotionAxisPresentation(
+  candidate: BusinessElementCandidate,
+  suggestion: LocalSuggestionDraft,
+  motionAxisContext: MotionAxisContext | undefined,
+): BusinessSuggestionPresentation | undefined {
+  const blockType = normalizeBlockType(candidate.name);
+  const profile = motionCommandProfileForBlockType(blockType);
+  if (!motionAxisContext || !profile) {
+    return undefined;
+  }
+  if (blockType === "MC_STOP") {
+    return buildMotionStopAxisPresentation(
+      candidate,
+      suggestion,
+      motionAxisContext,
+    );
+  }
+
+  const businessNames: Record<string, string> = {
+    MC_POWER: "持续使能",
+    MC_RESET: "错误复位",
+    MC_HOME: "回零命令",
+    MC_MOVEABSOLUTE: "绝对定位",
+    MC_MOVERELATIVE: "相对定位",
+    MC_MOVEVELOCITY: "速度运行",
+    MC_HALT: "受控暂停",
+  };
+  const details: string[] = [];
+  details.push(
+    profile.triggerModel === "level"
+      ? `${candidate.name}.${profile.triggerPort} 是持续保持型使能：该输入保持有效时轴才保持使能，不应当按 Execute 上升沿命令使用`
+      : `${candidate.name} 由 ${profile.triggerPort} 上升沿启动一次命令周期，不是持续保持型使能`,
+  );
+
+  const configuredCommands = uniqueDisplayNames(
+    motionAxisContext.commands.map((command) => command.blockType),
+  );
+  if (configuredCommands.length > 0) {
+    details.push(
+      `同一轴已配置 ${formatDisplayList(configuredCommands)}`,
+    );
+  }
+  const completionReferences = uniqueDisplayNames(
+    motionAxisContext.commands.flatMap(
+      (command) => command.completionReferences,
+    ),
+  );
+  const activeReferences = uniqueDisplayNames(
+    motionAxisContext.commands.flatMap((command) => command.activeReferences),
+  );
+  const busyReferences = uniqueDisplayNames(
+    motionAxisContext.commands.flatMap((command) => command.busyReferences),
+  );
+  const faultReferences = uniqueDisplayNames(
+    motionAxisContext.commands.flatMap((command) => command.faultReferences),
+  );
+  if (completionReferences.length > 0) {
+    details.push(`已有完成/到位信号 ${formatDisplayList(completionReferences)}`);
+  }
+  if (activeReferences.length > 0) {
+    details.push(`已有使能/活动状态 ${formatDisplayList(activeReferences)}`);
+  }
+  if (busyReferences.length > 0) {
+    details.push(`已有忙状态 ${formatDisplayList(busyReferences)}`);
+  }
+  if (faultReferences.length > 0) {
+    details.push(`已有故障状态 ${formatDisplayList(faultReferences)}`);
+  }
+  if (configuredCommands.length > 1) {
+    details.push(
+      "这些静态同轴证据用于补全说明，仍需由程序互锁或状态机避免运动命令不受控并发，不能据此认定某条命令正在执行",
+    );
+  }
+
+  return {
+    title: `补充 ${motionAxisContext.axisReference} ${businessNames[blockType] ?? candidate.name}`,
+    text: `${businessPlacementText(suggestion)}。${details.join("；")}。`,
+    ruleId: `${candidate.ruleId}:same-axis-command-profile`,
+    confidence:
+      configuredCommands.length > 0 ||
+      completionReferences.length > 0 ||
+      activeReferences.length > 0
+        ? 96
+        : 90,
+  };
+}
+
+function buildMotionStopAxisPresentation(
   candidate: BusinessElementCandidate,
   suggestion: LocalSuggestionDraft,
   motionAxisContext: MotionAxisContext | undefined,

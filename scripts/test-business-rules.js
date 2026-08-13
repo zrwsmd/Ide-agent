@@ -121,7 +121,42 @@ async function main() {
 
 function assertActiveRuleCandidatesExistInLibrary() {
   const rules = JSON.parse(fs.readFileSync(rulesPath, "utf8"));
-  assert.equal(rules.schemaVersion, "ide-agent.business-rules.v16");
+  assert.equal(rules.schemaVersion, "ide-agent.business-rules.v17");
+  const motionCommandProfiles = rules.motionCommandProfiles ?? [];
+  const powerProfile = motionCommandProfiles.find(
+    (profile) => profile.id === "MCP01-power-level",
+  );
+  assert.equal(powerProfile?.triggerModel, "level");
+  assert.equal(powerProfile?.triggerPort, "Enable");
+  assert.deepStrictEqual(powerProfile?.blockTypes, ["MC_Power"]);
+  const executionProfiles = motionCommandProfiles.filter(
+    (profile) => profile.triggerModel === "risingEdge",
+  );
+  assert.ok(
+    executionProfiles.some((profile) => profile.blockTypes.includes("MC_Home")),
+    "motion profiles must describe Execute-driven command cycles",
+  );
+  assert.ok(
+    executionProfiles.every(
+      (profile) => !profile.blockTypes.includes("MC_Power"),
+    ),
+    "MC_Power must not be classified as an Execute-driven command",
+  );
+  for (const profile of motionCommandProfiles) {
+    for (const blockType of profile.blockTypes) {
+      const libraryElement = libraryElements.get(blockType.toUpperCase());
+      assert.ok(libraryElement, `${profile.id} references missing ${blockType}`);
+      const inputPorts = libraryElement.inputs ?? [];
+      assert.ok(
+        inputPorts.some(
+          (port) =>
+            String(port[0]).toUpperCase() ===
+            String(profile.triggerPort).toUpperCase(),
+        ),
+        `${profile.id} trigger port ${profile.triggerPort} is missing on ${blockType}`,
+      );
+    }
+  }
   assert.ok(
     (rules.deviceLoopRules ?? []).length >= 2,
     "deviceLoopRules must define generic ready and fault completion",
@@ -1214,6 +1249,10 @@ function assertBlockPortRoleCases() {
           { name: "Axis_2", type: "AXIS_REF", scope: "VAR" },
           { name: "Stop_Request_2", type: "BOOL", scope: "VAR" },
           { name: "Stop_Done_2", type: "BOOL", scope: "VAR" },
+          { name: "Power_Enable", type: "BOOL", scope: "VAR" },
+          { name: "Power_Status", type: "BOOL", scope: "VAR" },
+          { name: "Power_Busy", type: "BOOL", scope: "VAR" },
+          { name: "Power_Error", type: "BOOL", scope: "VAR" },
           { name: "Delay_Enable", type: "BOOL", scope: "VAR" },
           { name: "Delay_Time", type: "TIME", scope: "VAR" },
           { name: "Delay_Done", type: "BOOL", scope: "VAR" },
@@ -1279,6 +1318,22 @@ function assertBlockPortRoleCases() {
             [testPort("Q", "Delay_Done", "BOOL", "VAR_OUTPUT")],
           ),
           blockRoleTestSegment(
+            "segment-port-role-power",
+            "Axis 1 power enable",
+            "power-node",
+            "MC_Power",
+            "Power_Axis_1",
+            [
+              testPort("Axis", "Axis_1", "AXIS_REF", "VAR_IN_OUT"),
+              testPort("Enable", "Power_Enable", "BOOL", "VAR_INPUT"),
+            ],
+            [
+              testPort("Status", "Power_Status", "BOOL", "VAR_OUTPUT"),
+              testPort("Busy", "Power_Busy", "BOOL", "VAR_OUTPUT"),
+              testPort("Error", "Power_Error", "BOOL", "VAR_OUTPUT"),
+            ],
+          ),
+          blockRoleTestSegment(
             "segment-port-role-limit",
             "Limit process value",
             "limit-node",
@@ -1319,8 +1374,21 @@ function assertBlockPortRoleCases() {
     "REAL PID parameters must not be classified as PID block instances",
   );
   assert.ok(roleMatch("Axis_1", "axisReference")?.matchedSources.includes("port"));
+  assert.ok(roleMatch("Delay_Enable", "conditionSignal"));
+  assert.ok(
+    !roleMatch("Axis_1", "commandSignal"),
+    "an Axis reference must not become a motion command signal",
+  );
   assert.ok(roleMatch("Stop_Request_1", "commandSignal")?.matchedSources.includes("port"));
   assert.ok(roleMatch("Stop_Done_1", "completionSignal")?.matchedSources.includes("port"));
+  assert.ok(roleMatch("Power_Enable", "enableSignal")?.matchedSources.includes("port"));
+  assert.ok(
+    !roleMatch("Power_Enable", "commandSignal")?.matchedSources.includes("port"),
+    "MC_Power.Enable must not provide Execute-style command evidence",
+  );
+  assert.ok(roleMatch("Power_Status", "runFeedback"));
+  assert.ok(roleMatch("Power_Busy", "busySignal"));
+  assert.ok(roleMatch("Power_Error", "faultSignal"));
   assert.ok(roleMatch("Delay_Time", "presetDuration"));
   assert.ok(roleMatch("Limited_Value", "resultValue"));
 
@@ -2120,6 +2188,34 @@ async function assertStableBusinessCases() {
       (command) => command.blockType === "MC_MoveVelocity",
     ),
   );
+  const sameAxisPower = sameAxisContext?.commands.find(
+    (command) => command.blockType === "MC_Power",
+  );
+  assert.equal(sameAxisPower?.triggerModel, "level");
+  assert.equal(sameAxisPower?.triggerPort, "Enable");
+  assert.equal(sameAxisPower?.triggerReference, "Feed_Power_Enable");
+  assert.equal(sameAxisPower?.executeReference, "");
+  assert.deepStrictEqual(sameAxisPower?.activeReferences, [
+    "Feed_Power_Status",
+  ]);
+  assert.deepStrictEqual(sameAxisPower?.busyReferences, ["Feed_Power_Busy"]);
+  assert.deepStrictEqual(sameAxisPower?.faultReferences, [
+    "Feed_Power_Error",
+  ]);
+  const sameAxisMove = sameAxisContext?.commands.find(
+    (command) => command.blockType === "MC_MoveVelocity",
+  );
+  assert.equal(sameAxisMove?.triggerModel, "risingEdge");
+  assert.equal(sameAxisMove?.triggerPort, "Execute");
+  assert.equal(sameAxisMove?.triggerReference, "Feed_Move_Request");
+  assert.deepStrictEqual(sameAxisMove?.completionReferences, [
+    "Feed_In_Velocity",
+  ]);
+  assert.deepStrictEqual(sameAxisMove?.activeReferences, [
+    "Feed_Move_Active",
+  ]);
+  assert.deepStrictEqual(sameAxisMove?.busyReferences, ["Feed_Move_Busy"]);
+  assert.deepStrictEqual(sameAxisMove?.faultReferences, ["Feed_Move_Error"]);
   assert.ok(
     !sameAxisContext?.commands.some(
       (command) => command.blockType === "MC_MoveAbsolute",
@@ -2131,6 +2227,46 @@ async function assertStableBusinessCases() {
       (stop) =>
         stop.executeReference === "Feed_Stop_Lock_Request" &&
         stop.requiresExecuteRelease === true,
+    ),
+  );
+
+  const homeResult = await getLocalGraphSuggestions({
+    diagramPath: motionAxisContextFixturePath,
+    segmentId: "segment-home-focus",
+    selectedNodeId: "home-focus-contact",
+  });
+  const homeSuggestion = findFunctionBlockSuggestion(
+    homeResult?.payload?.suggestions ?? [],
+    "MC_HOME",
+  );
+  assert.ok(homeSuggestion, "same-axis home intent should suggest MC_Home");
+  assert.equal(homeSuggestion.title, "补充 Feed_Axis 回零命令");
+  assert.match(homeSuggestion.text, /Execute 上升沿/);
+  assert.match(homeSuggestion.text, /Feed_In_Velocity/);
+  assert.match(homeSuggestion.text, /MC_Power/);
+  assert.match(homeSuggestion.text, /状态机/);
+
+  const existingPowerResult = await getLocalGraphSuggestions({
+    diagramPath: motionAxisContextFixturePath,
+    segmentId: "segment-power-focus",
+    selectedNodeId: "power-focus-contact",
+  });
+  assert.ok(
+    !findFunctionBlockSuggestion(
+      existingPowerResult?.payload?.suggestions ?? [],
+      "MC_POWER",
+    ),
+    "the same axis, block type and Enable reference must not suggest duplicate MC_Power",
+  );
+  const existingPowerContext =
+    existingPowerResult?.payload?.recognizedFocus?.motionAxisContext;
+  assert.ok(
+    existingPowerContext?.commands.some(
+      (command) =>
+        command.blockType === "MC_Power" &&
+        command.triggerModel === "level" &&
+        command.triggerPort === "Enable" &&
+        command.triggerReference === "Feed_Power_Enable",
     ),
   );
 

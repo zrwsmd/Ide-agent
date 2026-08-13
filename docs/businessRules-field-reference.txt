@@ -15,7 +15,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
     原始文字/变量/节点
         -> termPatterns 识别内部业务术语
         -> derivedTerms / termImplications 补充推导术语
-        -> variablePatterns / blockPortRoleRules / loopSignatures 识别变量角色和业务回路
+        -> variablePatterns / blockPortRoleRules / motionCommandProfiles / loopSignatures 识别变量角色、运动触发模型和业务回路
         -> contactPolarityRules 判断常开/常闭触点极性
         -> nodeIntentRules 判断触点、线圈和沿承担的业务意图
         -> libraryRules 筛选可以推荐的库功能块或函数
@@ -36,7 +36,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 
 表示规则文件的结构版本，例如：
 
-    "schemaVersion": "ide-agent.business-rules.v16"
+    "schemaVersion": "ide-agent.business-rules.v17"
 
 它用于区分配置格式版本，不是规则优先级，也不是候选分数。升级字段结构时应同步升级版本号。
 
@@ -357,15 +357,61 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 示例：
 
     {
-      "id": "BPR05-motion",
+      "id": "BPR05-motion-common",
+      "status": "active",
+      "blockTypes": ["MC_Power", "MC_Stop", "MC_Halt"],
+      "ports": [
+        { "port": "Axis", "direction": "any", "role": "axisReference" },
+        { "port": "Busy", "direction": "output", "role": "busySignal" },
+        { "port": "Error", "direction": "output", "role": "faultSignal" }
+      ]
+    },
+    {
+      "id": "BPR13-motion-power-level",
+      "status": "active",
+      "blockTypes": ["MC_Power"],
+      "ports": [
+        { "port": "Enable", "direction": "input", "role": "enableSignal" },
+        { "port": "Status", "direction": "output", "role": "runFeedback" }
+      ]
+    },
+    {
+      "id": "BPR14-motion-execution-cycle",
       "status": "active",
       "blockTypes": ["MC_Stop", "MC_Halt"],
       "ports": [
-        { "port": "Axis", "direction": "any", "role": "axisReference" },
         { "port": "Execute", "direction": "input", "role": "commandSignal" },
         { "port": "Done", "direction": "output", "role": "completionSignal" }
       ]
     }
+
+`MC_Power.Enable` 与其他运动块的 `Execute` 不能按同一种命令解释：前者是需要持续保持的轴使能条件，后者是启动一次命令周期的触发输入。Core 使用顶层 `motionCommandProfiles` 保存这层语义和各类真实状态端口，不会据此臆测运行时状态。
+
+### 9.7 `motionCommandProfiles`
+
+类型：对象数组。作用是描述运动功能块的触发模型和可观察状态端口，供同轴上下文和建议文案使用；它不直接生成候选。
+
+字段：
+
+- `id`、`status`、`blockTypes`：画像标识、启用状态和适用的真实库块名称。
+- `triggerModel`：`level` 表示保持型输入，`risingEdge` 表示上升沿启动的命令周期。
+- `triggerPort`：触发端口，例如 `MC_Power` 的 `Enable` 或执行类功能块的 `Execute`。
+- `completionPorts`、`activePorts`、`busyPorts`、`faultPorts`、`abortedPorts`：允许从同轴功能块输出中采集的完成/到位、活动、忙、故障和命令中止信号名称；只记录图中真实绑定的变量。
+- `locksAxisWhileTriggerTrue`：是否具有 `MC_Stop` 这类 Execute 保持期间锁定轴的语义。
+
+例如：
+
+    {
+      "id": "MCP01-power-level",
+      "blockTypes": ["MC_Power"],
+      "triggerModel": "level",
+      "triggerPort": "Enable",
+      "activePorts": ["Status"],
+      "busyPorts": ["Busy"],
+      "faultPorts": ["Error", "ErrorID"]
+    }
+
+它只说明“这根轴上已有 MC_Power，且 Enable/Status/Busy/Error 分别绑定了哪些变量”，不会因为看到这些端口就直接断言轴当前已经上电。
 
 例如同一个 `MC_Stop` 实例绑定 `Axis=Feed_Axis`、`Execute=Stop_Request`、`Done=Axis_Stopped` 时，三个变量会获得不同角色，但共享同一个功能块实例分组。端口不存在时只跳过对应映射，不会伪造端口；端口真实名称和类型仍以库文件为准。
 

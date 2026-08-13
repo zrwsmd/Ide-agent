@@ -10,7 +10,7 @@
 | --- | --- | --- | --- |
 | `local-business-suggestion-fixture.json` | 通用业务规则综合回归 | TON/计数/锁存/限幅/字符串函数、MC_Stop/MC_Halt、故障联锁、触点极性以及业务 title/text | 普通复位不得误推 MC_Reset；已有功能块不得重复推荐；安全语义不得生成不可靠业务文案；相邻或跨区段信息不得误触发无关规则 |
 | `loop-signature-business-suggestion-fixture.json` | 变量角色、回路签名和通用缺块判断 | 根据变量名、注释、类型及 `deviceId/groupId` 识别 PV、SP、MV 等角色；同组条件完整且缺 PID/TON 时推荐对应功能块 | 缺少必要角色、类型错误、角色跨组、已有同组功能块时不推荐；一个回路已有 PID 不得阻止另一回路补 PID |
-| `motion-axis-context-fixture.json` | 同轴运动命令上下文 | 根据功能块的 `AXIS_REF` 绑定识别同一根轴上的移动和停止命令，并为 MC_Stop 提供同轴上下文说明 | 不同轴命令不得混入；Axis 未绑定时不得猜测同轴关系；已有同轴命令只用于提示和解释，不直接禁止合理停止建议 |
+| `motion-axis-context-fixture.json` | 同轴运动命令组合与触发模型 | 根据真实 `AXIS_REF` 和库端口绑定识别 MC_Power 的持续 Enable、执行类 MC 块的 Execute 周期，以及同轴完成/活动/忙/故障信号；为 MC_Home/MC_Stop 提供业务上下文说明 | 不同轴命令不得混入；Axis 未绑定时不得猜测同轴关系；不同请求的同轴命令仍可提示；同轴同块同 Enable/Execute 请求不得重复推荐 |
 | `device-loop-completion-fixture.json` | ALC-02：动作命令缺许可、就绪或故障联锁 | 水泵、风机、阀门、输送段和工位动作缺少同设备许可/就绪时推荐常开触点，缺少故障/阻断条件时推荐常闭触点 | 运行反馈不得作为启动前置；已有条件不得重复推荐；跨设备、跨动作组变量不得混用；可使用明确注释识别非语义变量名 |
 | `fault-response-completion-fixture.json` | ALC-03：故障或超时缺报警/锁存输出 | 设备故障、BOOL 超时信号或 TON 超时输出出现后，推荐同设备同动作的报警线圈或故障置位线圈 | 已有输出不得重复推荐；其他设备或其他动作的报警不得混入；普通规则不得补全安全故障逻辑 |
 | `fault-reset-completion-fixture.json` | ALC-04：故障锁存缺独立复位路径 | 独立复位条件存在，且同设备同动作已有故障置位线圈时，推荐绑定同一变量的复位线圈 | 已有复位、只有变量但没有真实置位线圈、跨设备、跨动作组和安全场景均不推荐；无显式 ID 时验证稳定名称词干回退 |
@@ -30,6 +30,7 @@
 | ALC-05 | `action-lifecycle-completion-fixture.json` | 启停动作缺少自保持、停止释放或置位动作复位时补充对应节点 |
 | ALC-06B-1 | `counter-completion-lifecycle-fixture.json` | 真实计数器完成端口已绑定、但同设备/批次完成状态尚未输出时补充普通或置位线圈 |
 | ALC-06B-2 | `opposite-action-interlock-fixture.json` | 同设备开/关、伸/缩、正/反或加热/冷却命令缺少互斥条件时补充绑定相反命令的常闭触点 |
+| ALC-06B-3 | `motion-axis-context-fixture.json` | 按真实 AXIS_REF 汇总同轴运动命令和状态端口，区分 MC_Power.Enable 保持型与 Execute 上升沿命令，并改善现有 MC 建议说明和精确去重 |
 
 完整阶段定义和实现状态参见 `docs/action-lifecycle-completion-roadmap.md`。
 
