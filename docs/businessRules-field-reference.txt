@@ -36,7 +36,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 
 表示规则文件的结构版本，例如：
 
-    "schemaVersion": "ide-agent.business-rules.v12"
+    "schemaVersion": "ide-agent.business-rules.v13"
 
 它用于区分配置格式版本，不是规则优先级，也不是候选分数。升级字段结构时应同步升级版本号。
 
@@ -511,6 +511,35 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 同组判断优先使用 `groupId/deviceId`，没有显式标识时使用变量名、注释和标签中的稳定设备/动作部分。开阀超时不会配对关阀报警，其他设备的报警也不会串入当前回路。候选变量已在下游路径中使用时不重复建议；没有可靠候选变量时保留原有 `???` 输出线圈建议。
 
 功能块入口只读取真实输出端口绑定。比如 TON 的 `Q` 已绑定到一个被识别为 `timeoutSignal` 的 BOOL 变量时，可以继续补同组报警；输出没有绑定、存在多个故障/超时输出歧义或变量无法分组时不猜测。
+
+
+### 10.3 `faultResetRules`
+
+类型：对象数组。
+
+作用：用户已在独立区段放置复位命令触点时，查找同一 POU 中由 `setCoil` 锁存、但尚无对应 `resetCoil` 的同组故障锁存变量，并推荐绑定该变量的复位线圈。
+
+当前渐进式补全不会凭空创建一个新区段。因此它处理的是：
+
+    已有区段：Pump01_Fault -> Pump01_Fault_Latched 置位线圈
+    当前区段：Pump01_Reset -> 尚无输出
+
+此时选中 `Pump01_Reset`，系统可推荐：
+
+    Pump01_Reset -> Pump01_Fault_Latched 复位线圈
+
+关键字段：
+
+- `anchorRolesAny`：复位条件角色，当前必须是 `resetCommand`。
+- `candidateRolesAny`：被清除的状态角色，当前必须是 `faultLatch`。
+- `candidateNodeType`：固定为 `resetCoil`。
+- `allowedPositions`：只允许使用原拓扑已经提供的串联输出位置。
+- `excludedTerms`：安全上下文不由普通业务规则自动补全。
+- `presentation`：可靠匹配时显示实际复位命令和锁存变量。
+
+规则还要求目标变量已经真实出现在另一独立区段的 `setCoil` 上；只有变量声明、没有置位线圈时不推荐。整个 POU 中已经存在绑定同一变量的 `resetCoil` 时也不重复推荐。同组判断优先使用 `groupId/deviceId`，缺少显式标识时才使用稳定的变量名或注释公共部分。
+
+当前不支持在“只有故障置位线圈、完全没有复位条件”的情况下自动生成一个新区段；这属于多节点或多区段模板能力，不在本阶段单节点建议的拓扑边界内。
 
 
 四、触点极性层

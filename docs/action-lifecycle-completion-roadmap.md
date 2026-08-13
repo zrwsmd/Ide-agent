@@ -56,7 +56,7 @@
 | ALC-01 | 命令 + 运行/到位反馈 + 超时时间缺少 TON | `completed` | 同设备/动作组同时具备 `commandSignal`、`runFeedback` 或 `completionSignal`、`presetDuration`，且没有同组 TON 时，推荐真实库中的 TON；缺任一角色、已有 TON、跨组变量时不推荐。 |
 | ALC-02 | 动作命令缺许可、就绪或故障联锁 | `completed` | 仅在命令锚点和候选条件属于同一设备/动作组且路径未使用时，分别推荐常开许可/就绪或常闭故障/阻断；反馈不得变成启动前置。 |
 | ALC-03 | 超时/故障条件缺报警或故障锁存 | `completed` | 已有超时或故障证据且当前路径缺少对应报警/锁存输出时，推荐一个合法的报警输出或置位线圈；安全场景降级。 |
-| ALC-04 | 故障锁存缺复位路径 | `pending` | 已识别故障锁存线圈且同组没有复位命令/复位线圈时，才推荐复位路径；存在复位或无法确认归属时不推荐。 |
+| ALC-04 | 故障锁存缺复位路径 | `completed` | 已有独立复位条件且另一独立区段存在同组故障锁存置位线圈、但尚无对应复位线圈时，推荐绑定同一锁存变量的复位线圈；已有复位、跨组或无法确认归属时不推荐。 |
 | ALC-05 | 启停缺自保持或释放逻辑 | `pending` | 能确认启动请求、停止请求和同一动作输出的关系时，补充自保持或释放建议；只有单个按钮或未知线圈时退回拓扑建议。 |
 | ALC-06 | 同设备/动作组去重与题库正反例覆盖 | `pending` | 四份场景题库转成通用正反例，覆盖跨设备、跨动作、已有块、已有端口、缺证据和安全排除等情况。 |
 
@@ -129,3 +129,12 @@
 - 增加故障报警、故障锁存、超时报警、TON 输出报警正例，以及已有输出、跨设备、跨动作组、动作冲突和安全语义反例。
 - 规则 schema 升级为 `ide-agent.business-rules.v12`，字段参考文档已增加 `faultResponseRules` 说明。
 - 验证命令：`npm run test:business-rules`、`npm run test:edit-rect-suggestions`、`npm run test:local-graph-command`。
+
+### ALC-04（2026-08-13）
+
+- 新增配置化 `faultResetRules`：选中独立复位条件时，查找同一 POU 中已由 `setCoil` 锁存、但尚无 `resetCoil` 的同组故障锁存变量。
+- 复位建议绑定已有锁存变量并生成 `resetCoil`，继续使用当前区段的合法输出拓扑，不跨到故障置位区段，也不创建新区段。
+- 同组判断优先使用 `groupId/deviceId`，没有显式标识时允许使用稳定的变量名公共部分；跨设备、跨动作组和安全上下文不推荐。
+- 增加已有复位去重、只有变量声明但没有置位线圈、跨设备、跨组、安全排除及无显式 ID 名称回退等正反例。
+- 规则 schema 升级为 `ide-agent.business-rules.v13`，字段参考文档已增加 `faultResetRules` 说明。
+- 验证命令：`npm run test:business-rules`、`npm run test:edit-rect-suggestions`；`npm run test:local-graph-command` 编译通过，但本机 VS Code 更新互斥锁阻止 Electron 启动。

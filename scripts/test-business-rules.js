@@ -54,6 +54,13 @@ const faultResponseCompletionFixturePath = path.join(
   "fixtures",
   "fault-response-completion-fixture.json",
 );
+const faultResetCompletionFixturePath = path.join(
+  rootDir,
+  "src",
+  "test",
+  "fixtures",
+  "fault-reset-completion-fixture.json",
+);
 const rulesPath = path.join(
   rootDir,
   "packages",
@@ -83,13 +90,14 @@ async function main() {
   await assertLoopSignatureCases();
   await assertDeviceLoopCompletionCases();
   await assertFaultResponseCompletionCases();
+  await assertFaultResetCompletionCases();
   await assertTimestampDiagramWhenAvailable();
   console.log("[test-business-rules] passed");
 }
 
 function assertActiveRuleCandidatesExistInLibrary() {
   const rules = JSON.parse(fs.readFileSync(rulesPath, "utf8"));
-  assert.equal(rules.schemaVersion, "ide-agent.business-rules.v12");
+  assert.equal(rules.schemaVersion, "ide-agent.business-rules.v13");
   assert.ok(
     (rules.deviceLoopRules ?? []).length >= 2,
     "deviceLoopRules must define generic ready and fault completion",
@@ -105,6 +113,12 @@ function assertActiveRuleCandidatesExistInLibrary() {
       (rule) => rule.id === "FR02-fault-latch-output",
     ),
     "fault response rules must define generic fault latch completion",
+  );
+  assert.ok(
+    (rules.faultResetRules ?? []).some(
+      (rule) => rule.id === "FRS01-latched-fault-reset",
+    ),
+    "fault reset rules must bind an existing latch to a reset coil",
   );
   assert.ok(
     rules.variablePatterns.suffixRoles.some(
@@ -210,6 +224,25 @@ function assertActiveRuleCandidatesExistInLibrary() {
     );
     assertBusinessPresentation(rule.id, rule.presentation, ["candidateVar"]);
   }
+  for (const rule of rules.faultResetRules ?? []) {
+    assert.ok(rule.id, "fault reset rule must define id");
+    assert.ok(
+      rule.anchorRolesAny?.length > 0 &&
+        rule.anchorRolesAny.every((role) => definedRoles.has(role)),
+      `${rule.id} anchorRolesAny must reference defined roles`,
+    );
+    assert.ok(
+      rule.candidateRolesAny?.length > 0 &&
+        rule.candidateRolesAny.every((role) => definedRoles.has(role)),
+      `${rule.id} candidateRolesAny must reference defined roles`,
+    );
+    assert.equal(
+      rule.candidateNodeType,
+      "resetCoil",
+      `${rule.id} must use resetCoil`,
+    );
+    assertBusinessPresentation(rule.id, rule.presentation, ["candidateVar"]);
+  }
   for (const rule of rules.blockPortRoleRules ?? []) {
     assert.ok(rule.id, "block port role rule must define id");
     assert.ok(rule.blockTypes?.length > 0, `${rule.id} must define blockTypes`);
@@ -312,6 +345,7 @@ function assertActiveRuleCandidatesExistInLibrary() {
     ...(rules.contactPolarityRules ?? []),
     ...(rules.nodeIntentRules ?? []),
     ...(rules.faultResponseRules ?? []),
+    ...(rules.faultResetRules ?? []),
     ...(rules.libraryRules ?? []),
     ...(rules.rankingRules ?? []),
   ]) {
@@ -2443,6 +2477,119 @@ async function assertFaultResponseCompletionCases() {
   assert.ok(
     !suggestionForVariable(safetySuggestions, "Safety_Gate_Alarm", "coil"),
     "safety fault logic must not receive ordinary business alarm completion",
+  );
+}
+
+async function assertFaultResetCompletionCases() {
+  const resetSuggestions = await suggestionsFor(
+    faultResetCompletionFixturePath,
+    "segment-pump01-fault-reset",
+    "pump01-reset-contact",
+  );
+  const resetSuggestion = suggestionForVariable(
+    resetSuggestions,
+    "Pump01_Fault_Latched",
+    "resetCoil",
+  );
+  assert.ok(
+    resetSuggestion,
+    "an independent reset command should reset its existing same-group fault latch",
+  );
+  assert.match(resetSuggestion.title, /Pump01_Fault_Latched.*故障复位/);
+  assert.match(resetSuggestion.text, /另一独立回路.*置位线圈/);
+  assert.deepStrictEqual(resetSuggestion.startNodes, ["pump01-reset-contact"]);
+  assert.deepStrictEqual(resetSuggestion.endNodes, ["pump01-reset-end"]);
+  assert.ok(
+    !suggestionForVariable(
+      resetSuggestions,
+      "Pump02_Fault_Latched",
+      "resetCoil",
+    ),
+    "a reset command must not reset another device's latch",
+  );
+
+  const existingResetSuggestions = await suggestionsFor(
+    faultResetCompletionFixturePath,
+    "segment-fan01-duplicate-reset",
+    "fan01-duplicate-contact",
+  );
+  assert.ok(
+    !suggestionForVariable(
+      existingResetSuggestions,
+      "Fan01_Fault_Latched",
+      "resetCoil",
+    ),
+    "an existing reset coil must suppress duplicate reset completion",
+  );
+
+  const groupConflictSuggestions = await suggestionsFor(
+    faultResetCompletionFixturePath,
+    "segment-valve01-reset",
+    "valve01-reset-contact",
+  );
+  assert.ok(
+    !suggestionForVariable(
+      groupConflictSuggestions,
+      "Valve01_Fault_Latched",
+      "resetCoil",
+    ),
+    "different explicit action groups on one device must not be mixed",
+  );
+
+  const noSetCoilSuggestions = await suggestionsFor(
+    faultResetCompletionFixturePath,
+    "segment-motor01-reset",
+    "motor01-reset-contact",
+  );
+  assert.ok(
+    !suggestionForVariable(
+      noSetCoilSuggestions,
+      "Motor01_Fault_Latched",
+      "resetCoil",
+    ),
+    "a declared latch variable without an existing set coil is insufficient",
+  );
+
+  const safetyResetSuggestions = await suggestionsFor(
+    faultResetCompletionFixturePath,
+    "segment-safety-reset",
+    "safety-reset-contact",
+  );
+  assert.ok(
+    !suggestionForVariable(
+      safetyResetSuggestions,
+      "SafetyGate_Fault_Latched",
+      "resetCoil",
+    ),
+    "ordinary business rules must not complete a safety reset path",
+  );
+
+  const nameFallbackSuggestions = await suggestionsFor(
+    faultResetCompletionFixturePath,
+    "segment-conveyor03-reset",
+    "conveyor03-reset-contact",
+  );
+  assert.ok(
+    suggestionForVariable(
+      nameFallbackSuggestions,
+      "Conveyor03_Fault_Latched",
+      "resetCoil",
+    ),
+    "stable variable-name stems should support projects without explicit IDs",
+  );
+
+  const nameActionConflictSuggestions = await suggestionsFor(
+    faultResetCompletionFixturePath,
+    "segment-gate01-open-reset",
+    "gate01-open-reset-contact",
+  );
+  assert.ok(
+    !suggestionForVariable(
+      nameActionConflictSuggestions,
+      "Gate01_Close_Fault_Latched",
+      "resetCoil",
+    ),
+    "name fallback must not mix different actions on one device",
   );
 }
 

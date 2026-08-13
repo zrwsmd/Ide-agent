@@ -207,6 +207,20 @@ interface BusinessFaultResponseRuleConfig {
   presentation?: BusinessPresentationConfig;
 }
 
+interface BusinessFaultResetRuleConfig {
+  id: string;
+  status: string;
+  anchorRolesAny: string[];
+  candidateRolesAny: string[];
+  candidateNodeType: "resetCoil";
+  allowedPositions: LocalSuggestionPosition[];
+  excludedTerms: BusinessTerm[];
+  priority: number;
+  businessName: string;
+  reason: string;
+  presentation?: BusinessPresentationConfig;
+}
+
 interface LocalSuggestionAddElement {
   nodeType: string;
   displayLabel: string;
@@ -286,6 +300,11 @@ interface FaultResponseContext {
   existingOutputPathReferences: Set<string>;
 }
 
+interface FaultResetContext {
+  resetCommand: DeviceCommandAnchor;
+  candidates: DeviceLoopRoleCandidate[];
+}
+
 interface BusinessSuggestionContext {
   hasBusinessContext: boolean;
   hasLocalBusinessContext: boolean;
@@ -317,6 +336,7 @@ interface BusinessSuggestionContext {
   motionAxisContext?: MotionAxisContext;
   deviceLoopContext?: DeviceLoopContext;
   faultResponseContext?: FaultResponseContext;
+  faultResetContext?: FaultResetContext;
 }
 
 interface BusinessRulesConfig {
@@ -333,6 +353,7 @@ interface BusinessRulesConfig {
   loopSignatures: BusinessLoopSignatureConfig[];
   deviceLoopRules: BusinessDeviceLoopRuleConfig[];
   faultResponseRules: BusinessFaultResponseRuleConfig[];
+  faultResetRules: BusinessFaultResetRuleConfig[];
   contactPolarityRules: BusinessContactPolarityRuleConfig[];
   nodeIntentRules: BusinessNodeIntentRuleConfig[];
   libraryRules: BusinessLibraryRuleConfig[];
@@ -563,7 +584,7 @@ const FALLBACK_TERM_IMPLICATIONS: BusinessTermImplicationConfig[] = [
 ];
 
 const FALLBACK_BUSINESS_RULES_CONFIG: BusinessRulesConfig = {
-  schemaVersion: "ide-agent.business-rules.v12",
+  schemaVersion: "ide-agent.business-rules.v13",
   enabled: true,
   defaultBlocks: FALLBACK_COMMON_FUNCTION_BLOCK_TYPES,
   dataTypeGroups: FALLBACK_DATA_TYPE_GROUPS,
@@ -599,6 +620,7 @@ const FALLBACK_BUSINESS_RULES_CONFIG: BusinessRulesConfig = {
   loopSignatures: EMPTY_LOOP_SIGNATURES,
   deviceLoopRules: [],
   faultResponseRules: [],
+  faultResetRules: [],
   contactPolarityRules: [],
   nodeIntentRules: [],
   libraryRules: [],
@@ -644,6 +666,7 @@ function loadBusinessRulesConfig(): BusinessRulesConfig {
     loopSignatures: parseLoopSignatures(record.loopSignatures),
     deviceLoopRules: parseDeviceLoopRules(record.deviceLoopRules),
     faultResponseRules: parseFaultResponseRules(record.faultResponseRules),
+    faultResetRules: parseFaultResetRules(record.faultResetRules),
     contactPolarityRules: parseContactPolarityRules(
       record.contactPolarityRules,
     ),
@@ -711,6 +734,35 @@ function parseFaultResponseRules(value: unknown): BusinessFaultResponseRuleConfi
         item.anchorRolesAny.length > 0 &&
         item.candidateRolesAny.length > 0 &&
         ["coil", "setCoil"].includes(item.candidateNodeType) &&
+        Boolean(item.businessName) &&
+        Boolean(item.presentation),
+    );
+}
+
+function parseFaultResetRules(value: unknown): BusinessFaultResetRuleConfig[] {
+  return asArrayRecord(value)
+    .map((item) => ({
+      id: asStringConfig(item.id),
+      status: asStringConfig(item.status) || "active",
+      anchorRolesAny: stringList(item.anchorRolesAny),
+      candidateRolesAny: stringList(item.candidateRolesAny),
+      candidateNodeType: asStringConfig(item.candidateNodeType) as "resetCoil",
+      allowedPositions: stringList(
+        item.allowedPositions,
+      ) as LocalSuggestionPosition[],
+      excludedTerms: stringList(item.excludedTerms),
+      priority: asOptionalNumberConfig(item.priority) ?? 0,
+      businessName: asStringConfig(item.businessName),
+      reason: asStringConfig(item.reason),
+      presentation: parseBusinessPresentation(item.presentation),
+    }))
+    .filter(
+      (item) =>
+        item.status.toLowerCase() === "active" &&
+        Boolean(item.id) &&
+        item.anchorRolesAny.length > 0 &&
+        item.candidateRolesAny.length > 0 &&
+        item.candidateNodeType === "resetCoil" &&
         Boolean(item.businessName) &&
         Boolean(item.presentation),
     );
@@ -1264,8 +1316,11 @@ function rankBusinessSuggestions(
   }
 
   const contactAwareSuggestions = addBusinessContactVariants(
-    addFaultResponseSuggestions(
-      addDeviceLoopSuggestions(suggestions, context, focus),
+    addFaultResetSuggestions(
+      addFaultResponseSuggestions(
+        addDeviceLoopSuggestions(suggestions, context, focus),
+        context,
+      ),
       context,
     ),
     context,
@@ -1649,6 +1704,101 @@ function matchesFaultResponseRule(
 function isFaultResponseInsertion(
   suggestion: LocalSuggestionDraft,
   rule: BusinessFaultResponseRuleConfig,
+): boolean {
+  if (
+    suggestion.mode !== "outputCoil" ||
+    suggestion.addElement.nodeType !== "coil" ||
+    inferSerialOrParallel(suggestion) !== "serial"
+  ) {
+    return false;
+  }
+  const position = suggestion.position ?? inferPosition(suggestion);
+  return (
+    rule.allowedPositions.length === 0 ||
+    rule.allowedPositions.includes(position)
+  );
+}
+
+function addFaultResetSuggestions(
+  suggestions: LocalSuggestionDraft[],
+  context: BusinessSuggestionContext,
+): LocalSuggestionDraft[] {
+  const resetContext = context.faultResetContext;
+  if (!BUSINESS_RULES_CONFIG.enabled || !resetContext) {
+    return suggestions;
+  }
+
+  const generated: LocalSuggestionDraft[] = [];
+  const matchingRules = BUSINESS_RULES_CONFIG.faultResetRules
+    .filter((rule) => matchesFaultResetRule(rule, context, resetContext))
+    .sort((left, right) => right.priority - left.priority);
+
+  for (const rule of matchingRules) {
+    const roleCandidates = resetContext.candidates.filter((candidate) =>
+      rule.candidateRolesAny.includes(candidate.role),
+    );
+    for (const candidate of roleCandidates) {
+      for (const suggestion of suggestions) {
+        if (!isFaultResetInsertion(suggestion, rule)) {
+          continue;
+        }
+        const addElement = resetCoilElement(candidate.variableName);
+        addElement.variableScope = candidate.scope;
+        const nextDraft: LocalSuggestionDraft = {
+          ...suggestion,
+          addElement,
+          placement: {
+            ...suggestion.placement,
+            text: suggestion.placement.text.replaceAll(
+              "输出线圈",
+              addElement.displayLabel,
+            ),
+          },
+        };
+        const presentation = rule.presentation
+          ? renderBusinessPresentation(rule.presentation, nextDraft, {
+              ruleId: `${rule.id}:${candidate.variableName}`,
+              confidence: candidate.association === "nameStem" ? 90 : 98,
+              businessName: rule.businessName,
+              reason: rule.reason,
+              actionName: resetContext.resetCommand.variableName,
+              candidateVar: candidate.variableName,
+            })
+          : undefined;
+        generated.push(
+          presentation
+            ? { ...nextDraft, businessPresentation: presentation }
+            : nextDraft,
+        );
+      }
+    }
+  }
+
+  return dedupeSuggestions([...generated, ...suggestions]);
+}
+
+function matchesFaultResetRule(
+  rule: BusinessFaultResetRuleConfig,
+  context: BusinessSuggestionContext,
+  resetContext: FaultResetContext,
+): boolean {
+  if (
+    rule.excludedTerms.some(
+      (term) =>
+        resetContext.resetCommand.terms.has(term) ||
+        localBusinessTermWeight(context, term) > 0,
+    )
+  ) {
+    return false;
+  }
+  return rule.anchorRolesAny.some((role) =>
+    resetContext.resetCommand.roles.has(role),
+  );
+}
+
+function isFaultResetInsertion(
+  suggestion: LocalSuggestionDraft,
+  rule: BusinessFaultResetRuleConfig,
 ): boolean {
   if (
     suggestion.mode !== "outputCoil" ||
@@ -2220,6 +2370,12 @@ function buildBusinessSuggestionContext(
     pouVariables,
     variableRoleMatches,
   );
+  const faultResetContext = analyzeFaultResetContext(
+    summary,
+    focus,
+    pouVariables,
+    variableRoleMatches,
+  );
   const signatureMatches = evaluateLoopSignatures(
     BUSINESS_RULES_CONFIG.variablePatterns,
     BUSINESS_RULES_CONFIG.loopSignatures,
@@ -2261,6 +2417,7 @@ function buildBusinessSuggestionContext(
       observedLoopSignatures.size > 0 ||
       Boolean(deviceLoopContext) ||
       Boolean(faultResponseContext) ||
+      Boolean(faultResetContext) ||
       isBusinessBlockType(focusBlockType) ||
       [...segmentBlockTypes].some((value) => isBusinessBlockType(value)),
     hasLocalBusinessContext,
@@ -2292,6 +2449,7 @@ function buildBusinessSuggestionContext(
     motionAxisContext,
     deviceLoopContext,
     faultResponseContext,
+    faultResetContext,
   };
 }
 
@@ -2725,6 +2883,130 @@ function analyzeFaultResponseContext(
   };
 }
 
+function analyzeFaultResetContext(
+  summary: DiagramSummary,
+  focus: FocusContext,
+  variables: DiagramVariableSummary[],
+  roleMatches: BusinessVariableRoleMatch[],
+): FaultResetContext | undefined {
+  const anchorNode = focus.node;
+  if (!anchorNode || !isContactKind(anchorNode.kind)) {
+    return undefined;
+  }
+
+  const anchorReference = normalizeReference(anchorNode.var);
+  if (!anchorReference) {
+    return undefined;
+  }
+  const anchorVariable = variables.find(
+    (variable) => normalizeReference(variable.name) === anchorReference,
+  );
+  const anchorRoleMatches = roleMatches.filter(
+    (match) => normalizeReference(match.variableName) === anchorReference,
+  );
+  const anchorRoles = new Set(anchorRoleMatches.map((match) => match.role));
+  const anchorTerms = collectBusinessTerms([
+    ...nodeBusinessTexts(anchorNode),
+    ...(anchorVariable ? variableBusinessTexts(anchorVariable) : []),
+    focus.segment.label,
+    focus.segment.note,
+  ]);
+  if (!anchorRoles.has("resetCommand") || anchorTerms.has("safety")) {
+    return undefined;
+  }
+
+  const pouName = (focus.segment.pouName || summary.pouName).trim();
+  const samePouSegments = summary.segments.filter(
+    (segment) => (segment.pouName || summary.pouName).trim() === pouName,
+  );
+  const existingResetReferences = new Set(
+    samePouSegments.flatMap((segment) =>
+      segment.nodes
+        .filter((node) => node.kind === "resetCoil")
+        .map((node) => normalizeReference(node.var))
+        .filter(Boolean),
+    ),
+  );
+  const setCoilReferences = new Set(
+    samePouSegments
+      .filter((segment) => segment.segmentId !== focus.segment.segmentId)
+      .flatMap((segment) =>
+        segment.nodes
+          .filter((node) => node.kind === "setCoil")
+          .map((node) => normalizeReference(node.var))
+          .filter(Boolean),
+      ),
+  );
+  if (setCoilReferences.size === 0) {
+    return undefined;
+  }
+
+  const variablesByReference = new Map(
+    variables.map((variable) => [normalizeReference(variable.name), variable]),
+  );
+  const candidates: DeviceLoopRoleCandidate[] = [];
+  for (const match of roleMatches) {
+    const candidateReference = normalizeReference(match.variableName);
+    if (
+      match.role !== "faultLatch" ||
+      !setCoilReferences.has(candidateReference) ||
+      existingResetReferences.has(candidateReference)
+    ) {
+      continue;
+    }
+    const variable = variablesByReference.get(candidateReference);
+    if (!variable || normalizeDataType(variable.type) !== "BOOL") {
+      continue;
+    }
+    if (hasConflictingExplicitGroups(anchorRoleMatches, match)) {
+      continue;
+    }
+    const candidateTerms = collectBusinessTerms(variableBusinessTexts(variable));
+    if (hasConflictingDeviceActionTerms(anchorTerms, candidateTerms)) {
+      continue;
+    }
+    const association = strongestDeviceAssociation(
+      anchorRoleMatches,
+      match,
+      anchorVariable,
+      variable,
+      "resetCommand",
+    );
+    if (!association) {
+      continue;
+    }
+    candidates.push({
+      variableName: variable.name,
+      dataType: variable.type,
+      scope: variable.scope || "VAR",
+      role: match.role,
+      evidenceScore: match.score,
+      associationKey: association.key,
+      association: association.strategy,
+    });
+  }
+  if (candidates.length === 0) {
+    return undefined;
+  }
+
+  candidates.sort(
+    (left, right) =>
+      deviceAssociationWeight(right.association) -
+        deviceAssociationWeight(left.association) ||
+      right.evidenceScore - left.evidenceScore ||
+      left.variableName.localeCompare(right.variableName),
+  );
+  return {
+    resetCommand: {
+      nodeId: anchorNode.id,
+      variableName: anchorVariable?.name ?? anchorNode.var?.trim() ?? "",
+      roles: anchorRoles,
+      terms: anchorTerms,
+    },
+    candidates: dedupeDeviceLoopCandidates(candidates),
+  };
+}
+
 function hasConflictingExplicitGroups(
   anchorMatches: BusinessVariableRoleMatch[],
   candidate: BusinessVariableRoleMatch,
@@ -2828,6 +3110,7 @@ function strongestDeviceAssociation(
   candidate: BusinessVariableRoleMatch,
   anchorVariable: DiagramVariableSummary | undefined,
   candidateVariable: DiagramVariableSummary,
+  anchorRole = "commandSignal",
 ):
   | { key: string; strategy: DeviceLoopRoleCandidate["association"] }
   | undefined {
@@ -2853,7 +3136,7 @@ function strongestDeviceAssociation(
 
   const anchorDescriptionStems = deviceDescriptionStems(
     anchorVariable,
-    "commandSignal",
+    anchorRole,
   );
   const candidateDescriptionStems = new Set(
     deviceDescriptionStems(candidateVariable, candidate.role),
@@ -2870,7 +3153,7 @@ function strongestDeviceAssociation(
 
   const anchorNameStem = deviceVariableNameStem(
     anchorVariable?.name ?? anchorMatches[0]?.variableName ?? "",
-    "commandSignal",
+    anchorRole,
   );
   const candidateNameStem = deviceVariableNameStem(
     candidateVariable.name,
@@ -2924,6 +3207,13 @@ function deviceDescriptionStem(
             "available", "standby", "healthy", "ready", "就绪", "健康", "可用",
             "状态", "信号",
           ]
+        : role === "resetCommand"
+          ? [
+              "故障复位命令", "报警复位命令", "故障复位按钮", "报警复位按钮",
+              "确认复位", "复位命令", "复位按钮", "resetcommand", "resetbutton",
+              "acknowledge", "reset", "clear", "ack", "复位", "确认", "清除",
+              "命令", "按钮", "请求", "信号",
+            ]
         : role === "permitSignal"
           ? [
               "运行许可", "启动许可", "允许运行", "许可条件", "允许条件",
@@ -2988,6 +3278,11 @@ function deviceVariableNameStem(name: string, role: string): string {
       ? ["command", "cmd", "request", "req", "start", "run", "enable", "open", "extend"]
       : role === "readySignal"
         ? ["ready", "available", "standby", "healthy", "status", "signal"]
+        : role === "resetCommand"
+          ? [
+              "fault", "alarm", "reset", "ack", "acknowledge", "clear",
+              "command", "cmd", "request", "req", "button", "pb", "signal",
+            ]
         : role === "permitSignal"
           ? ["permit", "permissive", "allowed", "allow", "interlock", "ok", "enable", "status", "signal"]
           : role === "inhibitSignal"

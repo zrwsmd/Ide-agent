@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "ide-agent.business-rules.v12",
+  "schemaVersion": "ide-agent.business-rules.v13",
   "enabled": true,
   "defaultBlocks": ["TON", "TOF", "TP", "R_TRIG", "F_TRIG", "CTU", "CTD", "CTUD", "SR", "RS"],
   "dataTypeGroups": {
@@ -897,6 +897,24 @@
       "presentation": {
         "titleTemplate": "{placementAction} {candidateVar} 故障锁存",
         "textTemplate": "{actionName} 已形成明确的故障或超时条件；{placementText}并绑定 {candidateVar}，故障发生后保持状态，后续由独立复位路径清除。"
+      }
+    }
+  ],
+  "faultResetRules": [
+    {
+      "id": "FRS01-latched-fault-reset",
+      "status": "active",
+      "anchorRolesAny": ["resetCommand"],
+      "candidateRolesAny": ["faultLatch"],
+      "candidateNodeType": "resetCoil",
+      "allowedPositions": ["behind", "outsideBehind"],
+      "excludedTerms": ["safety"],
+      "priority": 104,
+      "businessName": "故障锁存复位",
+      "reason": "已存在同组故障锁存置位线圈，当前独立复位条件尚未接入该锁存变量",
+      "presentation": {
+        "titleTemplate": "{placementAction} {candidateVar} 故障复位",
+        "textTemplate": "{actionName} 是同组复位命令，且 {candidateVar} 已由另一独立回路的置位线圈锁存；{placementText}并绑定同一变量，复位条件成立时清除故障锁存。"
       }
     }
   ],

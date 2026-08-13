@@ -1,0 +1,199 @@
+[
+  {
+    "pouName": "FAULT_RESET_MISSING_OUTPUT",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Pump01_Fault", "type": "BOOL", "scope": "VAR", "deviceId": "Pump-01", "groupId": "Fault", "comment": "Pump 01 fault signal" },
+      { "name": "Pump01_Reset", "type": "BOOL", "scope": "VAR", "deviceId": "Pump-01", "groupId": "Fault", "comment": "Pump 01 fault reset command" },
+      { "name": "Pump01_Fault_Latched", "type": "BOOL", "scope": "VAR", "deviceId": "Pump-01", "groupId": "Fault", "comment": "Pump 01 fault latch" },
+      { "name": "Pump02_Fault", "type": "BOOL", "scope": "VAR", "deviceId": "Pump-02", "groupId": "Fault", "comment": "Pump 02 fault signal" },
+      { "name": "Pump02_Fault_Latched", "type": "BOOL", "scope": "VAR", "deviceId": "Pump-02", "groupId": "Fault", "comment": "Pump 02 fault latch" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-pump01-fault-latch",
+        "label": "Pump 01 fault latch",
+        "nodesObj": {
+          "pump01-latch-start": { "id": "pump01-latch-start", "type": "startLine", "sourceIds": [], "targetIds": ["pump01-fault-contact"] },
+          "pump01-fault-contact": { "id": "pump01-fault-contact", "type": "contact", "sourceIds": ["pump01-latch-start"], "targetIds": ["pump01-latch-coil"], "varName": { "value": "Pump01_Fault", "type": "BOOL", "scope": "VAR" } },
+          "pump01-latch-coil": { "id": "pump01-latch-coil", "type": "setCoil", "sourceIds": ["pump01-fault-contact"], "targetIds": ["pump01-latch-end"], "varName": { "value": "Pump01_Fault_Latched", "type": "BOOL", "scope": "VAR" } },
+          "pump01-latch-end": { "id": "pump01-latch-end", "type": "endLine", "sourceIds": ["pump01-latch-coil"], "targetIds": [] }
+        }
+      },
+      {
+        "id": "segment-pump02-fault-latch",
+        "label": "Pump 02 fault latch",
+        "nodesObj": {
+          "pump02-latch-start": { "id": "pump02-latch-start", "type": "startLine", "sourceIds": [], "targetIds": ["pump02-fault-contact"] },
+          "pump02-fault-contact": { "id": "pump02-fault-contact", "type": "contact", "sourceIds": ["pump02-latch-start"], "targetIds": ["pump02-latch-coil"], "varName": { "value": "Pump02_Fault", "type": "BOOL", "scope": "VAR" } },
+          "pump02-latch-coil": { "id": "pump02-latch-coil", "type": "setCoil", "sourceIds": ["pump02-fault-contact"], "targetIds": ["pump02-latch-end"], "varName": { "value": "Pump02_Fault_Latched", "type": "BOOL", "scope": "VAR" } },
+          "pump02-latch-end": { "id": "pump02-latch-end", "type": "endLine", "sourceIds": ["pump02-latch-coil"], "targetIds": [] }
+        }
+      },
+      {
+        "id": "segment-pump01-fault-reset",
+        "label": "Pump 01 independent fault reset",
+        "nodesObj": {
+          "pump01-reset-start": { "id": "pump01-reset-start", "type": "startLine", "sourceIds": [], "targetIds": ["pump01-reset-contact"] },
+          "pump01-reset-contact": { "id": "pump01-reset-contact", "type": "risingContact", "sourceIds": ["pump01-reset-start"], "targetIds": ["pump01-reset-end"], "varName": { "value": "Pump01_Reset", "type": "BOOL", "scope": "VAR" } },
+          "pump01-reset-end": { "id": "pump01-reset-end", "type": "endLine", "sourceIds": ["pump01-reset-contact"], "targetIds": [] }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "FAULT_RESET_ALREADY_EXISTS",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Fan01_Fault", "type": "BOOL", "scope": "VAR", "deviceId": "Fan-01", "groupId": "Fault" },
+      { "name": "Fan01_Reset", "type": "BOOL", "scope": "VAR", "deviceId": "Fan-01", "groupId": "Fault" },
+      { "name": "Fan01_Fault_Latched", "type": "BOOL", "scope": "VAR", "deviceId": "Fan-01", "groupId": "Fault" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-fan01-latch",
+        "nodesObj": {
+          "fan01-latch-start": { "id": "fan01-latch-start", "type": "startLine", "sourceIds": [], "targetIds": ["fan01-fault-contact"] },
+          "fan01-fault-contact": { "id": "fan01-fault-contact", "type": "contact", "sourceIds": ["fan01-latch-start"], "targetIds": ["fan01-set-coil"], "varName": { "value": "Fan01_Fault", "type": "BOOL", "scope": "VAR" } },
+          "fan01-set-coil": { "id": "fan01-set-coil", "type": "setCoil", "sourceIds": ["fan01-fault-contact"], "targetIds": [], "varName": { "value": "Fan01_Fault_Latched", "type": "BOOL", "scope": "VAR" } }
+        }
+      },
+      {
+        "id": "segment-fan01-existing-reset",
+        "nodesObj": {
+          "fan01-existing-start": { "id": "fan01-existing-start", "type": "startLine", "sourceIds": [], "targetIds": ["fan01-existing-contact"] },
+          "fan01-existing-contact": { "id": "fan01-existing-contact", "type": "contact", "sourceIds": ["fan01-existing-start"], "targetIds": ["fan01-reset-coil"], "varName": { "value": "Fan01_Reset", "type": "BOOL", "scope": "VAR" } },
+          "fan01-reset-coil": { "id": "fan01-reset-coil", "type": "resetCoil", "sourceIds": ["fan01-existing-contact"], "targetIds": [], "varName": { "value": "Fan01_Fault_Latched", "type": "BOOL", "scope": "VAR" } }
+        }
+      },
+      {
+        "id": "segment-fan01-duplicate-reset",
+        "nodesObj": {
+          "fan01-duplicate-start": { "id": "fan01-duplicate-start", "type": "startLine", "sourceIds": [], "targetIds": ["fan01-duplicate-contact"] },
+          "fan01-duplicate-contact": { "id": "fan01-duplicate-contact", "type": "contact", "sourceIds": ["fan01-duplicate-start"], "targetIds": ["fan01-duplicate-end"], "varName": { "value": "Fan01_Reset", "type": "BOOL", "scope": "VAR" } },
+          "fan01-duplicate-end": { "id": "fan01-duplicate-end", "type": "endLine", "sourceIds": ["fan01-duplicate-contact"], "targetIds": [] }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "FAULT_RESET_GROUP_CONFLICT",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Valve01_Reset", "type": "BOOL", "scope": "VAR", "deviceId": "Valve-01", "groupId": "Open" },
+      { "name": "Valve01_Fault_Latched", "type": "BOOL", "scope": "VAR", "deviceId": "Valve-01", "groupId": "Close" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-valve01-latch",
+        "nodesObj": {
+          "valve01-latch-start": { "id": "valve01-latch-start", "type": "startLine", "sourceIds": [], "targetIds": ["valve01-set-coil"] },
+          "valve01-set-coil": { "id": "valve01-set-coil", "type": "setCoil", "sourceIds": ["valve01-latch-start"], "targetIds": [], "varName": { "value": "Valve01_Fault_Latched", "type": "BOOL", "scope": "VAR" } }
+        }
+      },
+      {
+        "id": "segment-valve01-reset",
+        "nodesObj": {
+          "valve01-reset-start": { "id": "valve01-reset-start", "type": "startLine", "sourceIds": [], "targetIds": ["valve01-reset-contact"] },
+          "valve01-reset-contact": { "id": "valve01-reset-contact", "type": "contact", "sourceIds": ["valve01-reset-start"], "targetIds": ["valve01-reset-end"], "varName": { "value": "Valve01_Reset", "type": "BOOL", "scope": "VAR" } },
+          "valve01-reset-end": { "id": "valve01-reset-end", "type": "endLine", "sourceIds": ["valve01-reset-contact"], "targetIds": [] }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "FAULT_RESET_NO_SET_COIL",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Motor01_Reset", "type": "BOOL", "scope": "VAR", "deviceId": "Motor-01", "groupId": "Fault" },
+      { "name": "Motor01_Fault_Latched", "type": "BOOL", "scope": "VAR", "deviceId": "Motor-01", "groupId": "Fault" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-motor01-reset",
+        "nodesObj": {
+          "motor01-reset-start": { "id": "motor01-reset-start", "type": "startLine", "sourceIds": [], "targetIds": ["motor01-reset-contact"] },
+          "motor01-reset-contact": { "id": "motor01-reset-contact", "type": "contact", "sourceIds": ["motor01-reset-start"], "targetIds": ["motor01-reset-end"], "varName": { "value": "Motor01_Reset", "type": "BOOL", "scope": "VAR" } },
+          "motor01-reset-end": { "id": "motor01-reset-end", "type": "endLine", "sourceIds": ["motor01-reset-contact"], "targetIds": [] }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "SAFETY_FAULT_RESET",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "SafetyGate_Reset", "type": "BOOL", "scope": "VAR", "deviceId": "Safety-Gate", "groupId": "Safety" },
+      { "name": "SafetyGate_Fault_Latched", "type": "BOOL", "scope": "VAR", "deviceId": "Safety-Gate", "groupId": "Safety" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-safety-latch",
+        "label": "Safety gate fault latch",
+        "nodesObj": {
+          "safety-latch-start": { "id": "safety-latch-start", "type": "startLine", "sourceIds": [], "targetIds": ["safety-set-coil"] },
+          "safety-set-coil": { "id": "safety-set-coil", "type": "setCoil", "sourceIds": ["safety-latch-start"], "targetIds": [], "varName": { "value": "SafetyGate_Fault_Latched", "type": "BOOL", "scope": "VAR" } }
+        }
+      },
+      {
+        "id": "segment-safety-reset",
+        "label": "Safety gate reset",
+        "nodesObj": {
+          "safety-reset-start": { "id": "safety-reset-start", "type": "startLine", "sourceIds": [], "targetIds": ["safety-reset-contact"] },
+          "safety-reset-contact": { "id": "safety-reset-contact", "type": "contact", "sourceIds": ["safety-reset-start"], "targetIds": ["safety-reset-end"], "varName": { "value": "SafetyGate_Reset", "type": "BOOL", "scope": "VAR" } },
+          "safety-reset-end": { "id": "safety-reset-end", "type": "endLine", "sourceIds": ["safety-reset-contact"], "targetIds": [] }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "FAULT_RESET_NAME_FALLBACK",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Conveyor03_Reset", "type": "BOOL", "scope": "VAR" },
+      { "name": "Conveyor03_Fault_Latched", "type": "BOOL", "scope": "VAR" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-conveyor03-latch",
+        "nodesObj": {
+          "conveyor03-latch-start": { "id": "conveyor03-latch-start", "type": "startLine", "sourceIds": [], "targetIds": ["conveyor03-set-coil"] },
+          "conveyor03-set-coil": { "id": "conveyor03-set-coil", "type": "setCoil", "sourceIds": ["conveyor03-latch-start"], "targetIds": [], "varName": { "value": "Conveyor03_Fault_Latched", "type": "BOOL", "scope": "VAR" } }
+        }
+      },
+      {
+        "id": "segment-conveyor03-reset",
+        "nodesObj": {
+          "conveyor03-reset-start": { "id": "conveyor03-reset-start", "type": "startLine", "sourceIds": [], "targetIds": ["conveyor03-reset-contact"] },
+          "conveyor03-reset-contact": { "id": "conveyor03-reset-contact", "type": "contact", "sourceIds": ["conveyor03-reset-start"], "targetIds": ["conveyor03-reset-end"], "varName": { "value": "Conveyor03_Reset", "type": "BOOL", "scope": "VAR" } },
+          "conveyor03-reset-end": { "id": "conveyor03-reset-end", "type": "endLine", "sourceIds": ["conveyor03-reset-contact"], "targetIds": [] }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "FAULT_RESET_NAME_ACTION_CONFLICT",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Gate01_Open_Reset", "type": "BOOL", "scope": "VAR", "comment": "Gate 01 open fault reset command" },
+      { "name": "Gate01_Close_Fault_Latched", "type": "BOOL", "scope": "VAR", "comment": "Gate 01 close fault latch" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-gate01-close-latch",
+        "nodesObj": {
+          "gate01-close-latch-start": { "id": "gate01-close-latch-start", "type": "startLine", "sourceIds": [], "targetIds": ["gate01-close-set-coil"] },
+          "gate01-close-set-coil": { "id": "gate01-close-set-coil", "type": "setCoil", "sourceIds": ["gate01-close-latch-start"], "targetIds": [], "varName": { "value": "Gate01_Close_Fault_Latched", "type": "BOOL", "scope": "VAR" } }
+        }
+      },
+      {
+        "id": "segment-gate01-open-reset",
+        "nodesObj": {
+          "gate01-open-reset-start": { "id": "gate01-open-reset-start", "type": "startLine", "sourceIds": [], "targetIds": ["gate01-open-reset-contact"] },
+          "gate01-open-reset-contact": { "id": "gate01-open-reset-contact", "type": "contact", "sourceIds": ["gate01-open-reset-start"], "targetIds": ["gate01-open-reset-end"], "varName": { "value": "Gate01_Open_Reset", "type": "BOOL", "scope": "VAR" } },
+          "gate01-open-reset-end": { "id": "gate01-open-reset-end", "type": "endLine", "sourceIds": ["gate01-open-reset-contact"], "targetIds": [] }
+        }
+      }
+    ]
+  }
+]
