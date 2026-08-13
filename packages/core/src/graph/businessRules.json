@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "ide-agent.business-rules.v14",
+  "schemaVersion": "ide-agent.business-rules.v15",
   "enabled": true,
   "defaultBlocks": ["TON", "TOF", "TP", "R_TRIG", "F_TRIG", "CTU", "CTD", "CTUD", "SR", "RS"],
   "dataTypeGroups": {
@@ -141,7 +141,12 @@
       { "suffix": "_Exit_Sensor", "role": "presenceSignal", "acceptedDataTypes": ["BOOL"] },
       { "suffix": "_Alarm", "role": "alarmOutput", "acceptedDataTypes": ["BOOL"] },
       { "suffix": "_Fault_Latched", "role": "faultLatch", "acceptedDataTypes": ["BOOL"] },
-      { "suffix": "_Alarm_Latched", "role": "faultLatch", "acceptedDataTypes": ["BOOL"] }
+      { "suffix": "_Alarm_Latched", "role": "faultLatch", "acceptedDataTypes": ["BOOL"] },
+      { "suffix": "_Batch_Done", "role": "batchCompletionOutput", "acceptedDataTypes": ["BOOL"] },
+      { "suffix": "_Batch_Complete", "role": "batchCompletionOutput", "acceptedDataTypes": ["BOOL"] },
+      { "suffix": "_Batch_Completed", "role": "batchCompletionOutput", "acceptedDataTypes": ["BOOL"] },
+      { "suffix": "_Batch_Done_Latched", "role": "batchCompletionLatch", "acceptedDataTypes": ["BOOL"] },
+      { "suffix": "_Batch_Complete_Latched", "role": "batchCompletionLatch", "acceptedDataTypes": ["BOOL"] }
     ],
     "roleEvidenceRules": [
       {
@@ -350,6 +355,32 @@
           { "source": "label", "literalPatterns": ["运行输出", "运行状态", "动作输出", "动作状态", "设备运行", "执行输出", "action output", "run output"], "regexPatterns": [], "score": 5 },
           { "source": "note", "literalPatterns": ["运行输出", "运行状态", "动作输出", "动作状态", "设备运行", "执行输出", "action output", "run output"], "regexPatterns": [], "score": 5 },
           { "source": "comment", "literalPatterns": ["运行输出", "运行状态", "动作输出", "动作状态", "设备运行", "执行输出", "action output", "run output"], "regexPatterns": [], "score": 5 }
+        ]
+      },
+      {
+        "id": "VR25-batch-completion-output",
+        "status": "active",
+        "role": "batchCompletionOutput",
+        "acceptedDataTypes": ["BOOL"],
+        "minScore": 4,
+        "sources": [
+          { "source": "name", "literalPatterns": ["batchdone", "batch_done", "batchcomplete", "batch_complete", "batchcompleted", "batch_completed", "lotdone", "lot_done"], "regexPatterns": ["(?:^|[^a-z0-9])(?:batch|lot)[_\\-.\\s]*(?:done|complete|completed|finished)(?:$|[^a-z0-9])"], "score": 4 },
+          { "source": "label", "literalPatterns": ["批次完成", "批次完成状态", "批次完成输出", "本批完成", "批量完成", "batch complete", "batch done"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["批次完成", "批次完成状态", "批次完成输出", "本批完成", "批量完成", "batch complete", "batch done"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["批次完成", "批次完成状态", "批次完成输出", "本批完成", "批量完成", "batch complete", "batch done"], "regexPatterns": [], "score": 5 }
+        ]
+      },
+      {
+        "id": "VR26-batch-completion-latch",
+        "status": "active",
+        "role": "batchCompletionLatch",
+        "acceptedDataTypes": ["BOOL"],
+        "minScore": 4,
+        "sources": [
+          { "source": "name", "literalPatterns": ["batchdone_latched", "batch_done_latched", "batchcomplete_latched", "batch_complete_latched", "batchdone_latch", "batch_done_latch"], "regexPatterns": ["(?:^|[^a-z0-9])(?:batch|lot)[_\\-.\\s]*(?:done|complete|completed)[_\\-.\\s]*(?:latched|latch)(?:$|[^a-z0-9])"], "score": 4 },
+          { "source": "label", "literalPatterns": ["批次完成锁存", "批次完成保持", "批次完成状态锁存", "batch completion latch"], "regexPatterns": [], "score": 5 },
+          { "source": "note", "literalPatterns": ["批次完成锁存", "批次完成保持", "批次完成状态锁存", "batch completion latch"], "regexPatterns": [], "score": 5 },
+          { "source": "comment", "literalPatterns": ["批次完成锁存", "批次完成保持", "批次完成状态锁存", "batch completion latch"], "regexPatterns": [], "score": 5 }
         ]
       },
       {
@@ -1007,6 +1038,40 @@
       "presentation": {
         "titleTemplate": "{placementAction} {candidateVar} 停止复位",
         "textTemplate": "{actionName} 是同组停止命令，且 {candidateVar} 已由置位线圈保持；{placementText}并复位同一动作状态。"
+      }
+    },
+    {
+      "id": "AL04-count-completion-output",
+      "status": "active",
+      "kind": "countCompletionOutput",
+      "anchorRolesAny": ["completionSignal"],
+      "candidateRolesAny": ["batchCompletionOutput"],
+      "candidateNodeType": "coil",
+      "allowedPositions": ["behind", "outsideBehind"],
+      "excludedTerms": ["safety", "fault", "alarm"],
+      "priority": 109,
+      "businessName": "计数完成输出",
+      "reason": "真实计数器的完成端口已经绑定同组完成信号，但当前回路尚未输出批次完成状态",
+      "presentation": {
+        "titleTemplate": "{placementAction} {candidateVar} 批次完成线圈",
+        "textTemplate": "{actionName} 是当前计数器的完成信号；{placementText}并绑定 {candidateVar}，计数达到目标时输出同组批次完成状态。"
+      }
+    },
+    {
+      "id": "AL05-count-completion-latch",
+      "status": "active",
+      "kind": "countCompletionLatch",
+      "anchorRolesAny": ["completionSignal"],
+      "candidateRolesAny": ["batchCompletionLatch"],
+      "candidateNodeType": "setCoil",
+      "allowedPositions": ["behind", "outsideBehind"],
+      "excludedTerms": ["safety", "fault", "alarm"],
+      "priority": 111,
+      "businessName": "计数完成锁存",
+      "reason": "真实计数器的完成端口已经绑定同组完成信号，且已有变量明确要求保持批次完成状态",
+      "presentation": {
+        "titleTemplate": "{placementAction} {candidateVar} 批次完成锁存",
+        "textTemplate": "{actionName} 是当前计数器的完成信号；{placementText}并置位 {candidateVar}，计数达到目标后保持批次完成状态，后续由独立复位路径清除。"
       }
     }
   ],

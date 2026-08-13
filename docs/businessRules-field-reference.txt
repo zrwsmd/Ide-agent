@@ -36,7 +36,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 
 表示规则文件的结构版本，例如：
 
-    "schemaVersion": "ide-agent.business-rules.v14"
+    "schemaVersion": "ide-agent.business-rules.v15"
 
 它用于区分配置格式版本，不是规则优先级，也不是候选分数。升级字段结构时应同步升级版本号。
 
@@ -546,13 +546,15 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 
 类型：对象数组。
 
-作用：补齐通用动作回路中“启动后保持、停止时释放”的缺失节点。它只在已经存在真实动作输出、且设备/动作归属能够确认时生效。
+作用：补齐通用动作回路中“启动后保持、停止时释放”以及“真实计数器完成后输出批次完成状态”的缺失节点。它只在已经存在可靠动作锚点、且设备/动作归属能够确认时生效。
 
-当前支持三类规则：
+当前支持五类规则：
 
 - `selfHold`：选中启动触点时，与它并联一个绑定同组动作输出变量的常开触点，形成启动自保持。
 - `stopInterlock`：仍选中启动触点时，在启动回路前串联同组停止命令的常闭触点；停止请求成立时切断启动保持回路。
 - `latchedRelease`：选中独立停止触点时，如果同组动作输出已经由 `setCoil` 保持且没有对应 `resetCoil`，则补绑定同一变量的复位线圈。
+- `countCompletionOutput`：选中真实 CTU、CTD 或 CTUD 时，如果唯一绑定的完成端口 `Q/QU/QD` 属于某一设备/批次，且同组存在尚未输出的批次完成 BOOL 变量，则补普通线圈。
+- `countCompletionLatch`：触发条件同上，但候选变量明确表示“批次完成锁存”时补置位线圈，并提示需要独立复位路径。
 
 例如：
 
@@ -572,12 +574,23 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 
     Pump01_Run 复位线圈
 
+计数完成示例：
+
+    Pack01_Counter.Q -> Pack01_Count_Q
+    同组已有变量 Pack01_Batch_Done，但尚无输出线圈
+
+选中 `Pack01_Counter` 后，可以得到：
+
+    在计数器后串联 Pack01_Batch_Done 普通线圈
+
+如果候选变量是 `Pack01_Batch_Done_Latched`，则生成置位线圈，而不是把普通完成状态强制锁存。
+
 关键字段：
 
-- `kind`：`selfHold`、`stopInterlock` 或 `latchedRelease`。
-- `anchorRolesAny`：当前选中条件需要具备的角色，分别使用 `startCommand`、`commandSignal` 或 `stopCommand`。
-- `candidateRolesAny`：要绑定的候选变量角色，当前使用 `actionOutput` 或 `stopCommand`。
-- `candidateNodeType`：候选节点类型，分别为 `contact`、`negatedContact` 或 `resetCoil`。
+- `kind`：`selfHold`、`stopInterlock`、`latchedRelease`、`countCompletionOutput` 或 `countCompletionLatch`。
+- `anchorRolesAny`：当前选中条件需要具备的角色；启停规则使用 `startCommand`、`commandSignal` 或 `stopCommand`，计数完成规则使用 `completionSignal`。
+- `candidateRolesAny`：要绑定的候选变量角色；启停规则使用 `actionOutput` 或 `stopCommand`，计数完成规则使用 `batchCompletionOutput` 或 `batchCompletionLatch`。
+- `candidateNodeType`：候选节点类型，包括 `contact`、`negatedContact`、`resetCoil`、`coil` 或 `setCoil`。
 - `allowedPositions`：限制在当前建议草案已有的并联、前串联或后串联位置生成，不跨区段改拓扑。
 - `excludedTerms`：安全、复位、故障等不适合普通启停补全的语义排除项。
 - `presentation`：可靠匹配时显示动作变量和启动/停止业务含义。
@@ -588,6 +601,9 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 - 同组判断优先使用 `groupId/deviceId`，缺少显式标识时才使用变量名、标签和注释中的稳定公共部分。
 - 已经存在同变量自保持触点或复位线圈时去重；跨设备、跨动作和安全回路不自动绑定。
 - 本阶段不创建新的区段，也不把一个独立停止区段隐式跨接到启动区段。
+- 计数完成规则必须选中真实 CTU/CTD/CTUD，且只能有一个已绑定 BOOL 完成端口 `Q/QU/QD`；只有完成含义的普通触点、未绑定端口或多个完成端口含义不明确时不触发。
+- 批次完成候选必须是当前 POU 已声明的 BOOL 变量，并与计数完成变量属于同一设备/批次；已有绑定同变量的输出线圈时不重复推荐。
+- ALC-06B-1 只补“计数完成状态输出”。停止设备和下一批复位仍需要明确的运行/停止/复位锚点，不因出现计数器而猜测。
 
 
 四、触点极性层

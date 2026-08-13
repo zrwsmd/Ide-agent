@@ -224,10 +224,20 @@ interface BusinessFaultResetRuleConfig {
 interface BusinessActionLifecycleRuleConfig {
   id: string;
   status: string;
-  kind: "selfHold" | "stopInterlock" | "latchedRelease";
+  kind:
+    | "selfHold"
+    | "stopInterlock"
+    | "latchedRelease"
+    | "countCompletionOutput"
+    | "countCompletionLatch";
   anchorRolesAny: string[];
   candidateRolesAny: string[];
-  candidateNodeType: "contact" | "negatedContact" | "resetCoil";
+  candidateNodeType:
+    | "contact"
+    | "negatedContact"
+    | "coil"
+    | "setCoil"
+    | "resetCoil";
   allowedPositions: LocalSuggestionPosition[];
   excludedTerms: BusinessTerm[];
   priority: number;
@@ -611,7 +621,7 @@ const FALLBACK_TERM_IMPLICATIONS: BusinessTermImplicationConfig[] = [
 ];
 
 const FALLBACK_BUSINESS_RULES_CONFIG: BusinessRulesConfig = {
-  schemaVersion: "ide-agent.business-rules.v14",
+  schemaVersion: "ide-agent.business-rules.v15",
   enabled: true,
   defaultBlocks: FALLBACK_COMMON_FUNCTION_BLOCK_TYPES,
   dataTypeGroups: FALLBACK_DATA_TYPE_GROUPS,
@@ -825,10 +835,16 @@ function parseActionLifecycleRules(
       (item) =>
         item.status.toLowerCase() === "active" &&
         Boolean(item.id) &&
-        ["selfHold", "stopInterlock", "latchedRelease"].includes(item.kind) &&
+        [
+          "selfHold",
+          "stopInterlock",
+          "latchedRelease",
+          "countCompletionOutput",
+          "countCompletionLatch",
+        ].includes(item.kind) &&
         item.anchorRolesAny.length > 0 &&
         item.candidateRolesAny.length > 0 &&
-        ["contact", "negatedContact", "resetCoil"].includes(
+        ["contact", "negatedContact", "coil", "setCoil", "resetCoil"].includes(
           item.candidateNodeType,
         ) &&
         Boolean(item.businessName) &&
@@ -1912,12 +1928,16 @@ function addActionLifecycleSuggestions(
         const addElement =
           rule.candidateNodeType === "resetCoil"
             ? resetCoilElement(candidate.variableName)
-            : contactVariantElement(
-                rule.candidateNodeType,
-                candidate.variableName,
-                candidate.dataType,
-                candidate.scope,
-              );
+            : rule.candidateNodeType === "setCoil"
+              ? setCoilElement(candidate.variableName)
+              : rule.candidateNodeType === "coil"
+                ? coilElement(candidate.variableName)
+                : contactVariantElement(
+                    rule.candidateNodeType,
+                    candidate.variableName,
+                    candidate.dataType,
+                    candidate.scope,
+                  );
         addElement.variableScope = candidate.scope;
         const nextDraft: LocalSuggestionDraft = {
           ...suggestion,
@@ -1988,6 +2008,16 @@ function isActionLifecycleInsertion(
   if (rule.kind === "stopInterlock") {
     return (
       suggestion.addElement.nodeType === "contact" &&
+      inferSerialOrParallel(suggestion) === "serial"
+    );
+  }
+  if (
+    rule.kind === "countCompletionOutput" ||
+    rule.kind === "countCompletionLatch"
+  ) {
+    return (
+      suggestion.mode === "outputCoil" &&
+      suggestion.addElement.nodeType === "coil" &&
       inferSerialOrParallel(suggestion) === "serial"
     );
   }
@@ -3206,7 +3236,18 @@ function analyzeActionLifecycleContext(
   roleMatches: BusinessVariableRoleMatch[],
 ): ActionLifecycleContext | undefined {
   const anchorNode = focus.node;
-  if (!anchorNode || !isContactKind(anchorNode.kind)) {
+  if (!anchorNode) {
+    return undefined;
+  }
+  if (isCounterBlockType(normalizeBlockType(anchorNode.blockType))) {
+    return analyzeCounterCompletionLifecycleContext(
+      summary,
+      focus,
+      variables,
+      roleMatches,
+    );
+  }
+  if (!isContactKind(anchorNode.kind)) {
     return undefined;
   }
   const anchorReference = normalizeReference(anchorNode.var);
@@ -3423,6 +3464,143 @@ function analyzeActionLifecycleContext(
   };
 }
 
+function analyzeCounterCompletionLifecycleContext(
+  summary: DiagramSummary,
+  focus: FocusContext,
+  variables: DiagramVariableSummary[],
+  roleMatches: BusinessVariableRoleMatch[],
+): ActionLifecycleContext | undefined {
+  const anchorNode = focus.node;
+  if (
+    !anchorNode ||
+    !isCounterBlockType(normalizeBlockType(anchorNode.blockType))
+  ) {
+    return undefined;
+  }
+
+  const completionPorts = (anchorNode.outputPorts ?? []).filter(
+    (port) =>
+      ["Q", "QU", "QD"].includes(port.name.trim().toUpperCase()) &&
+      normalizeDataType(port.type) === "BOOL" &&
+      Boolean(normalizeReference(port.value)),
+  );
+  if (completionPorts.length !== 1) {
+    return undefined;
+  }
+
+  const completionReference = normalizeReference(completionPorts[0].value);
+  const anchorVariable = variables.find(
+    (variable) => normalizeReference(variable.name) === completionReference,
+  );
+  if (!anchorVariable) {
+    return undefined;
+  }
+  const anchorRoleMatches = roleMatches.filter(
+    (match) => normalizeReference(match.variableName) === completionReference,
+  );
+  const anchorRoles = new Set(anchorRoleMatches.map((match) => match.role));
+  const anchorTerms = collectBusinessTerms([
+    ...nodeBusinessTexts(anchorNode),
+    ...variableBusinessTexts(anchorVariable),
+    focus.segment.label,
+    focus.segment.note,
+  ]);
+  if (!anchorRoles.has("completionSignal") || anchorTerms.has("safety")) {
+    return undefined;
+  }
+
+  const pouName = (focus.segment.pouName || summary.pouName).trim();
+  const samePouSegments = summary.segments.filter(
+    (segment) => (segment.pouName || summary.pouName).trim() === pouName,
+  );
+  const existingOutputReferences = new Set(
+    samePouSegments.flatMap((segment) =>
+      segment.nodes
+        .filter((node) => isCoilKind(node.kind))
+        .map((node) => normalizeReference(node.var))
+        .filter(Boolean),
+    ),
+  );
+  const variablesByReference = new Map(
+    variables.map((variable) => [normalizeReference(variable.name), variable]),
+  );
+  const candidates: ActionLifecycleCandidate[] = [];
+  const candidateReferences = new Set(
+    roleMatches
+      .filter((match) =>
+        ["batchCompletionOutput", "batchCompletionLatch"].includes(match.role),
+      )
+      .map((match) => normalizeReference(match.variableName))
+      .filter(Boolean),
+  );
+
+  for (const candidateReference of candidateReferences) {
+    if (
+      candidateReference === completionReference ||
+      existingOutputReferences.has(candidateReference)
+    ) {
+      continue;
+    }
+    const variable = variablesByReference.get(candidateReference);
+    if (!variable || normalizeDataType(variable.type) !== "BOOL") {
+      continue;
+    }
+    const candidateMatches = roleMatches.filter(
+      (match) =>
+        normalizeReference(match.variableName) === candidateReference &&
+        ["batchCompletionOutput", "batchCompletionLatch"].includes(match.role),
+    );
+    const candidateMatch =
+      candidateMatches.find((match) => match.role === "batchCompletionLatch") ??
+      candidateMatches.find((match) => match.role === "batchCompletionOutput");
+    if (!candidateMatch || hasConflictingExplicitGroups(anchorRoleMatches, candidateMatch)) {
+      continue;
+    }
+    const association = strongestDeviceAssociation(
+      anchorRoleMatches,
+      candidateMatch,
+      anchorVariable,
+      variable,
+      "completionSignal",
+    );
+    if (!association) {
+      continue;
+    }
+    const isLatch = candidateMatch.role === "batchCompletionLatch";
+    candidates.push({
+      variableName: variable.name,
+      dataType: variable.type,
+      scope: variable.scope || "VAR",
+      role: candidateMatch.role,
+      evidenceScore: candidateMatch.score,
+      associationKey: association.key,
+      association: association.strategy,
+      kind: isLatch ? "countCompletionLatch" : "countCompletionOutput",
+      actionName: anchorVariable.name,
+    });
+  }
+
+  if (candidates.length === 0) {
+    return undefined;
+  }
+  candidates.sort(
+    (left, right) =>
+      deviceAssociationWeight(right.association) -
+        deviceAssociationWeight(left.association) ||
+      right.evidenceScore - left.evidenceScore ||
+      left.variableName.localeCompare(right.variableName),
+  );
+  return {
+    anchor: {
+      nodeId: anchorNode.id,
+      variableName: anchorVariable.name,
+      roles: anchorRoles,
+      terms: anchorTerms,
+    },
+    candidates,
+  };
+}
+
 function hasConflictingExplicitGroups(
   anchorMatches: BusinessVariableRoleMatch[],
   candidate: BusinessVariableRoleMatch,
@@ -3627,11 +3805,29 @@ function deviceDescriptionStem(
               "停止按钮", "停止命令", "停止请求", "停机按钮", "停机命令",
               "stopbutton", "stopcommand", "stoprequest", "stop", "按钮", "命令", "请求", "信号",
             ]
-          : role === "actionOutput"
-            ? [
-                "运行输出", "运行状态", "动作输出", "动作状态", "设备运行", "执行输出",
-                "actionoutput", "runoutput", "running", "active", "运行", "输出", "状态", "信号",
-              ]
+        : role === "actionOutput"
+          ? [
+              "运行输出", "运行状态", "动作输出", "动作状态", "设备运行", "执行输出",
+              "actionoutput", "runoutput", "running", "active", "运行", "输出", "状态", "信号",
+            ]
+        : role === "completionSignal"
+          ? [
+              "计数完成信号", "计数器完成输出", "批次计数完成信号", "完成信号",
+              "counterdone", "countercomplete", "completion", "complete", "done",
+              "计数", "计数器", "完成", "输出", "状态", "信号",
+            ]
+        : role === "batchCompletionOutput"
+          ? [
+              "批次完成输出", "批次完成状态", "批次完成信号", "批次完成",
+              "batchcomplete", "batchdone", "lotdone", "批次", "批量",
+              "完成", "输出", "状态", "信号",
+            ]
+        : role === "batchCompletionLatch"
+          ? [
+              "批次完成状态锁存", "批次完成锁存", "批次完成保持",
+              "batchcompletionlatch", "batchdonelatched", "批次", "批量",
+              "完成", "锁存", "保持", "输出", "状态", "信号",
+            ]
       : role === "readySignal"
         ? [
             "设备就绪", "就绪信号", "设备健康", "健康状态", "可用状态",
@@ -3716,6 +3912,12 @@ function deviceVariableNameStem(name: string, role: string): string {
       ? ["command", "cmd", "request", "req", "start", "run", "enable", "open", "extend"]
       : role === "readySignal"
         ? ["ready", "available", "standby", "healthy", "status", "signal"]
+        : role === "completionSignal"
+          ? ["counter", "count", "completion", "complete", "completed", "done", "output", "out", "status", "signal", "q", "qu", "qd"]
+        : role === "batchCompletionOutput"
+          ? ["batch", "lot", "completion", "complete", "completed", "done", "finished", "output", "out", "status", "signal"]
+        : role === "batchCompletionLatch"
+          ? ["batch", "lot", "completion", "complete", "completed", "done", "latched", "latch", "hold", "output", "out", "status", "signal"]
         : role === "resetCommand"
           ? [
               "fault", "alarm", "reset", "ack", "acknowledge", "clear",
@@ -4556,7 +4758,7 @@ function isTimerBlockType(blockType: string): boolean {
 }
 
 function isCounterBlockType(blockType: string): boolean {
-  return ["CTU", "CTD"].includes(blockType);
+  return ["CTU", "CTD", "CTUD"].includes(blockType);
 }
 
 function isLatchBlockType(blockType: string): boolean {

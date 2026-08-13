@@ -68,6 +68,13 @@ const actionLifecycleCompletionFixturePath = path.join(
   "fixtures",
   "action-lifecycle-completion-fixture.json",
 );
+const counterCompletionLifecycleFixturePath = path.join(
+  rootDir,
+  "src",
+  "test",
+  "fixtures",
+  "counter-completion-lifecycle-fixture.json",
+);
 const rulesPath = path.join(
   rootDir,
   "packages",
@@ -99,13 +106,14 @@ async function main() {
   await assertFaultResponseCompletionCases();
   await assertFaultResetCompletionCases();
   await assertActionLifecycleCompletionCases();
+  await assertCounterCompletionLifecycleCases();
   await assertTimestampDiagramWhenAvailable();
   console.log("[test-business-rules] passed");
 }
 
 function assertActiveRuleCandidatesExistInLibrary() {
   const rules = JSON.parse(fs.readFileSync(rulesPath, "utf8"));
-  assert.equal(rules.schemaVersion, "ide-agent.business-rules.v14");
+  assert.equal(rules.schemaVersion, "ide-agent.business-rules.v15");
   assert.ok(
     (rules.deviceLoopRules ?? []).length >= 2,
     "deviceLoopRules must define generic ready and fault completion",
@@ -129,8 +137,20 @@ function assertActiveRuleCandidatesExistInLibrary() {
     "fault reset rules must bind an existing latch to a reset coil",
   );
   assert.ok(
-    (rules.actionLifecycleRules ?? []).length >= 3,
-    "action lifecycle rules must define self-hold, stop release and latched release",
+    (rules.actionLifecycleRules ?? []).length >= 5,
+    "action lifecycle rules must also define counter completion output and latch",
+  );
+  assert.ok(
+    rules.variablePatterns.roleEvidenceRules.some(
+      (rule) => rule.role === "batchCompletionOutput",
+    ),
+    "variable patterns must recognize batch completion outputs",
+  );
+  assert.ok(
+    (rules.actionLifecycleRules ?? []).some(
+      (rule) => rule.id === "AL04-count-completion-output",
+    ),
+    "action lifecycle rules must reuse the lifecycle mechanism for counter completion",
   );
   assert.ok(
     rules.variablePatterns.suffixRoles.some(
@@ -258,7 +278,13 @@ function assertActiveRuleCandidatesExistInLibrary() {
   for (const rule of rules.actionLifecycleRules ?? []) {
     assert.ok(rule.id, "action lifecycle rule must define id");
     assert.ok(
-      ["selfHold", "stopInterlock", "latchedRelease"].includes(rule.kind),
+      [
+        "selfHold",
+        "stopInterlock",
+        "latchedRelease",
+        "countCompletionOutput",
+        "countCompletionLatch",
+      ].includes(rule.kind),
       `${rule.id} must use a supported lifecycle kind`,
     );
     assert.ok(
@@ -2698,6 +2724,125 @@ async function assertActionLifecycleCompletionCases() {
   assert.ok(
     !suggestionForVariable(safetySuggestions, "SafetyGate_Run", "contact"),
     "safety action logic must not receive ordinary self-hold completion",
+  );
+}
+
+async function assertCounterCompletionLifecycleCases() {
+  const completionSuggestions = await suggestionsFor(
+    counterCompletionLifecycleFixturePath,
+    "segment-pack01-counter-completion",
+    "pack01-counter",
+  );
+  const completionOutput = suggestionForVariable(
+    completionSuggestions,
+    "Pack01_Batch_Done",
+    "coil",
+  );
+  assert.ok(
+    completionOutput,
+    "a real counter completion output should suggest its same-group batch completion coil",
+  );
+  assert.match(completionOutput.title, /Pack01_Batch_Done.*批次完成线圈/);
+  assert.match(completionOutput.text, /Pack01_Count_Q.*计数达到目标/);
+  assert.deepStrictEqual(completionOutput.startNodes, ["pack01-counter"]);
+  assert.deepStrictEqual(completionOutput.endNodes, ["pack01-counter-end"]);
+  assert.equal(firstAddedNode(completionOutput)?.varName?.scope, "VAR");
+  assert.ok(
+    !suggestionForVariable(
+      completionSuggestions,
+      "Pack02_Batch_Done",
+      "coil",
+    ),
+    "counter completion must not bind another device or batch",
+  );
+
+  const latchSuggestions = await suggestionsFor(
+    counterCompletionLifecycleFixturePath,
+    "segment-carton-counter-latch",
+    "carton-counter",
+  );
+  const completionLatch = suggestionForVariable(
+    latchSuggestions,
+    "Carton_Batch_Done_Latched",
+    "setCoil",
+  );
+  assert.ok(
+    completionLatch,
+    "an explicitly latched batch completion variable should use a set coil",
+  );
+  assert.match(completionLatch.title, /Carton_Batch_Done_Latched.*批次完成锁存/);
+  assert.match(completionLatch.text, /独立复位路径/);
+
+  const existingOutputSuggestions = await suggestionsFor(
+    counterCompletionLifecycleFixturePath,
+    "segment-case-existing-output",
+    "case-counter",
+  );
+  assert.ok(
+    !suggestionForVariable(
+      existingOutputSuggestions,
+      "Case_Batch_Done",
+      "coil",
+    ),
+    "an existing batch completion output must suppress duplicate completion",
+  );
+
+  const crossGroupSuggestions = await suggestionsFor(
+    counterCompletionLifecycleFixturePath,
+    "segment-counter-cross-group",
+    "cross-counter",
+  );
+  assert.ok(
+    !suggestionForVariable(
+      crossGroupSuggestions,
+      "LineB_Batch_Done",
+      "coil",
+    ),
+    "a counter must not emit another group's batch completion output",
+  );
+
+  const noCounterSuggestions = await suggestionsFor(
+    counterCompletionLifecycleFixturePath,
+    "segment-no-real-counter",
+    "manual-done-contact",
+  );
+  assert.ok(
+    !suggestionForVariable(noCounterSuggestions, "Manual_Batch_Done", "coil"),
+    "a completion-like contact without a real counter must not trigger counter completion",
+  );
+
+  const unboundSuggestions = await suggestionsFor(
+    counterCompletionLifecycleFixturePath,
+    "segment-counter-unbound-q",
+    "unbound-counter",
+  );
+  assert.ok(
+    !suggestionForVariable(unboundSuggestions, "Loose_Batch_Done", "coil"),
+    "an unbound counter completion port must not infer a batch completion output",
+  );
+
+  const nameFallbackSuggestions = await suggestionsFor(
+    counterCompletionLifecycleFixturePath,
+    "segment-counter-name-fallback",
+    "line03-counter",
+  );
+  assert.ok(
+    suggestionForVariable(
+      nameFallbackSuggestions,
+      "Line03_Batch_Done",
+      "coil",
+    ),
+    "stable variable-name stems should provide same-group fallback when explicit IDs are absent",
+  );
+
+  const safetySuggestions = await suggestionsFor(
+    counterCompletionLifecycleFixturePath,
+    "segment-safety-counter-completion",
+    "safety-counter",
+  );
+  assert.ok(
+    !suggestionForVariable(safetySuggestions, "Safety_Batch_Done", "coil"),
+    "ordinary counter lifecycle rules must not complete safety logic",
   );
 }
 

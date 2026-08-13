@@ -1,0 +1,264 @@
+[
+  {
+    "pouName": "COUNTER_COMPLETION_OUTPUT",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Pack01_Count_Trigger", "type": "BOOL", "scope": "VAR", "deviceId": "Pack-01", "groupId": "Batch-01", "comment": "1号包装批次计数触发" },
+      { "name": "Pack01_Count_Preset", "type": "INT", "scope": "VAR", "deviceId": "Pack-01", "groupId": "Batch-01", "comment": "1号包装批次数量" },
+      { "name": "Pack01_Count_Current", "type": "INT", "scope": "VAR", "deviceId": "Pack-01", "groupId": "Batch-01", "comment": "1号包装当前计数" },
+      { "name": "Pack01_Count_Q", "type": "BOOL", "scope": "VAR", "deviceId": "Pack-01", "groupId": "Batch-01", "comment": "1号包装计数器完成信号" },
+      { "name": "Pack01_Batch_Done", "type": "BOOL", "scope": "VAR", "deviceId": "Pack-01", "groupId": "Batch-01", "comment": "1号包装批次完成输出" },
+      { "name": "Pack02_Batch_Done", "type": "BOOL", "scope": "VAR", "deviceId": "Pack-02", "groupId": "Batch-02", "comment": "2号包装批次完成输出" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-pack01-counter-completion",
+        "label": "1号包装批次计数",
+        "note": "计数达到设定数量后输出批次完成状态",
+        "nodesObj": {
+          "pack01-counter-start": { "id": "pack01-counter-start", "type": "startLine", "sourceIds": [], "targetIds": ["pack01-counter"] },
+          "pack01-counter": {
+            "id": "pack01-counter",
+            "type": "FBDCompartment",
+            "sourceIds": ["pack01-counter-start"],
+            "targetIds": ["pack01-counter-end"],
+            "childrenNode": {
+              "type": "CTU",
+              "isFunction": false,
+              "varName": { "value": "Pack01_Counter", "type": "CTU", "scope": "VAR" },
+              "portInputs": [
+                { "name": "EN", "value": "", "type": "", "scope": "" },
+                { "name": "CU", "value": "Pack01_Count_Trigger", "type": "BOOL", "scope": "VAR_INPUT" },
+                { "name": "R", "value": "", "type": "BOOL", "scope": "VAR_INPUT" },
+                { "name": "PV", "value": "Pack01_Count_Preset", "type": "INT", "scope": "VAR_INPUT" }
+              ],
+              "portOutputs": [
+                { "name": "ENO", "value": "", "type": "", "scope": "" },
+                { "name": "Q", "value": "Pack01_Count_Q", "type": "BOOL", "scope": "VAR_OUTPUT" },
+                { "name": "CV", "value": "Pack01_Count_Current", "type": "INT", "scope": "VAR_OUTPUT" }
+              ]
+            }
+          },
+          "pack01-counter-end": { "id": "pack01-counter-end", "type": "endLine", "sourceIds": ["pack01-counter"], "targetIds": [] }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "COUNTER_COMPLETION_LATCH",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Carton_Count_Trigger", "type": "BOOL", "scope": "VAR", "deviceId": "Carton-Line", "groupId": "Production-Batch" },
+      { "name": "Carton_Count_Preset", "type": "DINT", "scope": "VAR", "deviceId": "Carton-Line", "groupId": "Production-Batch" },
+      { "name": "Carton_Count_Q", "type": "BOOL", "scope": "VAR", "deviceId": "Carton-Line", "groupId": "Production-Batch", "comment": "纸箱批次计数完成信号" },
+      { "name": "Carton_Batch_Done_Latched", "type": "BOOL", "scope": "VAR", "deviceId": "Carton-Line", "groupId": "Production-Batch", "comment": "纸箱批次完成锁存" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-carton-counter-latch",
+        "label": "纸箱批次完成保持",
+        "nodesObj": {
+          "carton-counter-start": { "id": "carton-counter-start", "type": "startLine", "sourceIds": [], "targetIds": ["carton-counter"] },
+          "carton-counter": {
+            "id": "carton-counter",
+            "type": "FBDCompartment",
+            "sourceIds": ["carton-counter-start"],
+            "targetIds": ["carton-counter-end"],
+            "childrenNode": {
+              "type": "CTU",
+              "isFunction": false,
+              "varName": { "value": "Carton_Counter", "type": "CTU", "scope": "VAR" },
+              "portInputs": [
+                { "name": "EN", "value": "", "type": "", "scope": "" },
+                { "name": "CU", "value": "Carton_Count_Trigger", "type": "BOOL", "scope": "VAR_INPUT" },
+                { "name": "R", "value": "", "type": "BOOL", "scope": "VAR_INPUT" },
+                { "name": "PV", "value": "Carton_Count_Preset", "type": "DINT", "scope": "VAR_INPUT" }
+              ],
+              "portOutputs": [
+                { "name": "ENO", "value": "", "type": "", "scope": "" },
+                { "name": "Q", "value": "Carton_Count_Q", "type": "BOOL", "scope": "VAR_OUTPUT" }
+              ]
+            }
+          },
+          "carton-counter-end": { "id": "carton-counter-end", "type": "endLine", "sourceIds": ["carton-counter"], "targetIds": [] }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "COUNTER_COMPLETION_ALREADY_EXISTS",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Case_Count_Q", "type": "BOOL", "scope": "VAR", "deviceId": "Case-Line", "groupId": "Batch" },
+      { "name": "Case_Batch_Done", "type": "BOOL", "scope": "VAR", "deviceId": "Case-Line", "groupId": "Batch", "comment": "箱体批次完成输出" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-case-existing-output",
+        "label": "已有批次完成输出",
+        "nodesObj": {
+          "case-counter-start": { "id": "case-counter-start", "type": "startLine", "sourceIds": [], "targetIds": ["case-counter"] },
+          "case-counter": {
+            "id": "case-counter",
+            "type": "FBDCompartment",
+            "sourceIds": ["case-counter-start"],
+            "targetIds": ["case-batch-done"],
+            "childrenNode": {
+              "type": "CTU",
+              "isFunction": false,
+              "varName": { "value": "Case_Counter", "type": "CTU", "scope": "VAR" },
+              "portInputs": [],
+              "portOutputs": [{ "name": "Q", "value": "Case_Count_Q", "type": "BOOL", "scope": "VAR_OUTPUT" }]
+            }
+          },
+          "case-batch-done": { "id": "case-batch-done", "type": "coil", "sourceIds": ["case-counter"], "targetIds": [], "varName": { "value": "Case_Batch_Done", "type": "BOOL", "scope": "VAR" } }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "COUNTER_COMPLETION_CROSS_GROUP",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "LineA_Count_Q", "type": "BOOL", "scope": "VAR", "deviceId": "Line-A", "groupId": "Batch-A", "comment": "A线计数完成信号" },
+      { "name": "LineB_Batch_Done", "type": "BOOL", "scope": "VAR", "deviceId": "Line-B", "groupId": "Batch-B", "comment": "B线批次完成输出" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-counter-cross-group",
+        "nodesObj": {
+          "cross-counter-start": { "id": "cross-counter-start", "type": "startLine", "sourceIds": [], "targetIds": ["cross-counter"] },
+          "cross-counter": {
+            "id": "cross-counter",
+            "type": "FBDCompartment",
+            "sourceIds": ["cross-counter-start"],
+            "targetIds": ["cross-counter-end"],
+            "childrenNode": {
+              "type": "CTD",
+              "isFunction": false,
+              "varName": { "value": "LineA_Counter", "type": "CTD", "scope": "VAR" },
+              "portInputs": [],
+              "portOutputs": [{ "name": "Q", "value": "LineA_Count_Q", "type": "BOOL", "scope": "VAR_OUTPUT" }]
+            }
+          },
+          "cross-counter-end": { "id": "cross-counter-end", "type": "endLine", "sourceIds": ["cross-counter"], "targetIds": [] }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "COUNTER_COMPLETION_WITHOUT_COUNTER",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Manual_Count_Q", "type": "BOOL", "scope": "VAR", "deviceId": "Manual-Line", "groupId": "Batch", "comment": "人工批次完成信号" },
+      { "name": "Manual_Batch_Done", "type": "BOOL", "scope": "VAR", "deviceId": "Manual-Line", "groupId": "Batch", "comment": "人工批次完成输出" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-no-real-counter",
+        "nodesObj": {
+          "manual-start": { "id": "manual-start", "type": "startLine", "sourceIds": [], "targetIds": ["manual-done-contact"] },
+          "manual-done-contact": { "id": "manual-done-contact", "type": "contact", "sourceIds": ["manual-start"], "targetIds": ["manual-end"], "varName": { "value": "Manual_Count_Q", "type": "BOOL", "scope": "VAR" } },
+          "manual-end": { "id": "manual-end", "type": "endLine", "sourceIds": ["manual-done-contact"], "targetIds": [] }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "COUNTER_COMPLETION_UNBOUND_Q",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Loose_Batch_Done", "type": "BOOL", "scope": "VAR", "deviceId": "Loose-Line", "groupId": "Batch", "comment": "未绑定计数器对应的批次完成输出" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-counter-unbound-q",
+        "nodesObj": {
+          "unbound-counter-start": { "id": "unbound-counter-start", "type": "startLine", "sourceIds": [], "targetIds": ["unbound-counter"] },
+          "unbound-counter": {
+            "id": "unbound-counter",
+            "type": "FBDCompartment",
+            "sourceIds": ["unbound-counter-start"],
+            "targetIds": ["unbound-counter-end"],
+            "childrenNode": {
+              "type": "CTU",
+              "isFunction": false,
+              "varName": { "value": "Loose_Counter", "type": "CTU", "scope": "VAR" },
+              "portInputs": [],
+              "portOutputs": [{ "name": "Q", "value": "???", "type": "BOOL", "scope": "VAR_OUTPUT" }]
+            }
+          },
+          "unbound-counter-end": { "id": "unbound-counter-end", "type": "endLine", "sourceIds": ["unbound-counter"], "targetIds": [] }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "COUNTER_COMPLETION_NAME_FALLBACK",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Line03_Count_Trigger", "type": "BOOL", "scope": "VAR", "comment": "3号线批次计数触发" },
+      { "name": "Line03_Count_Q", "type": "BOOL", "scope": "VAR", "comment": "3号线计数完成信号" },
+      { "name": "Line03_Batch_Done", "type": "BOOL", "scope": "VAR", "comment": "3号线批次完成输出" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-counter-name-fallback",
+        "label": "3号线批次计数",
+        "nodesObj": {
+          "line03-counter-start": { "id": "line03-counter-start", "type": "startLine", "sourceIds": [], "targetIds": ["line03-counter"] },
+          "line03-counter": {
+            "id": "line03-counter",
+            "type": "FBDCompartment",
+            "sourceIds": ["line03-counter-start"],
+            "targetIds": ["line03-counter-end"],
+            "childrenNode": {
+              "type": "CTU",
+              "isFunction": false,
+              "varName": { "value": "Line03_Counter", "type": "CTU", "scope": "VAR" },
+              "portInputs": [
+                { "name": "CU", "value": "Line03_Count_Trigger", "type": "BOOL", "scope": "VAR_INPUT" }
+              ],
+              "portOutputs": [
+                { "name": "Q", "value": "Line03_Count_Q", "type": "BOOL", "scope": "VAR_OUTPUT" }
+              ]
+            }
+          },
+          "line03-counter-end": { "id": "line03-counter-end", "type": "endLine", "sourceIds": ["line03-counter"], "targetIds": [] }
+        }
+      }
+    ]
+  },
+  {
+    "pouName": "SAFETY_COUNTER_COMPLETION",
+    "pouType": "PROGRAM",
+    "variableList": [
+      { "name": "Safety_Count_Q", "type": "BOOL", "scope": "VAR", "deviceId": "Safety-Line", "groupId": "Safety-Batch", "comment": "安全计数完成信号" },
+      { "name": "Safety_Batch_Done", "type": "BOOL", "scope": "VAR", "deviceId": "Safety-Line", "groupId": "Safety-Batch", "comment": "安全批次完成输出" }
+    ],
+    "segmentList": [
+      {
+        "id": "segment-safety-counter-completion",
+        "label": "安全回路批次计数",
+        "note": "安全逻辑不由普通计数完成规则自动补全",
+        "nodesObj": {
+          "safety-counter-start": { "id": "safety-counter-start", "type": "startLine", "sourceIds": [], "targetIds": ["safety-counter"] },
+          "safety-counter": {
+            "id": "safety-counter",
+            "type": "FBDCompartment",
+            "sourceIds": ["safety-counter-start"],
+            "targetIds": ["safety-counter-end"],
+            "childrenNode": {
+              "type": "CTUD",
+              "isFunction": false,
+              "varName": { "value": "Safety_Counter", "type": "CTUD", "scope": "VAR" },
+              "portInputs": [],
+              "portOutputs": [{ "name": "QU", "value": "Safety_Count_Q", "type": "BOOL", "scope": "VAR_OUTPUT" }]
+            }
+          },
+          "safety-counter-end": { "id": "safety-counter-end", "type": "endLine", "sourceIds": ["safety-counter"], "targetIds": [] }
+        }
+      }
+    ]
+  }
+]
