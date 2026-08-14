@@ -116,7 +116,7 @@ const result = await getLocalGraphSuggestions({
 
 - `payload.anchorNodeId`：本次建议围绕的选中节点。
 - `payload.anchorNodeVar`：选中节点变量或实例名。
-- `payload.recognizedFocus.businessChainContext`：可选的 `ide-agent.business-chain-context.v1` 诊断，包含选中节点及链路角色、证据强度、最终动作、现有能力和相关区段能力。当前版本只参与三类高风险候选过滤：重复沿、可靠同业务身份下的重复功能块、绕过许可/状态/联锁条件的并联候选；不改变评分、title/text 和拓扑端点。诊断失败或证据不足时沿用原有 suggestions 行为。
+- `payload.recognizedFocus.businessChainContext`：可选的 `ide-agent.business-chain-context.v1` 诊断，包含选中节点及链路角色、证据强度、最终动作、现有能力和相关区段能力。当前版本用于三类高风险候选过滤，并在链路已解析且具有高置信度证据时增强业务 title/text 和排序；不改变节点、端口或拓扑端点。诊断失败或证据不足时沿用原有 suggestions 行为。
 - `payload.suggestions`：真正用于渲染和落地的建议数组。
 - `payload.suggestions[].title`：适合列表展示的短标题。
 - `payload.suggestions[].text`：完整说明文字，需要详细提示时再展示。
@@ -129,7 +129,7 @@ const result = await getLocalGraphSuggestions({
 - `signatureIds`：实际命中的回路签名 id；不依赖签名的建议为空数组。
 - `reason`：面向用户或调试界面的推荐依据。
 - `confidence`：业务依据可信度，范围为 `0..1`。
-- `score`：最终排序分及其 `topology`、`rankingRules`、`businessEvidence` 三部分。该字段仅解释已返回建议，不包含未命中候选或拒绝原因。
+- `score`：最终排序分及其 `topology`、`rankingRules`、`businessEvidence`、`businessChain` 四部分。`businessChain` 只奖励已有可靠规则文案或业务证据的候选，不给纯结构候选加分。该字段仅解释已返回建议，不包含未命中候选或拒绝原因。
 
 ## Suggestion 结构
 

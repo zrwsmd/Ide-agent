@@ -133,6 +133,16 @@ export interface BusinessChainGuardConfig {
   relatedCapabilityMinSharedReferences: number;
 }
 
+export interface BusinessChainEnhancementConfig {
+  resolvedPresentationScore: number;
+  partialPresentationScore: number;
+  resolvedEvidenceScore: number;
+  partialEvidenceScore: number;
+  highConfidenceRoleBonus: number;
+  nodeIntentTitleTemplate: string;
+  nodeIntentTextTemplate: string;
+}
+
 export interface BusinessDerivedTermConfig {
   term: BusinessTerm;
   whenDataTypesAny: string[];
@@ -248,6 +258,7 @@ export interface BusinessRulesConfig {
   variablePatterns: BusinessVariablePatternsConfig;
   blockPortRoleRules: BusinessBlockPortRoleRuleConfig[];
   businessChainGuards: BusinessChainGuardConfig;
+  businessChainEnhancement: BusinessChainEnhancementConfig;
   motionCommandProfiles: BusinessMotionCommandProfileConfig[];
   loopSignatures: BusinessLoopSignatureConfig[];
   deviceLoopRules: BusinessDeviceLoopRuleConfig[];
@@ -353,8 +364,20 @@ const FALLBACK_BUSINESS_CHAIN_GUARDS: BusinessChainGuardConfig = {
   relatedCapabilityMinSharedReferences: 2,
 };
 
+const FALLBACK_BUSINESS_CHAIN_ENHANCEMENT: BusinessChainEnhancementConfig = {
+  resolvedPresentationScore: 6,
+  partialPresentationScore: 2,
+  resolvedEvidenceScore: 4,
+  partialEvidenceScore: 1,
+  highConfidenceRoleBonus: 2,
+  nodeIntentTitleTemplate:
+    "{chainName}: {placementAction} {businessName}{elementType}",
+  nodeIntentTextTemplate:
+    "In the {chainName} business chain, the final action is {actionName}; {baseText}",
+};
+
 const FALLBACK_BUSINESS_RULES_CONFIG: BusinessRulesConfig = {
-  schemaVersion: "ide-agent.business-rules.v18",
+  schemaVersion: "ide-agent.business-rules.v19",
   enabled: true,
   defaultBlocks: FALLBACK_COMMON_FUNCTION_BLOCK_TYPES,
   dataTypeGroups: FALLBACK_DATA_TYPE_GROUPS,
@@ -388,6 +411,7 @@ const FALLBACK_BUSINESS_RULES_CONFIG: BusinessRulesConfig = {
   variablePatterns: EMPTY_VARIABLE_PATTERNS,
   blockPortRoleRules: EMPTY_BLOCK_PORT_ROLE_RULES,
   businessChainGuards: FALLBACK_BUSINESS_CHAIN_GUARDS,
+  businessChainEnhancement: FALLBACK_BUSINESS_CHAIN_ENHANCEMENT,
   motionCommandProfiles: [],
   loopSignatures: EMPTY_LOOP_SIGNATURES,
   deviceLoopRules: [],
@@ -447,6 +471,9 @@ function loadBusinessRulesConfig(): BusinessRulesConfig {
     businessChainGuards: parseBusinessChainGuards(
       record.businessChainGuards,
     ),
+    businessChainEnhancement: parseBusinessChainEnhancement(
+      record.businessChainEnhancement,
+    ),
     motionCommandProfiles: parseMotionCommandProfiles(
       record.motionCommandProfiles,
     ),
@@ -463,6 +490,39 @@ function loadBusinessRulesConfig(): BusinessRulesConfig {
     nodeIntentRules: parseNodeIntentRules(record.nodeIntentRules),
     libraryRules: parseBusinessRules(record.libraryRules ?? record.rules),
     rankingRules: parseBusinessRankingRules(record.rankingRules),
+  };
+}
+
+function parseBusinessChainEnhancement(
+  value: unknown,
+): BusinessChainEnhancementConfig {
+  const record = asPlainRecord(value);
+  if (!record) {
+    return FALLBACK_BUSINESS_CHAIN_ENHANCEMENT;
+  }
+
+  return {
+    resolvedPresentationScore:
+      asOptionalNumberConfig(record.resolvedPresentationScore) ??
+      FALLBACK_BUSINESS_CHAIN_ENHANCEMENT.resolvedPresentationScore,
+    partialPresentationScore:
+      asOptionalNumberConfig(record.partialPresentationScore) ??
+      FALLBACK_BUSINESS_CHAIN_ENHANCEMENT.partialPresentationScore,
+    resolvedEvidenceScore:
+      asOptionalNumberConfig(record.resolvedEvidenceScore) ??
+      FALLBACK_BUSINESS_CHAIN_ENHANCEMENT.resolvedEvidenceScore,
+    partialEvidenceScore:
+      asOptionalNumberConfig(record.partialEvidenceScore) ??
+      FALLBACK_BUSINESS_CHAIN_ENHANCEMENT.partialEvidenceScore,
+    highConfidenceRoleBonus:
+      asOptionalNumberConfig(record.highConfidenceRoleBonus) ??
+      FALLBACK_BUSINESS_CHAIN_ENHANCEMENT.highConfidenceRoleBonus,
+    nodeIntentTitleTemplate:
+      asStringConfig(record.nodeIntentTitleTemplate) ||
+      FALLBACK_BUSINESS_CHAIN_ENHANCEMENT.nodeIntentTitleTemplate,
+    nodeIntentTextTemplate:
+      asStringConfig(record.nodeIntentTextTemplate) ||
+      FALLBACK_BUSINESS_CHAIN_ENHANCEMENT.nodeIntentTextTemplate,
   };
 }
 

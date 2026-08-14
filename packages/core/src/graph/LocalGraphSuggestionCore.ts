@@ -100,6 +100,7 @@ import {
 } from "./SuggestedNodeFactory";
 import { createSuggestionDedupeKey } from "./SuggestionDedupeKey";
 import { filterBusinessChainGuardedSuggestions } from "./BusinessChainSuggestionGuard";
+import { applyBusinessChainSuggestionScores } from "./BusinessChainSuggestionEnhancer";
 import { tryAnalyzeBusinessChainContext } from "./BusinessChainContextAnalyzer";
 import type { BusinessChainContextDiagnostics } from "./BusinessChainContextAnalyzer";
 
@@ -480,8 +481,13 @@ function rankBusinessSuggestions(
   const presentedSuggestions = applyNodeIntentPresentations(
     capabilityAwareSuggestions,
     context,
+    businessChainContext,
   );
-  const applicableSuggestions = presentedSuggestions.filter(
+  const chainScoredSuggestions = applyBusinessChainSuggestionScores(
+    presentedSuggestions,
+    businessChainContext,
+  );
+  const applicableSuggestions = chainScoredSuggestions.filter(
     (suggestion) =>
       !hasExistingFunctionBlockAtInsertionBoundary(suggestion, focus.segment) &&
       !hasExistingFunctionBlockInRelatedSegment(suggestion, context, focus),
@@ -496,7 +502,9 @@ function rankBusinessSuggestions(
 function applyNodeIntentPresentations(
   suggestions: LocalSuggestionDraft[],
   context: BusinessSuggestionContext,
+  businessChainContext: BusinessChainContextDiagnostics | undefined,
 ): LocalSuggestionDraft[] {
+  const chainValues = businessChainPresentationValues(businessChainContext);
   return suggestions.map((suggestion) => {
     if (suggestion.businessPresentation) {
       return suggestion;
@@ -510,21 +518,114 @@ function applyNodeIntentPresentations(
     }
 
     const evidenceCount = nodeIntentEvidenceCount(matchedRule, context);
-    const presentation = renderBusinessPresentation(
+    const confidence = Math.min(98, 75 + evidenceCount * 5);
+    const basePresentation = renderBusinessPresentation(
       matchedRule.presentation,
       suggestion,
       {
         ruleId: matchedRule.id,
-        confidence: Math.min(98, 75 + evidenceCount * 5),
+        confidence,
         businessName: matchedRule.businessName,
         reason: matchedRule.reason,
         actionName: context.actionAnchorName || "当前回路",
       },
     );
+    const presentation =
+      basePresentation && chainValues
+        ? enhanceNodeIntentChainPresentation(
+            basePresentation,
+            matchedRule,
+            suggestion,
+            chainValues,
+          )
+        : basePresentation;
     return presentation
       ? { ...suggestion, businessPresentation: presentation }
       : suggestion;
   });
+}
+
+function enhanceNodeIntentChainPresentation(
+  base: BusinessSuggestionPresentation,
+  rule: BusinessNodeIntentRuleConfig,
+  suggestion: LocalSuggestionDraft,
+  chain: {
+    chainName: string;
+    selectedName: string;
+    actionName: string;
+    actionType: string;
+  },
+): BusinessSuggestionPresentation {
+  const values: Record<string, string> = {
+    businessName: rule.businessName,
+    reason: rule.reason,
+    chainName: chain.chainName,
+    selectedName: chain.selectedName,
+    actionName: chain.actionName,
+    actionType: chain.actionType,
+    baseTitle: base.title,
+    baseText: base.text,
+    placementAction: businessPlacementAction(suggestion),
+    placementText: businessPlacementText(suggestion),
+    elementType: businessElementType(suggestion.addElement),
+  };
+  const config = BUSINESS_RULES_CONFIG.businessChainEnhancement;
+  return {
+    title:
+      renderBusinessTemplate(config.nodeIntentTitleTemplate, values) ||
+      base.title,
+    text:
+      renderBusinessTemplate(config.nodeIntentTextTemplate, values) ||
+      base.text,
+    ruleId: `${rule.id}:business-chain`,
+    confidence: Math.min(99, base.confidence + 1),
+    reason: rule.reason,
+  };
+}
+
+function businessChainPresentationValues(
+  context: BusinessChainContextDiagnostics | undefined,
+): {
+  chainName: string;
+  selectedName: string;
+  actionName: string;
+  actionType: string;
+} | undefined {
+  if (
+    !context ||
+    context.resolution !== "resolved" ||
+    context.evidenceSummary.high === 0
+  ) {
+    return undefined;
+  }
+
+  const selected = context.nodes.find((node) => node.selected);
+  const action = context.nodes.find(
+    (node) => node.nodeId === context.primaryActionNodeId,
+  );
+  if (!selected || !action) {
+    return undefined;
+  }
+
+  const actionType = action.blockType || action.nodeType;
+  const actionName =
+    action.blockType && action.instanceName
+      ? `${action.blockType} (${action.instanceName})`
+      : action.instanceName ||
+        action.variableName ||
+        action.blockType ||
+        action.nodeType;
+  const chainName = context.segmentLabel.trim() || actionName;
+  const selectedName =
+    selected.variableName ||
+    selected.instanceName ||
+    selected.blockType ||
+    selected.nodeType;
+  if (!chainName || !selectedName || !actionName) {
+    return undefined;
+  }
+
+  return { chainName, selectedName, actionName, actionType };
 }
 
 function matchesNodeIntentRule(
@@ -2585,6 +2686,7 @@ function toLocalSuggestion(
           topology: 0,
           rankingRules: 0,
           businessEvidence: 0,
+          businessChain: 0,
         },
       }
     : undefined;

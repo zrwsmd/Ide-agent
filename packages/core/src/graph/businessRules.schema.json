@@ -17,6 +17,7 @@
     "variablePatterns",
     "blockPortRoleRules",
     "businessChainGuards",
+    "businessChainEnhancement",
     "motionCommandProfiles",
     "loopSignatures",
     "deviceLoopRules",
@@ -58,6 +59,7 @@
       "items": { "$ref": "#/$defs/blockPortRoleRule" }
     },
     "businessChainGuards": { "$ref": "#/$defs/businessChainGuards" },
+    "businessChainEnhancement": { "$ref": "#/$defs/businessChainEnhancement" },
     "motionCommandProfiles": {
       "type": "array",
       "items": { "$ref": "#/$defs/motionCommandProfile" }
@@ -147,6 +149,28 @@
           "type": "integer",
           "minimum": 1
         }
+      }
+    },
+    "businessChainEnhancement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resolvedPresentationScore",
+        "partialPresentationScore",
+        "resolvedEvidenceScore",
+        "partialEvidenceScore",
+        "highConfidenceRoleBonus",
+        "nodeIntentTitleTemplate",
+        "nodeIntentTextTemplate"
+      ],
+      "properties": {
+        "resolvedPresentationScore": { "type": "number", "minimum": 0 },
+        "partialPresentationScore": { "type": "number", "minimum": 0 },
+        "resolvedEvidenceScore": { "type": "number", "minimum": 0 },
+        "partialEvidenceScore": { "type": "number", "minimum": 0 },
+        "highConfidenceRoleBonus": { "type": "number", "minimum": 0 },
+        "nodeIntentTitleTemplate": { "$ref": "#/$defs/nonEmptyString" },
+        "nodeIntentTextTemplate": { "$ref": "#/$defs/nonEmptyString" }
       }
     },
     "presentation": {

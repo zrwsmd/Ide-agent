@@ -34,6 +34,7 @@ export function rankTopologySuggestions(
             topology,
             rankingRules: 0,
             businessEvidence: 0,
+            businessChain: 0,
           },
         },
         index,
@@ -95,6 +96,7 @@ function scoreBusinessSuggestion(
   const isCoil = isCoilNodeType(addType);
   const topology = scoreTopologySuggestion(suggestion);
   const rankingRules = scoreConfiguredRankingRules(suggestion, context);
+  const businessChain = suggestion.businessChainScore ?? 0;
   let businessEvidence = 0;
 
   const startSignals = businessTermWeight(
@@ -221,10 +223,11 @@ function scoreBusinessSuggestion(
   }
 
   return {
-    total: topology + rankingRules + businessEvidence,
+    total: topology + rankingRules + businessEvidence + businessChain,
     topology,
     rankingRules,
     businessEvidence,
+    businessChain,
   };
 }
 

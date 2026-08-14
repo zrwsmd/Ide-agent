@@ -1,6 +1,6 @@
 {
   "$schema": "./businessRules.schema.json",
-  "schemaVersion": "ide-agent.business-rules.v18",
+  "schemaVersion": "ide-agent.business-rules.v19",
   "enabled": true,
   "defaultBlocks": ["TON", "TOF", "TP", "R_TRIG", "F_TRIG", "CTU", "CTD", "CTUD", "SR", "RS"],
   "dataTypeGroups": {
@@ -691,6 +691,15 @@
       "MC_Home"
     ],
     "relatedCapabilityMinSharedReferences": 2
+  },
+  "businessChainEnhancement": {
+    "resolvedPresentationScore": 6,
+    "partialPresentationScore": 2,
+    "resolvedEvidenceScore": 4,
+    "partialEvidenceScore": 1,
+    "highConfidenceRoleBonus": 2,
+    "nodeIntentTitleTemplate": "{chainName}：{placementAction} {businessName}{elementType}",
+    "nodeIntentTextTemplate": "在“{chainName}”业务链中，最终动作是 {actionName}；{baseText}"
   },
   "motionCommandProfiles": [
     {

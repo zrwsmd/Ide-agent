@@ -21,6 +21,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
         -> libraryRules 筛选可以推荐的库功能块或函数
         -> rankingRules 给拓扑候选加业务排序分
         -> businessChainGuards 过滤重复能力和会绕过关键条件的候选
+        -> businessChainEnhancement 增强可靠业务链文案和排序
         -> presentation 在可靠证据下生成业务 title/text
         -> 返回 suggestions
 
@@ -37,7 +38,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 
 表示规则文件的结构版本，例如：
 
-    "schemaVersion": "ide-agent.business-rules.v18"
+    "schemaVersion": "ide-agent.business-rules.v19"
 
 它用于区分配置格式版本，不是规则优先级，也不是候选分数。升级字段结构时应同步升级版本号。
 
@@ -446,6 +447,41 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
       "relatedCapabilityMinSharedReferences": 2
     }
 
+### 9.9 `businessChainEnhancement`
+
+类型：对象。
+
+作用：当 `businessChainContext` 已经解析出可靠业务链时，为已有业务规则证据的候选增加独立链路分，并把 `nodeIntentRules` 的原业务文案包装成包含区段名称和最终动作的链路文案。它不生成候选，也不修改节点、端口、常开/常闭判断或拓扑端点。
+
+分数字段：
+
+- `resolvedPresentationScore`：链路已完整解析且候选已有业务文案时的基础链路分。
+- `partialPresentationScore`：链路只部分解析但候选已有业务文案时的基础链路分。
+- `resolvedEvidenceScore`：链路已完整解析、候选只有业务规则证据但没有业务文案时的基础链路分。
+- `partialEvidenceScore`：链路只部分解析、候选只有业务规则证据时的基础链路分。
+- `highConfidenceRoleBonus`：选中节点具有端口等高置信度角色证据时的附加分。
+
+文案字段：
+
+- `nodeIntentTitleTemplate`：链路级短标题模板。
+- `nodeIntentTextTemplate`：链路级说明模板。
+
+链路模板支持 `{chainName}`、`{selectedName}`、`{actionName}`、`{actionType}`、`{businessName}`、`{reason}`、`{baseTitle}`、`{baseText}`、`{placementAction}`、`{placementText}` 和 `{elementType}`。其中 `baseTitle/baseText` 是对应 `nodeIntentRule.presentation` 已经生成的原业务文案，因此不需要为每条意图规则再维护一套重复模板。
+
+示例：
+
+    "businessChainEnhancement": {
+      "resolvedPresentationScore": 6,
+      "partialPresentationScore": 2,
+      "resolvedEvidenceScore": 4,
+      "partialEvidenceScore": 1,
+      "highConfidenceRoleBonus": 2,
+      "nodeIntentTitleTemplate": "{chainName}：{placementAction} {businessName}{elementType}",
+      "nodeIntentTextTemplate": "在“{chainName}”业务链中，最终动作是 {actionName}；{baseText}"
+    }
+
+只有 `resolution=resolved`、链中存在高置信度证据并且能找到选中节点和最终动作时，才启用链路级文案。证据不足时仍返回原 `nodeIntentRules` 文案或结构文案，链路分为 0。
+
 ### 10. `loopSignatures`
 
 类型：对象数组。
@@ -732,7 +768,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 
 类型：对象数组。
 
-作用：给已经生成的触点、线圈、上升沿或下降沿候选附加业务意图和展示文案。它不生成新拓扑、不改变候选排序，也不决定常开/常闭；触点极性仍只由 `contactPolarityRules` 决定。
+作用：给已经生成的触点、线圈、上升沿或下降沿候选附加业务意图和展示文案。它不生成新拓扑，也不决定常开/常闭；触点极性仍只由 `contactPolarityRules` 决定。v19 中，可靠业务链下生成的文案会使候选获得独立 `businessChain` 排序分。
 
 主要字段：
 
@@ -907,10 +943,12 @@ MC_* 的 Axis 端口则要求库定义的端口类型匹配轴引用能力。库
 
 在“故障复位”区段中，resetCoil 会获得额外分数，排在普通触点或普通线圈之前。
 
-当前排序分由两部分组成：
+当前诊断中的排序分由四部分组成：
 
-1. rankingRules 贡献的配置分。
-2. 代码中的基础拓扑和业务启发式分，例如外侧后串联的拓扑分、故障场景对常闭触点的加分。
+1. `topology`：基础拓扑分，例如外侧后串联的拓扑偏好。
+2. `rankingRules`：本节配置规则贡献的分数。
+3. `businessEvidence`：现有术语、角色和业务启发式证据分。
+4. `businessChain`：可靠业务链对已有业务文案或规则证据的附加分；纯结构建议为 0。
 
 因此不能只看 businessRules.json 的 baseScore 推断全部最终分数。
 

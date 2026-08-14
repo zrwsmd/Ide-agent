@@ -72,6 +72,7 @@ export interface LocalSuggestionScoreBreakdown {
   topology: number;
   rankingRules: number;
   businessEvidence: number;
+  businessChain: number;
 }
 
 export interface LocalSuggestionDraft {
@@ -99,6 +100,7 @@ export interface LocalSuggestionDraft {
   addElement: LocalSuggestionAddElement;
   businessPresentation?: BusinessSuggestionPresentation;
   businessEvidence?: BusinessSuggestionEvidence;
+  businessChainScore?: number;
   scoreBreakdown?: LocalSuggestionScoreBreakdown;
 }
 

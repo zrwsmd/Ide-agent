@@ -134,7 +134,7 @@ async function main() {
 
 function assertActiveRuleCandidatesExistInLibrary() {
   const rules = JSON.parse(fs.readFileSync(rulesPath, "utf8"));
-  assert.equal(rules.schemaVersion, "ide-agent.business-rules.v18");
+  assert.equal(rules.schemaVersion, "ide-agent.business-rules.v19");
   assert.deepStrictEqual(
     rules.businessChainGuards.relatedCapabilityIdentityRoles,
     ["axisReference", "deviceReference"],
@@ -146,6 +146,33 @@ function assertActiveRuleCandidatesExistInLibrary() {
   assert.equal(
     rules.businessChainGuards.relatedCapabilityMinSharedReferences,
     2,
+  );
+  assert.deepStrictEqual(rules.businessChainEnhancement, {
+    resolvedPresentationScore: 6,
+    partialPresentationScore: 2,
+    resolvedEvidenceScore: 4,
+    partialEvidenceScore: 1,
+    highConfidenceRoleBonus: 2,
+    nodeIntentTitleTemplate:
+      "{chainName}：{placementAction} {businessName}{elementType}",
+    nodeIntentTextTemplate:
+      "在“{chainName}”业务链中，最终动作是 {actionName}；{baseText}",
+  });
+  assertBusinessPresentation(
+    "businessChainEnhancement",
+    {
+      titleTemplate:
+        rules.businessChainEnhancement.nodeIntentTitleTemplate,
+      textTemplate:
+        rules.businessChainEnhancement.nodeIntentTextTemplate,
+    },
+    [
+      "chainName",
+      "selectedName",
+      "actionType",
+      "baseTitle",
+      "baseText",
+    ],
   );
   const motionCommandProfiles = rules.motionCommandProfiles ?? [];
   const powerProfile = motionCommandProfiles.find(
@@ -2183,6 +2210,35 @@ async function assertBusinessChainContextCases() {
       !functionBlockTypes(guardedSuggestions).includes("MC_HOME"),
       "an identity-scoped function block already present for the same axis must not be suggested again",
     );
+    const chainPresentedSuggestions = guardedSuggestions.filter(
+      (suggestion) =>
+        suggestion.diagnostics?.ruleIds.includes(
+          "NI09-feedback-confirmation-contact",
+        ),
+    );
+    assert.ok(
+      chainPresentedSuggestions.length > 0,
+      "the resolved chain should retain at least one feedback-confirmation suggestion",
+    );
+    for (const suggestion of chainPresentedSuggestions) {
+      assert.match(
+        suggestion.title,
+        /^送料轴绝对定位：(前串联|后串联) 反馈确认/,
+      );
+      assert.match(
+        suggestion.text,
+        /最终动作是 MC_MoveAbsolute \(Mc_Move_Absolute_Feed\)/,
+      );
+      assert.ok(
+        !suggestion.text.includes("random-position-action"),
+        "chain presentation must not expose raw node ids",
+      );
+      assert.equal(
+        suggestion.diagnostics.score.businessChain,
+        8,
+        "resolved presentation plus a high-confidence selected role should receive the configured chain score",
+      );
+    }
 
     const unresolvedResult = await getLocalGraphSuggestions({
       diagramPath,
@@ -2219,6 +2275,24 @@ async function assertBusinessChainContextCases() {
       timerChain?.localCapabilities.some(
         (capability) => capability.capability === "output:coil",
       ),
+    );
+
+    const noEvidenceResult = await getLocalGraphSuggestions({
+      diagramPath,
+      segmentId: "segment-no-evidence-chain",
+      selectedNodeId: "no-evidence-contact",
+    });
+    const noEvidenceChain =
+      noEvidenceResult?.payload?.recognizedFocus?.businessChainContext;
+    assert.notEqual(noEvidenceChain?.resolution, "resolved");
+    assert.equal(noEvidenceChain?.evidenceSummary.high, 0);
+    assert.ok(
+      (noEvidenceResult?.payload?.suggestions ?? []).every(
+        (suggestion) =>
+          !suggestion.title.includes("无业务证据链：") &&
+          (suggestion.diagnostics?.score.businessChain ?? 0) === 0,
+      ),
+      "a chain without reliable evidence must keep the original presentation and ranking",
     );
   } finally {
     fs.rmSync(tempDir, { recursive: true, force: true });
@@ -2535,6 +2609,8 @@ function businessChainContextDiagram() {
       variable("Delay_Enable", "BOOL"),
       variable("Delay_Done", "BOOL"),
       variable("Delay_Timer", "TON"),
+      variable("Plain_Input", "BOOL"),
+      variable("Plain_Output", "BOOL"),
     ],
     segmentList: [
       {
@@ -2765,6 +2841,39 @@ function businessChainContextDiagram() {
           },
         },
       },
+      {
+        id: "segment-no-evidence-chain",
+        label: "无业务证据链",
+        note: "",
+        nodesObj: {
+          "no-evidence-start": {
+            id: "no-evidence-start",
+            type: "startLine",
+            sourceIds: [],
+            targetIds: ["no-evidence-contact"],
+          },
+          "no-evidence-contact": {
+            id: "no-evidence-contact",
+            type: "contact",
+            sourceIds: ["no-evidence-start"],
+            targetIds: ["no-evidence-coil"],
+            varName: port("", "Plain_Input", "BOOL", "VAR"),
+          },
+          "no-evidence-coil": {
+            id: "no-evidence-coil",
+            type: "coil",
+            sourceIds: ["no-evidence-contact"],
+            targetIds: ["no-evidence-end"],
+            varName: port("", "Plain_Output", "BOOL", "VAR"),
+          },
+          "no-evidence-end": {
+            id: "no-evidence-end",
+            type: "endLine",
+            sourceIds: ["no-evidence-coil"],
+            targetIds: [],
+          },
+        },
+      },
     ],
   };
 }
@@ -2949,7 +3058,8 @@ async function assertLoopSignatureCases() {
     missingTonScore?.total,
     (missingTonScore?.topology ?? 0) +
       (missingTonScore?.rankingRules ?? 0) +
-      (missingTonScore?.businessEvidence ?? 0),
+      (missingTonScore?.businessEvidence ?? 0) +
+      (missingTonScore?.businessChain ?? 0),
     "diagnostic score total should equal its component scores",
   );
 
