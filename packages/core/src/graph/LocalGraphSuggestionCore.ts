@@ -1,5 +1,3 @@
-import * as fs from "fs";
-import * as path from "path";
 import {
   DEFAULT_DIAGRAM_JSON_PATH,
   DiagramInsertionPointSummary,
@@ -90,6 +88,16 @@ import {
   rankBusinessSuggestionScores,
   rankTopologySuggestions,
 } from "./BusinessSuggestionScoring";
+import {
+  getLibraryElement,
+  isFunctionLibraryElement,
+} from "./LibraryElementCatalog";
+import type { LibraryElementInfo } from "./LibraryElementCatalog";
+import {
+  buildLibraryPorts,
+  createSuggestedNode,
+  createSuggestedNodeId,
+} from "./SuggestedNodeFactory";
 
 export type {
   LocalSuggestion,
@@ -160,20 +168,6 @@ interface SegmentBusinessSnapshot {
   blockTypes: Set<string>;
 }
 
-interface LibraryElementInfo {
-  name: string;
-  type: string;
-  inputs?: Array<[string, string, string]>;
-  outputs?: Array<[string, string, string]>;
-  comment?: string;
-  category?: string;
-}
-
-interface LibraryPorts {
-  portInputs: SuggestedPort[];
-  portOutputs: SuggestedPort[];
-}
-
 interface BusinessElementCandidate {
   name: string;
   priority: number;
@@ -186,38 +180,8 @@ interface BusinessElementCandidate {
 }
 
 const MAX_RETURNED_SUGGESTIONS = 16;
-function readJsonFile(filePath: string): unknown {
-  try {
-    return JSON.parse(fs.readFileSync(filePath, "utf8"));
-  } catch {
-    return undefined;
-  }
-}
-
-function asPlainRecord(value: unknown): Record<string, unknown> | undefined {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : undefined;
-}
-
-function asArrayRecord(value: unknown): Array<Record<string, unknown>> {
-  return Array.isArray(value)
-    ? value
-        .map(asPlainRecord)
-        .filter((item): item is Record<string, unknown> => Boolean(item))
-    : [];
-}
-
-function asStringConfig(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
-}
-
 function uniqueStringList(values: string[]): string[] {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
-}
-
-function asArrayConfig(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
 }
 
 export async function getLocalGraphSuggestions(
@@ -2748,65 +2712,6 @@ function inferSerialOrParallel(
   return "serial";
 }
 
-function createSuggestedNodeId(
-  addElement: LocalSuggestionAddElement,
-  suggestionId: string,
-): string {
-  if (addElement.nodeType === "functionBlock") {
-    const prefix = addElement.isFunction ? "FUN" : "FBD";
-    return `${prefix}-compartment-${addElement.blockType || "FB"}-${suggestionId}`;
-  }
-
-  return `${addElement.nodeType}-${suggestionId}`;
-}
-
-function createSuggestedNode(
-  nodeId: string,
-  addElement: LocalSuggestionAddElement,
-): SuggestedGraphNode {
-  if (addElement.nodeType === "functionBlock") {
-    const blockType = addElement.blockType.trim();
-    const libraryElement = getLibraryElement(blockType);
-    const libraryPorts = buildLibraryPorts(libraryElement);
-    return {
-      id: nodeId,
-      type: "FBDCompartment",
-      childrenNode: {
-        type: blockType,
-        isFunction: Boolean(addElement.isFunction),
-        varName: {
-          name: "",
-          value:
-            addElement.instanceName || addElement.variableName || "???",
-          type: blockType,
-          scope: "VAR",
-        },
-        portInputs:
-          Array.isArray(addElement.portInputs) &&
-          addElement.portInputs.length > 0
-            ? addElement.portInputs
-            : libraryPorts.portInputs,
-        portOutputs:
-          Array.isArray(addElement.portOutputs) &&
-          addElement.portOutputs.length > 0
-            ? addElement.portOutputs
-            : libraryPorts.portOutputs,
-      },
-    };
-  }
-
-  return {
-    id: nodeId,
-    type: addElement.nodeType,
-    varName: {
-      name: "",
-      value: addElement.variableName || "???",
-      type: addElement.dataType || "BOOL",
-      scope: addElement.variableScope || "VAR",
-    },
-  };
-}
-
 function createSuggestedNodeLinks(
   segment: DiagramSegmentSummary,
   nodeType: string,
@@ -3493,141 +3398,6 @@ function formatBusinessGroupName(groupKey: string | undefined): string {
   const value = String(groupKey ?? "").trim();
   const separator = value.indexOf(":");
   return separator >= 0 ? value.slice(separator + 1) || "当前回路" : value;
-}
-
-function buildLibraryPorts(
-  libraryElement: LibraryElementInfo | undefined,
-): LibraryPorts {
-  if (!libraryElement) {
-    return { portInputs: [], portOutputs: [] };
-  }
-
-  const inputs = libraryElement.inputs ?? [];
-  const outputs = libraryElement.outputs ?? [];
-
-  const portInputs = inputs
-    .filter((port) => !isSystemEnablePort(port, "EN"))
-    .map((port) => {
-      const suggestedPort = toLibraryPort(port, "VAR_INPUT");
-      return hasMatchingLibraryPort(outputs, port)
-        ? { ...suggestedPort, scope: "VAR_IN_OUT" }
-        : suggestedPort;
-    });
-  const portOutputs = outputs
-    .filter((port) => !isSystemEnablePort(port, "ENO"))
-    .filter((port) => !hasMatchingLibraryPort(inputs, port))
-    .map((port) => toLibraryPort(port, "VAR_OUTPUT"));
-
-  return {
-    portInputs: [createSystemEnablePort("EN"), ...portInputs],
-    portOutputs: [createSystemEnablePort("ENO"), ...portOutputs],
-  };
-}
-
-function isSystemEnablePort(
-  [name]: [string, string, string],
-  expectedName: "EN" | "ENO",
-): boolean {
-  return name.trim().toUpperCase() === expectedName;
-}
-
-function createSystemEnablePort(name: "EN" | "ENO"): SuggestedPort {
-  return { name, value: "", type: "", scope: "" };
-}
-
-function hasMatchingLibraryPort(
-  ports: Array<[string, string, string]>,
-  candidate: [string, string, string],
-): boolean {
-  const [candidateName, candidateType] = candidate;
-  return ports.some(
-    ([name, type]) => name === candidateName && type === candidateType,
-  );
-}
-
-function toLibraryPort(
-  [name, type, scope]: [string, string, string],
-  defaultScope: string,
-): SuggestedPort {
-  return {
-    name,
-    value: name === "EN" || name === "ENO" ? "" : "???",
-    type,
-    scope: scope && scope !== "none" ? scope : defaultScope,
-  };
-}
-
-function isFunctionLibraryElement(
-  libraryElement: LibraryElementInfo,
-): boolean {
-  return libraryElement.type === "function";
-}
-
-function getLibraryElement(name: string): LibraryElementInfo | undefined {
-  const normalized = normalizeBlockType(name);
-  if (!normalized) {
-    return undefined;
-  }
-
-  const data = loadLibraryData();
-  return data.get(normalized);
-}
-
-let cachedLibraryData: Map<string, LibraryElementInfo> | undefined;
-
-function loadLibraryData(): Map<string, LibraryElementInfo> {
-  if (cachedLibraryData) {
-    return cachedLibraryData;
-  }
-
-  const filePath = path.join(__dirname, "st-library-info-data.json");
-  const parsed = readJsonFile(filePath);
-  const elements = new Map<string, LibraryElementInfo>();
-
-  for (const category of asArrayRecord(parsed)) {
-    const categoryName = asStringConfig(category.name);
-    for (const item of asArrayRecord(category.list)) {
-      const name = asStringConfig(item.name);
-      const type = asStringConfig(item.type);
-      if (!name || !type) {
-        continue;
-      }
-
-      const libraryElement: LibraryElementInfo = {
-        name,
-        type,
-        category: categoryName,
-        comment: asStringConfig(item.comment),
-        inputs: parseLibraryPorts(item.inputs),
-        outputs: parseLibraryPorts(item.outputs),
-      };
-      const key = normalizeBlockType(name);
-      if (!elements.has(key)) {
-        elements.set(key, libraryElement);
-      }
-    }
-  }
-
-  cachedLibraryData = elements;
-  return elements;
-}
-
-function parseLibraryPorts(
-  value: unknown,
-): Array<[string, string, string]> | undefined {
-  const ports = asArrayConfig(value)
-    .map((entry) =>
-      Array.isArray(entry) && entry.length >= 2
-        ? [
-            asStringConfig(entry[0]),
-            asStringConfig(entry[1]),
-            asStringConfig(entry[2]),
-          ]
-        : undefined,
-    )
-    .filter((entry): entry is [string, string, string] => Boolean(entry));
-
-  return ports.length > 0 ? ports : undefined;
 }
 
 function findNode(
