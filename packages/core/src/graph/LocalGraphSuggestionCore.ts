@@ -98,6 +98,7 @@ import {
   createSuggestedNode,
   createSuggestedNodeId,
 } from "./SuggestedNodeFactory";
+import { createSuggestionDedupeKey } from "./SuggestionDedupeKey";
 
 export type {
   LocalSuggestion,
@@ -3588,24 +3589,25 @@ function dedupeSuggestions(
   for (const suggestion of suggestions) {
     const startNodes = normalizeNodeIds(
       suggestion.startNodes ?? inferStartNodes(suggestion),
-    ).join(",");
+    );
     const endNodes = normalizeNodeIds(
       suggestion.endNodes ?? inferEndNodes(suggestion),
-    ).join(",");
-    const key = [
-      suggestion.mode,
-      suggestion.placement.relationToFocus,
+    );
+    const key = createSuggestionDedupeKey({
+      mode: suggestion.mode,
+      relationToFocus: suggestion.placement.relationToFocus,
       startNodes,
       endNodes,
-      suggestion.position ?? inferPosition(suggestion),
-      suggestion.serialOrParallel ?? inferSerialOrParallel(suggestion),
-      suggestion.placement.parallelToNodeId,
-      suggestion.placement.branchFromNodeId,
-      suggestion.placement.branchToNodeId,
-      suggestion.addElement.nodeType,
-      suggestion.addElement.blockType,
-      suggestion.addElement.variableName,
-    ].join("|");
+      position: suggestion.position ?? inferPosition(suggestion),
+      serialOrParallel:
+        suggestion.serialOrParallel ?? inferSerialOrParallel(suggestion),
+      parallelToNodeId: suggestion.placement.parallelToNodeId,
+      branchFromNodeId: suggestion.placement.branchFromNodeId,
+      branchToNodeId: suggestion.placement.branchToNodeId,
+      nodeType: suggestion.addElement.nodeType,
+      blockType: suggestion.addElement.blockType,
+      variableName: suggestion.addElement.variableName,
+    });
 
     if (seen.has(key)) {
       continue;

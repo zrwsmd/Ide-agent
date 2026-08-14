@@ -3,6 +3,9 @@
 const assert = require("assert/strict");
 const path = require("path");
 const { getLocalGraphSuggestions } = require("../dist/node_modules/@ide-agent/core");
+const {
+  createSuggestionDedupeKey,
+} = require("../packages/core/dist/graph/SuggestionDedupeKey");
 
 const fixturePath = path.resolve(
   __dirname,
@@ -14,12 +17,54 @@ const fixturePath = path.resolve(
 );
 
 async function main() {
+  assertStructuredSuggestionDedupeKeys();
   await assertDirectTargetEditRectSuggestions();
   await assertDirectSourceEditRectFrontSuggestion();
   await assertLeftRailEditRectFrontSuggestions();
   await assertParallelBranchExitSuggestions();
 
   console.log("[test-edit-rect-suggestions] passed");
+}
+
+function assertStructuredSuggestionDedupeKeys() {
+  const base = {
+    mode: "serial",
+    relationToFocus: "beforeSelected",
+    startNodes: ["start-node-line"],
+    endNodes: ["contact-a1"],
+    position: "front",
+    serialOrParallel: "serial",
+    parallelToNodeId: "",
+    branchFromNodeId: "",
+    branchToNodeId: "",
+    nodeType: "contact",
+    blockType: "",
+    variableName: "Permit",
+  };
+
+  assert.equal(
+    createSuggestionDedupeKey(base),
+    createSuggestionDedupeKey({ ...base, startNodes: [...base.startNodes] }),
+    "equivalent suggestion fields must produce the same dedupe key",
+  );
+  assert.notEqual(
+    createSuggestionDedupeKey({
+      ...base,
+      mode: "serial|beforeSelected",
+      relationToFocus: "focus",
+    }),
+    createSuggestionDedupeKey({
+      ...base,
+      mode: "serial",
+      relationToFocus: "beforeSelected|focus",
+    }),
+    "pipe characters in adjacent fields must not collide",
+  );
+  assert.notEqual(
+    createSuggestionDedupeKey({ ...base, startNodes: ["left,right"] }),
+    createSuggestionDedupeKey({ ...base, startNodes: ["left", "right"] }),
+    "one node id containing a comma must differ from two node ids",
+  );
 }
 
 async function assertDirectTargetEditRectSuggestions() {
