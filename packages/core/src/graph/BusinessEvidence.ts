@@ -4,6 +4,13 @@ import {
   BUSINESS_TERM_MATCHERS,
   BusinessTerm,
 } from "./BusinessRulesConfig";
+import {
+  businessEvidenceTextVariants,
+  compactBusinessEvidenceText,
+  normalizeBusinessEvidenceText,
+} from "./BusinessTextNormalization";
+
+export { splitBusinessIdentifierWords } from "./BusinessTextNormalization";
 
 export function collectNodeDataTypes(
   nodes: DiagramNodeSummary[],
@@ -167,7 +174,7 @@ export function collectBusinessTerms(
   values: Array<string | undefined>,
 ): Set<BusinessTerm> {
   const haystack = compactBusinessTexts(values)
-    .flatMap((value) => [value, splitBusinessIdentifierWords(value)])
+    .flatMap(businessEvidenceTextVariants)
     .map((value) => value.toLowerCase())
     .join(" ");
   const terms = new Set<BusinessTerm>();
@@ -178,7 +185,10 @@ export function collectBusinessTerms(
 
   for (const entry of BUSINESS_TERM_MATCHERS) {
     if (
-      entry.literalPatterns.some((pattern) => haystack.includes(pattern)) ||
+      entry.literalPatterns.some((pattern) => {
+        const normalizedPattern = normalizeBusinessEvidenceText(pattern);
+        return normalizedPattern && haystack.includes(normalizedPattern);
+      }) ||
       entry.regexPatterns.some((pattern) => pattern.test(haystack))
     ) {
       terms.add(entry.term);
@@ -187,12 +197,6 @@ export function collectBusinessTerms(
 
   applyTermImplications(terms);
   return terms;
-}
-
-export function splitBusinessIdentifierWords(value: string): string {
-  return value
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2");
 }
 
 export function nodeBusinessTexts(node: DiagramNodeSummary): string[] {
@@ -259,8 +263,8 @@ function compactBusinessTexts(
   values: Array<string | undefined>,
 ): string[] {
   return values
-    .map((value) => String(value ?? "").trim())
-    .filter((value) => value.length > 0 && value !== "???");
+    .map(compactBusinessEvidenceText)
+    .filter(Boolean);
 }
 
 export function normalizeBlockType(value: string | undefined): string {

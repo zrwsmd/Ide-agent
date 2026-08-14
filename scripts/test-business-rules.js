@@ -17,6 +17,13 @@ const {
   parseLoopSignatures,
   parseVariablePatterns,
 } = require("../packages/core/dist/graph/BusinessLoopSignatures");
+const {
+  collectBusinessTerms,
+} = require("../packages/core/dist/graph/BusinessEvidence");
+const {
+  businessEvidenceTextVariants,
+  normalizeBusinessEvidenceText,
+} = require("../packages/core/dist/graph/BusinessTextNormalization");
 
 const rootDir = path.resolve(__dirname, "..");
 const fixturePath = path.join(
@@ -103,6 +110,7 @@ const libraryElements = new Map(
 async function main() {
   assertActiveRuleCandidatesExistInLibrary();
   assertVariableRoleEvidenceCases();
+  assertBusinessEvidenceNormalizationCases();
   assertExplicitIdGroupingCases();
   assertGenericMissingTargetCases();
   assertBlockPortRoleCases();
@@ -909,6 +917,68 @@ function assertVariableRoleEvidenceCases() {
     singleSourceMatch?.score,
     5,
     "multiple synonyms in the same field must not stack evidence",
+  );
+}
+
+function assertBusinessEvidenceNormalizationCases() {
+  assert.equal(
+    normalizeBusinessEvidenceText("  Ｐｕｍｐ－０１__StartCmd \n"),
+    "pump 01 start cmd",
+  );
+  for (const placeholder of ["???", "N/A", "N.A.", "FALSE", "123"]) {
+    assert.deepStrictEqual(
+      businessEvidenceTextVariants(placeholder),
+      [],
+      `${placeholder} must not become business evidence`,
+    );
+  }
+
+  const rules = JSON.parse(fs.readFileSync(rulesPath, "utf8"));
+  const config = parseVariablePatterns(rules.variablePatterns);
+  const matches = evaluateVariableRoles(config, [
+    { name: "Pump01StartCmd", type: "BOOL", scope: "VAR" },
+    { name: "Pump－02StopCmd", type: "BOOL", scope: "VAR" },
+    {
+      name: "X201",
+      type: "BOOL",
+      scope: "VAR",
+      label: "ＲＵＮＮＩＮＧ　ＦＥＥＤＢＡＣＫ",
+    },
+    { name: "Pump03StartCmd", type: "REAL", scope: "VAR" },
+    {
+      name: "UnclassifiedSignal",
+      type: "BOOL",
+      scope: "VAR",
+      label: "N/A",
+      note: "???",
+      comment: "FALSE",
+    },
+  ]);
+  const hasRole = (variableName, role) =>
+    matches.some(
+      (match) =>
+        match.variableName === variableName && match.role === role,
+    );
+
+  assert.ok(hasRole("Pump01StartCmd", "commandSignal"));
+  assert.ok(hasRole("Pump01StartCmd", "startCommand"));
+  assert.ok(hasRole("Pump－02StopCmd", "commandSignal"));
+  assert.ok(hasRole("Pump－02StopCmd", "stopCommand"));
+  assert.ok(hasRole("X201", "runFeedback"));
+  assert.equal(
+    hasRole("Pump03StartCmd", "commandSignal"),
+    false,
+    "normalization must not bypass variable data-type constraints",
+  );
+  assert.equal(
+    matches.some((match) => match.variableName === "UnclassifiedSignal"),
+    false,
+    "placeholder fields must not create variable-role evidence",
+  );
+
+  assert.ok(
+    collectBusinessTerms(["ＭＣ－Ｈａｌｔ"]).has("motionHalt"),
+    "full-width motion terms must match after evidence normalization",
   );
 }
 

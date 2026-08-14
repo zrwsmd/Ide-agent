@@ -3,6 +3,10 @@ import {
   DiagramSegmentSummary,
   DiagramVariableSummary,
 } from "../diagram/DiagramSummary";
+import {
+  businessEvidenceTextVariants,
+  normalizeBusinessEvidenceText,
+} from "./BusinessTextNormalization";
 
 export interface BusinessVariableRolePattern {
   prefix?: string;
@@ -920,18 +924,28 @@ function matchesTextPatterns(
   literalPatterns: string[],
   regexPatterns: string[],
 ): boolean {
-  const normalizedText = normalizeText(text);
+  const textVariants = businessEvidenceTextVariants(text);
+  const normalizedTextVariants = textVariants
+    .map(normalizeBusinessEvidenceText)
+    .filter(Boolean);
   if (
-    literalPatterns.some((literal) =>
-      normalizedText.includes(normalizeText(literal)),
-    )
+    literalPatterns.some((literal) => {
+      const normalizedLiteral = normalizeBusinessEvidenceText(literal);
+      return (
+        normalizedLiteral.length > 0 &&
+        normalizedTextVariants.some((variant) =>
+          variant.includes(normalizedLiteral),
+        )
+      );
+    })
   ) {
     return true;
   }
 
   return regexPatterns.some((source) => {
     try {
-      return new RegExp(source, "iu").test(text);
+      const pattern = new RegExp(source, "iu");
+      return textVariants.some((variant) => pattern.test(variant));
     } catch {
       return false;
     }
