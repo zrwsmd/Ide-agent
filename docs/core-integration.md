@@ -116,6 +116,7 @@ const result = await getLocalGraphSuggestions({
 
 - `payload.anchorNodeId`：本次建议围绕的选中节点。
 - `payload.anchorNodeVar`：选中节点变量或实例名。
+- `payload.recognizedFocus.businessChainContext`：可选的 `ide-agent.business-chain-context.v1` 只读诊断，包含选中节点及链路角色、证据强度、最终动作、现有能力和相关区段能力。当前版本仅用于验证业务链解析，不参与建议生成、过滤、排序和 title/text；诊断失败时字段省略，原有 suggestions 仍正常返回。
 - `payload.suggestions`：真正用于渲染和落地的建议数组。
 - `payload.suggestions[].title`：适合列表展示的短标题。
 - `payload.suggestions[].text`：完整说明文字，需要详细提示时再展示。

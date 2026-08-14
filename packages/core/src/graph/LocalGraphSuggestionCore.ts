@@ -102,6 +102,7 @@ import { createSuggestionDedupeKey } from "./SuggestionDedupeKey";
 import {
   filterRedundantEdgeDetectionSuggestions,
 } from "./EdgeDetectionSuggestionFilter";
+import { tryAnalyzeBusinessChainContext } from "./BusinessChainContextAnalyzer";
 
 export type {
   LocalSuggestion,
@@ -321,6 +322,7 @@ function buildLocalPayload(
 ): LocalGraphSuggestionPayload {
   const suggestions = buildSuggestions(summary, focus);
   const motionAxisContext = analyzeMotionAxisContext(summary, focus);
+  const businessChainContext = tryAnalyzeBusinessChainContext(summary, focus);
 
   return {
     schemaVersion: "ide-agent.graph-completion.v1",
@@ -338,6 +340,7 @@ function buildLocalPayload(
       confidence: 1,
       source: focus.source,
       pouName: focus.segment.pouName || summary.pouName,
+      ...(businessChainContext ? { businessChainContext } : {}),
       ...(motionAxisContext
         ? {
             motionAxisContext: {

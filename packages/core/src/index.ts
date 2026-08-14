@@ -16,6 +16,16 @@ export {
   getLocalGraphSuggestions,
 } from "./graph/LocalGraphSuggestionCore";
 export type {
+  BusinessChainCapabilityDiagnostic,
+  BusinessChainContextDiagnostics,
+  BusinessChainEvidenceStrength,
+  BusinessChainNodeDiagnostic,
+  BusinessChainNodeRole,
+  BusinessChainPortBindingDiagnostic,
+  BusinessChainResolution,
+  BusinessChainRoleEvidenceDiagnostic,
+} from "./graph/BusinessChainContextAnalyzer";
+export type {
   LocalGraphSuggestionOptions,
   LocalGraphSuggestionPayload,
   LocalGraphSuggestionRequest,

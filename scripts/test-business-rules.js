@@ -123,6 +123,7 @@ async function main() {
   await assertFaultResetCompletionCases();
   await assertActionLifecycleCompletionCases();
   await assertCounterCompletionLifecycleCases();
+  await assertBusinessChainContextCases();
   await assertTimestampDiagramWhenAvailable();
   console.log("[test-business-rules] passed");
 }
@@ -2045,6 +2046,385 @@ function coverageEdgeFunctionBlockPou(pouName, segmentId, label, blockType) {
             id: endId,
             type: "endLine",
             sourceIds: [nodeId],
+            targetIds: [],
+          },
+        },
+      },
+    ],
+  };
+}
+
+async function assertBusinessChainContextCases() {
+  const diagram = businessChainContextDiagram();
+  const tempDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), "ide-agent-business-chain-context-"),
+  );
+  const diagramPath = path.join(tempDir, "business-chain-context.json");
+  fs.writeFileSync(diagramPath, JSON.stringify(diagram, null, 2), "utf8");
+
+  try {
+    const result = await getLocalGraphSuggestions({
+      diagramPath,
+      segmentId: "segment-random-name-positioning",
+      selectedNodeId: "random-power-status-contact",
+    });
+    const chain = result?.payload?.recognizedFocus?.businessChainContext;
+    assert.equal(
+      chain?.schemaVersion,
+      "ide-agent.business-chain-context.v1",
+    );
+    assert.equal(chain?.resolution, "resolved");
+    assert.equal(chain?.focusNodeId, "random-power-status-contact");
+    assert.equal(chain?.primaryActionNodeId, "random-position-action");
+
+    const powerStatus = chain?.nodes.find(
+      (node) => node.nodeId === "random-power-status-contact",
+    );
+    assert.equal(powerStatus?.selected, true);
+    assert.equal(powerStatus?.chainRole, "condition");
+    assert.ok(
+      powerStatus?.roles.some(
+        (role) =>
+          role.role === "runFeedback" &&
+          role.strength === "high" &&
+          role.sources.includes("port"),
+      ),
+      "an arbitrary variable name bound to MC_Power.Status must retain strong port-role evidence",
+    );
+
+    const unknownCondition = chain?.nodes.find(
+      (node) => node.nodeId === "random-unknown-condition",
+    );
+    assert.equal(unknownCondition?.chainRole, "condition");
+    assert.deepStrictEqual(
+      unknownCondition?.roles,
+      [],
+      "an arbitrary unbound variable must not receive a fabricated business role",
+    );
+    assert.ok(
+      chain?.evidenceSummary.unresolvedConditionNodeIds.includes(
+        "random-unknown-condition",
+      ),
+    );
+
+    const requestTrigger = chain?.nodes.find(
+      (node) => node.nodeId === "random-position-trigger",
+    );
+    assert.equal(requestTrigger?.chainRole, "trigger");
+    assert.equal(requestTrigger?.edgeDirection, "rising");
+    assert.ok(
+      requestTrigger?.roles.some(
+        (role) =>
+          role.role === "commandSignal" && role.sources.includes("port"),
+      ),
+    );
+    assert.ok(
+      chain?.localCapabilities.some(
+        (capability) => capability.capability === "edge:rising",
+      ),
+    );
+    assert.ok(
+      chain?.localCapabilities.some(
+        (capability) =>
+          capability.capability === "functionBlock:MC_MOVEABSOLUTE",
+      ),
+    );
+    const relatedPower = chain?.relatedCapabilities.find(
+      (capability) => capability.capability === "functionBlock:MC_POWER",
+    );
+    assert.ok(relatedPower?.sharedReferences.includes("X1"));
+    assert.ok(relatedPower?.sharedReferences.includes("Feed_Axis"));
+    assert.ok(
+      chain?.relatedCapabilities.some(
+        (capability) =>
+          capability.capability === "functionBlock:MC_HOME" &&
+          capability.sharedReferences.includes("Feed_Axis"),
+      ),
+    );
+    assert.ok(
+      (result?.payload?.suggestions ?? []).every(
+        (suggestion) => !("businessChainContext" in suggestion),
+      ),
+      "business-chain diagnostics must not mutate individual suggestions",
+    );
+
+    const timerResult = await getLocalGraphSuggestions({
+      diagramPath,
+      segmentId: "segment-timer-output-chain",
+      selectedNodeId: "timer-enable-contact",
+    });
+    const timerChain =
+      timerResult?.payload?.recognizedFocus?.businessChainContext;
+    assert.equal(timerChain?.primaryActionNodeId, "timer-output-coil");
+    assert.equal(
+      timerChain?.nodes.find((node) => node.nodeId === "timer-block")
+        ?.chainRole,
+      "functionBlock",
+      "an inline processing block must not hide the downstream output action",
+    );
+    assert.ok(
+      timerChain?.localCapabilities.some(
+        (capability) => capability.capability === "functionBlock:TON",
+      ),
+    );
+    assert.ok(
+      timerChain?.localCapabilities.some(
+        (capability) => capability.capability === "output:coil",
+      ),
+    );
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+function businessChainContextDiagram() {
+  const variable = (name, type, scope = "VAR") => ({ name, type, scope });
+  const port = (name, value, type, scope) => ({ name, value, type, scope });
+  return {
+    pouName: "BUSINESS_CHAIN_RANDOM_NAMES",
+    pouType: "PROGRAM",
+    variableList: [
+      variable("X1", "BOOL"),
+      variable("X2", "BOOL"),
+      variable("Feed_Axis", "AXIS_REF"),
+      variable("Feed_Power_Enable", "BOOL"),
+      variable("Feed_Home_Request", "BOOL"),
+      variable("Feed_Home_Done", "BOOL"),
+      variable("Axis_Home_Complete", "BOOL"),
+      variable("Feed_Request", "BOOL"),
+      variable("Feed_Move_Done", "BOOL"),
+      variable("Mc_Power_Feed", "MC_Power"),
+      variable("Mc_Home_Feed", "MC_Home"),
+      variable("Mc_Move_Absolute_Feed", "MC_MoveAbsolute"),
+      variable("Delay_Enable", "BOOL"),
+      variable("Delay_Done", "BOOL"),
+      variable("Delay_Timer", "TON"),
+    ],
+    segmentList: [
+      {
+        id: "segment-random-name-power",
+        label: "送料轴上电",
+        note: "X1 名称不包含业务语义，但由 Status 端口提供角色证据。",
+        nodesObj: {
+          "random-power-start": {
+            id: "random-power-start",
+            type: "startLine",
+            sourceIds: [],
+            targetIds: ["random-power-block"],
+          },
+          "random-power-block": {
+            id: "random-power-block",
+            type: "FBDCompartment",
+            sourceIds: ["random-power-start"],
+            targetIds: ["random-power-end"],
+            childrenNode: {
+              type: "MC_Power",
+              isFunction: false,
+              varName: port("", "Mc_Power_Feed", "MC_Power", "VAR"),
+              portInputs: [
+                port("EN", "", "", ""),
+                port("Axis", "Feed_Axis", "AXIS_REF", "VAR_IN_OUT"),
+                port("Enable", "Feed_Power_Enable", "BOOL", "VAR_INPUT"),
+                port("bRegulatorOn", "TRUE", "BOOL", "VAR_INPUT"),
+                port("bDriveStart", "TRUE", "BOOL", "VAR_INPUT"),
+              ],
+              portOutputs: [
+                port("ENO", "", "", ""),
+                port("Status", "X1", "BOOL", "VAR_OUTPUT"),
+                port("bRegulatorRealState", "", "BOOL", "VAR_OUTPUT"),
+                port("bDriveStartRealState", "", "BOOL", "VAR_OUTPUT"),
+                port("Busy", "", "BOOL", "VAR_OUTPUT"),
+                port("Error", "", "BOOL", "VAR_OUTPUT"),
+                port("ErrorID", "", "SMC_ERROR", "VAR_OUTPUT"),
+              ],
+            },
+          },
+          "random-power-end": {
+            id: "random-power-end",
+            type: "endLine",
+            sourceIds: ["random-power-block"],
+            targetIds: [],
+          },
+        },
+      },
+      {
+        id: "segment-random-name-home",
+        label: "送料轴回零",
+        note: "同一轴已存在回零命令。",
+        nodesObj: {
+          "random-home-start": {
+            id: "random-home-start",
+            type: "startLine",
+            sourceIds: [],
+            targetIds: ["random-home-block"],
+          },
+          "random-home-block": {
+            id: "random-home-block",
+            type: "FBDCompartment",
+            sourceIds: ["random-home-start"],
+            targetIds: ["random-home-end"],
+            childrenNode: {
+              type: "MC_Home",
+              isFunction: false,
+              varName: port("", "Mc_Home_Feed", "MC_Home", "VAR"),
+              portInputs: [
+                port("EN", "", "", ""),
+                port("Axis", "Feed_Axis", "AXIS_REF", "VAR_IN_OUT"),
+                port("Execute", "Feed_Home_Request", "BOOL", "VAR_INPUT"),
+                port("Position", "0.0", "LREAL", "VAR_INPUT"),
+              ],
+              portOutputs: [
+                port("ENO", "", "", ""),
+                port("Done", "Feed_Home_Done", "BOOL", "VAR_OUTPUT"),
+                port("Busy", "", "BOOL", "VAR_OUTPUT"),
+                port("CommandAborted", "", "BOOL", "VAR_OUTPUT"),
+                port("Error", "", "BOOL", "VAR_OUTPUT"),
+                port("ErrorID", "", "SMC_ERROR", "VAR_OUTPUT"),
+              ],
+            },
+          },
+          "random-home-end": {
+            id: "random-home-end",
+            type: "endLine",
+            sourceIds: ["random-home-block"],
+            targetIds: [],
+          },
+        },
+      },
+      {
+        id: "segment-random-name-positioning",
+        label: "送料轴绝对定位",
+        note: "未知条件、轴上电、回零完成和请求沿共同触发定位。",
+        nodesObj: {
+          "random-position-start": {
+            id: "random-position-start",
+            type: "startLine",
+            sourceIds: [],
+            targetIds: ["random-unknown-condition"],
+          },
+          "random-unknown-condition": {
+            id: "random-unknown-condition",
+            type: "contact",
+            sourceIds: ["random-position-start"],
+            targetIds: ["random-power-status-contact"],
+            varName: port("", "X2", "BOOL", "VAR"),
+          },
+          "random-power-status-contact": {
+            id: "random-power-status-contact",
+            type: "contact",
+            sourceIds: ["random-unknown-condition"],
+            targetIds: ["random-home-complete-contact"],
+            varName: port("", "X1", "BOOL", "VAR"),
+          },
+          "random-home-complete-contact": {
+            id: "random-home-complete-contact",
+            type: "contact",
+            sourceIds: ["random-power-status-contact"],
+            targetIds: ["random-position-trigger"],
+            varName: port("", "Axis_Home_Complete", "BOOL", "VAR"),
+          },
+          "random-position-trigger": {
+            id: "random-position-trigger",
+            type: "risingContact",
+            sourceIds: ["random-home-complete-contact"],
+            targetIds: ["random-position-action"],
+            varName: port("", "Feed_Request", "BOOL", "VAR"),
+          },
+          "random-position-action": {
+            id: "random-position-action",
+            type: "FBDCompartment",
+            sourceIds: ["random-position-trigger"],
+            targetIds: ["random-position-end"],
+            childrenNode: {
+              type: "MC_MoveAbsolute",
+              isFunction: false,
+              varName: port(
+                "",
+                "Mc_Move_Absolute_Feed",
+                "MC_MoveAbsolute",
+                "VAR",
+              ),
+              portInputs: [
+                port("EN", "", "", ""),
+                port("Axis", "Feed_Axis", "AXIS_REF", "VAR_IN_OUT"),
+                port("Execute", "Feed_Request", "BOOL", "VAR_INPUT"),
+                port("Position", "0.0", "LREAL", "VAR_INPUT"),
+                port("Velocity", "1.0", "LREAL", "VAR_INPUT"),
+                port("Acceleration", "1.0", "LREAL", "VAR_INPUT"),
+                port("Deceleration", "1.0", "LREAL", "VAR_INPUT"),
+                port("Jerk", "0.0", "LREAL", "VAR_INPUT"),
+                port("Direction", "0", "MC_Direction", "VAR_INPUT"),
+                port("BufferMode", "0", "MC_BUFFER_MODE", "VAR_INPUT"),
+              ],
+              portOutputs: [
+                port("ENO", "", "", ""),
+                port("Done", "Feed_Move_Done", "BOOL", "VAR_OUTPUT"),
+                port("Busy", "", "BOOL", "VAR_OUTPUT"),
+                port("Active", "", "BOOL", "VAR_OUTPUT"),
+                port("CommandAborted", "", "BOOL", "VAR_OUTPUT"),
+                port("Error", "", "BOOL", "VAR_OUTPUT"),
+                port("ErrorID", "", "SMC_ERROR", "VAR_OUTPUT"),
+              ],
+            },
+          },
+          "random-position-end": {
+            id: "random-position-end",
+            type: "endLine",
+            sourceIds: ["random-position-action"],
+            targetIds: [],
+          },
+        },
+      },
+      {
+        id: "segment-timer-output-chain",
+        label: "延时完成输出",
+        note: "TON 是处理中间块，最终动作是输出线圈。",
+        nodesObj: {
+          "timer-chain-start": {
+            id: "timer-chain-start",
+            type: "startLine",
+            sourceIds: [],
+            targetIds: ["timer-enable-contact"],
+          },
+          "timer-enable-contact": {
+            id: "timer-enable-contact",
+            type: "contact",
+            sourceIds: ["timer-chain-start"],
+            targetIds: ["timer-block"],
+            varName: port("", "Delay_Enable", "BOOL", "VAR"),
+          },
+          "timer-block": {
+            id: "timer-block",
+            type: "FBDCompartment",
+            sourceIds: ["timer-enable-contact"],
+            targetIds: ["timer-output-coil"],
+            childrenNode: {
+              type: "TON",
+              isFunction: false,
+              varName: port("", "Delay_Timer", "TON", "VAR"),
+              portInputs: [
+                port("EN", "", "", ""),
+                port("IN", "Delay_Enable", "BOOL", "VAR_INPUT"),
+                port("PT", "T#1s", "TIME", "VAR_INPUT"),
+              ],
+              portOutputs: [
+                port("ENO", "", "", ""),
+                port("Q", "Delay_Done", "BOOL", "VAR_OUTPUT"),
+                port("ET", "", "TIME", "VAR_OUTPUT"),
+              ],
+            },
+          },
+          "timer-output-coil": {
+            id: "timer-output-coil",
+            type: "coil",
+            sourceIds: ["timer-block"],
+            targetIds: ["timer-chain-end"],
+            varName: port("", "Delay_Done", "BOOL", "VAR"),
+          },
+          "timer-chain-end": {
+            id: "timer-chain-end",
+            type: "endLine",
+            sourceIds: ["timer-output-coil"],
             targetIds: [],
           },
         },
