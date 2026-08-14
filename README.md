@@ -580,7 +580,7 @@ LD/FBD 图建议统一返回 `ide-agent.graph-completion.v1` 结构：
 前端主要看：
 
 - `recognizedFocus`：当前识别到的选中节点。
-- `recognizedFocus.businessChainContext`：可选的只读业务链诊断。当前 `v1` 会列出链路节点角色、角色证据来源、最终动作、沿/功能块/输出能力以及通过共享变量关联的同 POU 能力；第一版不参与 suggestion 生成、过滤、排序或文案，分析失败时该字段直接省略，不影响原有建议。
+- `recognizedFocus.businessChainContext`：可选的业务链诊断。当前 `v1` 会列出链路节点角色、角色证据来源、最终动作、沿/功能块/输出能力以及通过共享变量关联的同 POU 能力；这些信息仅用于过滤重复沿、可靠同业务身份下的重复功能块，以及会绕过许可/状态/联锁条件的并联候选，不改变评分、title/text 或拓扑端点。分析失败或证据不足时继续使用原有建议逻辑。
 - `anchorNodeId` / `anchorNodeVar`：本次建议围绕的选中节点，同一批 suggestions 共用。
 - `suggestions[].title`：适合前端列表展示的短标题。
 - `suggestions[].startNodes`：新增节点左侧连接的节点 id 数组。

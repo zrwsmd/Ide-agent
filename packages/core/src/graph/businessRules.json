@@ -1,6 +1,6 @@
 {
   "$schema": "./businessRules.schema.json",
-  "schemaVersion": "ide-agent.business-rules.v17",
+  "schemaVersion": "ide-agent.business-rules.v18",
   "enabled": true,
   "defaultBlocks": ["TON", "TOF", "TP", "R_TRIG", "F_TRIG", "CTU", "CTD", "CTUD", "SR", "RS"],
   "dataTypeGroups": {
@@ -671,6 +671,27 @@
       ]
     }
   ],
+  "businessChainGuards": {
+    "parallelBypassProtectedRoles": [
+      "permitSignal",
+      "readySignal",
+      "runFeedback",
+      "completionSignal",
+      "faultSignal",
+      "inhibitSignal",
+      "modeSignal"
+    ],
+    "relatedCapabilityIdentityRoles": [
+      "axisReference",
+      "deviceReference"
+    ],
+    "identityScopedCapabilityBlockTypes": [
+      "MC_Power",
+      "MC_Reset",
+      "MC_Home"
+    ],
+    "relatedCapabilityMinSharedReferences": 2
+  },
   "motionCommandProfiles": [
     {
       "id": "MCP01-power-level",

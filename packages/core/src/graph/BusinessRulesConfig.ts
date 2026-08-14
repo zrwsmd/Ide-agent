@@ -126,6 +126,13 @@ export interface BusinessMotionCommandProfileConfig {
   locksAxisWhileTriggerTrue: boolean;
 }
 
+export interface BusinessChainGuardConfig {
+  parallelBypassProtectedRoles: string[];
+  relatedCapabilityIdentityRoles: string[];
+  identityScopedCapabilityBlockTypes: string[];
+  relatedCapabilityMinSharedReferences: number;
+}
+
 export interface BusinessDerivedTermConfig {
   term: BusinessTerm;
   whenDataTypesAny: string[];
@@ -240,6 +247,7 @@ export interface BusinessRulesConfig {
   termPatterns: BusinessTermPatternConfig[];
   variablePatterns: BusinessVariablePatternsConfig;
   blockPortRoleRules: BusinessBlockPortRoleRuleConfig[];
+  businessChainGuards: BusinessChainGuardConfig;
   motionCommandProfiles: BusinessMotionCommandProfileConfig[];
   loopSignatures: BusinessLoopSignatureConfig[];
   deviceLoopRules: BusinessDeviceLoopRuleConfig[];
@@ -330,8 +338,23 @@ const FALLBACK_TERM_IMPLICATIONS: BusinessTermImplicationConfig[] = [
   { ifMatched: "motionHalt", alsoMatch: ["motion"] },
 ];
 
+const FALLBACK_BUSINESS_CHAIN_GUARDS: BusinessChainGuardConfig = {
+  parallelBypassProtectedRoles: [
+    "permitSignal",
+    "readySignal",
+    "runFeedback",
+    "completionSignal",
+    "faultSignal",
+    "inhibitSignal",
+    "modeSignal",
+  ],
+  relatedCapabilityIdentityRoles: ["axisReference", "deviceReference"],
+  identityScopedCapabilityBlockTypes: ["MC_Power", "MC_Reset", "MC_Home"],
+  relatedCapabilityMinSharedReferences: 2,
+};
+
 const FALLBACK_BUSINESS_RULES_CONFIG: BusinessRulesConfig = {
-  schemaVersion: "ide-agent.business-rules.v16",
+  schemaVersion: "ide-agent.business-rules.v18",
   enabled: true,
   defaultBlocks: FALLBACK_COMMON_FUNCTION_BLOCK_TYPES,
   dataTypeGroups: FALLBACK_DATA_TYPE_GROUPS,
@@ -364,6 +387,7 @@ const FALLBACK_BUSINESS_RULES_CONFIG: BusinessRulesConfig = {
   ],
   variablePatterns: EMPTY_VARIABLE_PATTERNS,
   blockPortRoleRules: EMPTY_BLOCK_PORT_ROLE_RULES,
+  businessChainGuards: FALLBACK_BUSINESS_CHAIN_GUARDS,
   motionCommandProfiles: [],
   loopSignatures: EMPTY_LOOP_SIGNATURES,
   deviceLoopRules: [],
@@ -420,6 +444,9 @@ function loadBusinessRulesConfig(): BusinessRulesConfig {
     termPatterns: parseTermPatterns(record.termPatterns),
     variablePatterns: parseVariablePatterns(record.variablePatterns),
     blockPortRoleRules: parseBlockPortRoleRules(record.blockPortRoleRules),
+    businessChainGuards: parseBusinessChainGuards(
+      record.businessChainGuards,
+    ),
     motionCommandProfiles: parseMotionCommandProfiles(
       record.motionCommandProfiles,
     ),
@@ -436,6 +463,35 @@ function loadBusinessRulesConfig(): BusinessRulesConfig {
     nodeIntentRules: parseNodeIntentRules(record.nodeIntentRules),
     libraryRules: parseBusinessRules(record.libraryRules ?? record.rules),
     rankingRules: parseBusinessRankingRules(record.rankingRules),
+  };
+}
+
+function parseBusinessChainGuards(value: unknown): BusinessChainGuardConfig {
+  const record = asPlainRecord(value);
+  if (!record) {
+    return FALLBACK_BUSINESS_CHAIN_GUARDS;
+  }
+
+  const minimumSharedReferences = asOptionalNumberConfig(
+    record.relatedCapabilityMinSharedReferences,
+  );
+  return {
+    parallelBypassProtectedRoles: stringList(
+      record.parallelBypassProtectedRoles,
+      FALLBACK_BUSINESS_CHAIN_GUARDS.parallelBypassProtectedRoles,
+    ),
+    relatedCapabilityIdentityRoles: stringList(
+      record.relatedCapabilityIdentityRoles,
+      FALLBACK_BUSINESS_CHAIN_GUARDS.relatedCapabilityIdentityRoles,
+    ),
+    identityScopedCapabilityBlockTypes: stringList(
+      record.identityScopedCapabilityBlockTypes,
+      FALLBACK_BUSINESS_CHAIN_GUARDS.identityScopedCapabilityBlockTypes,
+    ),
+    relatedCapabilityMinSharedReferences:
+      minimumSharedReferences !== undefined && minimumSharedReferences >= 1
+        ? Math.floor(minimumSharedReferences)
+        : FALLBACK_BUSINESS_CHAIN_GUARDS.relatedCapabilityMinSharedReferences,
   };
 }
 

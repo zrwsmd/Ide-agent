@@ -20,6 +20,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
         -> nodeIntentRules 判断触点、线圈和沿承担的业务意图
         -> libraryRules 筛选可以推荐的库功能块或函数
         -> rankingRules 给拓扑候选加业务排序分
+        -> businessChainGuards 过滤重复能力和会绕过关键条件的候选
         -> presentation 在可靠证据下生成业务 title/text
         -> 返回 suggestions
 
@@ -36,7 +37,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 
 表示规则文件的结构版本，例如：
 
-    "schemaVersion": "ide-agent.business-rules.v17"
+    "schemaVersion": "ide-agent.business-rules.v18"
 
 它用于区分配置格式版本，不是规则优先级，也不是候选分数。升级字段结构时应同步升级版本号。
 
@@ -414,6 +415,36 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
 它只说明“这根轴上已有 MC_Power，且 Enable/Status/Busy/Error 分别绑定了哪些变量”，不会因为看到这些端口就直接断言轴当前已经上电。
 
 例如同一个 `MC_Stop` 实例绑定 `Axis=Feed_Axis`、`Execute=Stop_Request`、`Done=Axis_Stopped` 时，三个变量会获得不同角色，但共享同一个功能块实例分组。端口不存在时只跳过对应映射，不会伪造端口；端口真实名称和类型仍以库文件为准。
+
+### 9.8 `businessChainGuards`
+
+类型：对象。
+
+作用：把 `businessChainContext` 的可靠诊断转换为少量候选保护条件。它只负责过滤高风险候选，不负责生成候选，也不修改评分、title/text 或拓扑端点。
+
+字段：
+
+- `parallelBypassProtectedRoles`：不允许被新并联分支直接绕过的条件角色。当前包括许可、就绪、运行/完成反馈、故障、抑制和模式条件。
+- `relatedCapabilityIdentityRoles`：跨区段判断同一业务身份时认可的结构角色，例如 `axisReference`；`deviceReference` 为以后接入设备元数据预留。
+- `identityScopedCapabilityBlockTypes`：仅凭高置信度设备身份即可判定“该能力已经存在”的功能块类型。当前用于每根轴通常只需一处的上电、复位和回零能力；不包含允许不同命令请求并存的 Stop/Halt/Move 类块。
+- `relatedCapabilityMinSharedReferences`：跨区段判断同一功能块能力已经存在时，至少需要共享的引用数量。
+
+当前保护行为：
+
+1. 当前业务链已经有上升沿或下降沿时，不再推荐同方向的 `???` 沿；明确绑定到另一个变量的沿仍保留。
+2. 同一链中已经有某个有状态功能块时，不再重复推荐同类块；无状态 IEC 函数可以重复使用。
+3. `identityScopedCapabilityBlockTypes` 中的块共享高置信度轴/设备身份即可视为能力已存在。其他跨区段功能块至少共享配置数量的引用；运动功能块还必须包含轴/设备身份，因此“同一根轴但不同 Stop/Halt/Move 命令请求”不会被误删。
+4. 选中节点是高或中置信度的许可、状态、反馈、故障或抑制条件时，不返回会直接绕过它的并联候选。
+5. 业务链诊断失败、证据不足或角色只有低置信度变量名证据时，继续使用原有候选行为。
+
+示例：
+
+    "businessChainGuards": {
+      "parallelBypassProtectedRoles": ["permitSignal", "readySignal", "runFeedback", "faultSignal"],
+      "relatedCapabilityIdentityRoles": ["axisReference", "deviceReference"],
+      "identityScopedCapabilityBlockTypes": ["MC_Power", "MC_Reset", "MC_Home"],
+      "relatedCapabilityMinSharedReferences": 2
+    }
 
 ### 10. `loopSignatures`
 

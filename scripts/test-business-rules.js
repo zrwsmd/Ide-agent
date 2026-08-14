@@ -24,6 +24,9 @@ const {
   businessEvidenceTextVariants,
   normalizeBusinessEvidenceText,
 } = require("../packages/core/dist/graph/BusinessTextNormalization");
+const {
+  filterBusinessChainGuardedSuggestions,
+} = require("../packages/core/dist/graph/BusinessChainSuggestionGuard");
 
 const rootDir = path.resolve(__dirname, "..");
 const fixturePath = path.join(
@@ -124,13 +127,26 @@ async function main() {
   await assertActionLifecycleCompletionCases();
   await assertCounterCompletionLifecycleCases();
   await assertBusinessChainContextCases();
+  assertBusinessChainSuggestionGuardCases();
   await assertTimestampDiagramWhenAvailable();
   console.log("[test-business-rules] passed");
 }
 
 function assertActiveRuleCandidatesExistInLibrary() {
   const rules = JSON.parse(fs.readFileSync(rulesPath, "utf8"));
-  assert.equal(rules.schemaVersion, "ide-agent.business-rules.v17");
+  assert.equal(rules.schemaVersion, "ide-agent.business-rules.v18");
+  assert.deepStrictEqual(
+    rules.businessChainGuards.relatedCapabilityIdentityRoles,
+    ["axisReference", "deviceReference"],
+  );
+  assert.deepStrictEqual(
+    rules.businessChainGuards.identityScopedCapabilityBlockTypes,
+    ["MC_Power", "MC_Reset", "MC_Home"],
+  );
+  assert.equal(
+    rules.businessChainGuards.relatedCapabilityMinSharedReferences,
+    2,
+  );
   const motionCommandProfiles = rules.motionCommandProfiles ?? [];
   const powerProfile = motionCommandProfiles.find(
     (profile) => profile.id === "MCP01-power-level",
@@ -2147,6 +2163,38 @@ async function assertBusinessChainContextCases() {
       ),
       "business-chain diagnostics must not mutate individual suggestions",
     );
+    const guardedSuggestions = result?.payload?.suggestions ?? [];
+    assert.ok(
+      !suggestedNodeTypes(guardedSuggestions).includes("risingContact") &&
+        !functionBlockTypes(guardedSuggestions).includes("R_TRIG"),
+      "a chain that already has rising-edge capability must not suggest another placeholder rising edge",
+    );
+    assert.ok(
+      guardedSuggestions.every(
+        (suggestion) => suggestion.serialOrParallel !== "parallel",
+      ),
+      "a parallel branch must not bypass a high-confidence run-feedback condition",
+    );
+    assert.ok(
+      !functionBlockTypes(guardedSuggestions).includes("MC_MOVEABSOLUTE"),
+      "an existing stateful function block in the same chain must not be suggested again",
+    );
+    assert.ok(
+      !functionBlockTypes(guardedSuggestions).includes("MC_HOME"),
+      "an identity-scoped function block already present for the same axis must not be suggested again",
+    );
+
+    const unresolvedResult = await getLocalGraphSuggestions({
+      diagramPath,
+      segmentId: "segment-random-name-positioning",
+      selectedNodeId: "random-unknown-condition",
+    });
+    assert.ok(
+      (unresolvedResult?.payload?.suggestions ?? []).some(
+        (suggestion) => suggestion.serialOrParallel === "parallel",
+      ),
+      "an unresolved condition must retain the existing parallel topology suggestion",
+    );
 
     const timerResult = await getLocalGraphSuggestions({
       diagramPath,
@@ -2175,6 +2223,294 @@ async function assertBusinessChainContextCases() {
   } finally {
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
+}
+
+function assertBusinessChainSuggestionGuardCases() {
+  const selectedNode = {
+    id: "selected-condition",
+    kind: "contact",
+    var: "Selected_Status",
+    from: ["start"],
+    to: ["action"],
+  };
+  const focus = {
+    segment: {
+      segmentId: "segment-guard",
+      label: "",
+      note: "",
+      nodes: [selectedNode],
+      insertionPoints: [],
+    },
+    node: selectedNode,
+    source: "selectedNodeId",
+  };
+  const role = (name, strength = "high") => ({
+    role: name,
+    score: strength === "high" ? 10 : 1,
+    strength,
+    sources: strength === "high" ? ["port"] : ["name"],
+    groupKeys: [],
+  });
+  const context = {
+    schemaVersion: "ide-agent.business-chain-context.v1",
+    resolution: "resolved",
+    segmentId: "segment-guard",
+    segmentLabel: "",
+    segmentNote: "",
+    focusNodeId: selectedNode.id,
+    primaryActionNodeId: "action",
+    actionNodeIds: ["action"],
+    nodes: [
+      {
+        nodeId: selectedNode.id,
+        nodeType: "contact",
+        selected: true,
+        chainRole: "condition",
+        variableName: "Selected_Status",
+        dataType: "BOOL",
+        blockType: "",
+        instanceName: "",
+        references: ["Selected_Status"],
+        roles: [role("runFeedback")],
+        ports: [],
+      },
+      {
+        nodeId: "action",
+        nodeType: "FBDCompartment",
+        selected: false,
+        chainRole: "action",
+        variableName: "",
+        dataType: "",
+        blockType: "MC_MoveAbsolute",
+        instanceName: "Move_Fb",
+        references: ["Feed_Axis", "Move_Request"],
+        roles: [],
+        ports: [
+          {
+            port: "Axis",
+            direction: "input",
+            reference: "Feed_Axis",
+            dataType: "AXIS_REF",
+            roles: [role("axisReference")],
+          },
+          {
+            port: "Execute",
+            direction: "input",
+            reference: "Move_Request",
+            dataType: "BOOL",
+            roles: [role("commandSignal")],
+          },
+        ],
+      },
+    ],
+    localCapabilities: [
+      {
+        capability: "edge:rising",
+        scope: "localChain",
+        segmentId: "segment-guard",
+        providerNodeId: "existing-edge",
+        reference: "Move_Request",
+        sharedReferences: [],
+      },
+    ],
+    relatedCapabilities: [],
+    evidenceSummary: {
+      high: 3,
+      medium: 0,
+      low: 0,
+      unresolvedConditionNodeIds: [],
+    },
+  };
+  const suggestion = ({
+    nodeType = "contact",
+    blockType = "",
+    variableName = "???",
+    relationToFocus = "afterSelected",
+    isFunction = false,
+  } = {}) => ({
+    id: "guard-candidate",
+    mode:
+      relationToFocus === "parallelWithSelected"
+        ? "parallelBranch"
+        : "functionBlockAfter",
+    confidence: 1,
+    placement: {
+      relationToFocus,
+      anchorNodeId: selectedNode.id,
+      anchorNodeVar: selectedNode.var,
+      insertAfterNodeId: selectedNode.id,
+      insertBeforeNodeId: "action",
+      parallelToNodeId:
+        relationToFocus === "parallelWithSelected" ? selectedNode.id : "",
+      branchFromNodeId: "start",
+      branchToNodeId: "action",
+      portName: "",
+      text: "",
+    },
+    addElement: {
+      nodeType,
+      displayLabel: "",
+      variableSource: "placeholder",
+      variableName,
+      dataType: "BOOL",
+      userInputRequired: true,
+      blockType,
+      instanceSource: "placeholder",
+      instanceName: "???",
+      isFunction,
+    },
+  });
+
+  assert.deepStrictEqual(
+    filterBusinessChainGuardedSuggestions(
+      [suggestion({ nodeType: "risingContact" })],
+      focus,
+      context,
+    ),
+    [],
+    "an existing rising edge elsewhere in the resolved chain must satisfy a placeholder edge suggestion",
+  );
+  assert.equal(
+    filterBusinessChainGuardedSuggestions(
+      [
+        suggestion({
+          nodeType: "risingContact",
+          variableName: "Different_Request",
+        }),
+      ],
+      focus,
+      context,
+    ).length,
+    1,
+    "an explicitly different edge variable must remain available",
+  );
+  assert.deepStrictEqual(
+    filterBusinessChainGuardedSuggestions(
+      [suggestion({ relationToFocus: "parallelWithSelected" })],
+      focus,
+      context,
+    ),
+    [],
+    "parallel insertion must not bypass a high-confidence protected condition",
+  );
+
+  const lowEvidenceContext = {
+    ...context,
+    nodes: [
+      {
+        ...context.nodes[0],
+        roles: [role("runFeedback", "low")],
+      },
+      context.nodes[1],
+    ],
+  };
+  assert.equal(
+    filterBusinessChainGuardedSuggestions(
+      [suggestion({ relationToFocus: "parallelWithSelected" })],
+      focus,
+      lowEvidenceContext,
+    ).length,
+    1,
+    "name-only role evidence must not remove an existing topology suggestion",
+  );
+
+  const stopSuggestion = suggestion({
+    nodeType: "functionBlock",
+    blockType: "MC_Stop",
+  });
+  const sameAxisOnlyContext = {
+    ...context,
+    relatedCapabilities: [
+      {
+        capability: "functionBlock:MC_STOP",
+        scope: "relatedSegment",
+        segmentId: "other-segment",
+        providerNodeId: "other-stop",
+        blockType: "MC_Stop",
+        sharedReferences: ["Feed_Axis"],
+      },
+    ],
+  };
+  assert.equal(
+    filterBusinessChainGuardedSuggestions(
+      [stopSuggestion],
+      focus,
+      sameAxisOnlyContext,
+    ).length,
+    1,
+    "the same axis alone must not suppress a distinct motion command request",
+  );
+
+  const homeSuggestion = suggestion({
+    nodeType: "functionBlock",
+    blockType: "MC_Home",
+  });
+  assert.deepStrictEqual(
+    filterBusinessChainGuardedSuggestions(
+      [homeSuggestion],
+      focus,
+      {
+        ...context,
+        relatedCapabilities: [
+          {
+            capability: "functionBlock:MC_HOME",
+            scope: "relatedSegment",
+            segmentId: "home-segment",
+            providerNodeId: "existing-home",
+            blockType: "MC_Home",
+            sharedReferences: ["Feed_Axis"],
+          },
+        ],
+      },
+    ),
+    [],
+    "an identity-scoped block already present for the same high-confidence axis must be suppressed",
+  );
+
+  const sameCommandContext = {
+    ...sameAxisOnlyContext,
+    relatedCapabilities: [
+      {
+        ...sameAxisOnlyContext.relatedCapabilities[0],
+        sharedReferences: ["Feed_Axis", "Move_Request"],
+      },
+    ],
+  };
+  assert.deepStrictEqual(
+    filterBusinessChainGuardedSuggestions(
+      [stopSuggestion],
+      focus,
+      sameCommandContext,
+    ),
+    [],
+    "the same motion capability, axis identity, and command context must be treated as already present",
+  );
+
+  const pureFunctionSuggestion = suggestion({
+    nodeType: "functionBlock",
+    blockType: "LIMIT",
+    isFunction: true,
+  });
+  assert.equal(
+    filterBusinessChainGuardedSuggestions(
+      [pureFunctionSuggestion],
+      focus,
+      {
+        ...context,
+        localCapabilities: [
+          {
+            capability: "function:LIMIT",
+            scope: "localChain",
+            segmentId: "segment-guard",
+            providerNodeId: "existing-limit",
+            sharedReferences: [],
+          },
+        ],
+      },
+    ).length,
+    1,
+    "stateless IEC functions may be used more than once in the same chain",
+  );
 }
 
 function businessChainContextDiagram() {

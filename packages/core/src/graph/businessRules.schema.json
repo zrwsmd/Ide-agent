@@ -16,6 +16,7 @@
     "termPatterns",
     "variablePatterns",
     "blockPortRoleRules",
+    "businessChainGuards",
     "motionCommandProfiles",
     "loopSignatures",
     "deviceLoopRules",
@@ -56,6 +57,7 @@
       "type": "array",
       "items": { "$ref": "#/$defs/blockPortRoleRule" }
     },
+    "businessChainGuards": { "$ref": "#/$defs/businessChainGuards" },
     "motionCommandProfiles": {
       "type": "array",
       "items": { "$ref": "#/$defs/motionCommandProfile" }
@@ -126,6 +128,25 @@
       "properties": {
         "id": { "$ref": "#/$defs/nonEmptyString" },
         "status": { "const": "active" }
+      }
+    },
+    "businessChainGuards": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parallelBypassProtectedRoles",
+        "relatedCapabilityIdentityRoles",
+        "identityScopedCapabilityBlockTypes",
+        "relatedCapabilityMinSharedReferences"
+      ],
+      "properties": {
+        "parallelBypassProtectedRoles": { "$ref": "#/$defs/nonEmptyStringArray" },
+        "relatedCapabilityIdentityRoles": { "$ref": "#/$defs/nonEmptyStringArray" },
+        "identityScopedCapabilityBlockTypes": { "$ref": "#/$defs/nonEmptyStringArray" },
+        "relatedCapabilityMinSharedReferences": {
+          "type": "integer",
+          "minimum": 1
+        }
       }
     },
     "presentation": {

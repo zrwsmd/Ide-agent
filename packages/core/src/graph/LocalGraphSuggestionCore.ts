@@ -99,10 +99,9 @@ import {
   createSuggestedNodeId,
 } from "./SuggestedNodeFactory";
 import { createSuggestionDedupeKey } from "./SuggestionDedupeKey";
-import {
-  filterRedundantEdgeDetectionSuggestions,
-} from "./EdgeDetectionSuggestionFilter";
+import { filterBusinessChainGuardedSuggestions } from "./BusinessChainSuggestionGuard";
 import { tryAnalyzeBusinessChainContext } from "./BusinessChainContextAnalyzer";
+import type { BusinessChainContextDiagnostics } from "./BusinessChainContextAnalyzer";
 
 export type {
   LocalSuggestion,
@@ -320,9 +319,13 @@ function buildLocalPayload(
   summary: DiagramSummary,
   focus: FocusContext,
 ): LocalGraphSuggestionPayload {
-  const suggestions = buildSuggestions(summary, focus);
-  const motionAxisContext = analyzeMotionAxisContext(summary, focus);
   const businessChainContext = tryAnalyzeBusinessChainContext(summary, focus);
+  const suggestions = buildSuggestions(
+    summary,
+    focus,
+    businessChainContext,
+  );
+  const motionAxisContext = analyzeMotionAxisContext(summary, focus);
 
   return {
     schemaVersion: "ide-agent.graph-completion.v1",
@@ -380,6 +383,7 @@ function buildLocalPayload(
 function buildSuggestions(
   summary: DiagramSummary,
   focus: FocusContext,
+  businessChainContext: BusinessChainContextDiagnostics | undefined,
 ): LocalSuggestion[] {
   const suggestions: LocalSuggestionDraft[] = [];
   const graphState = analyzeSegment(focus.segment);
@@ -400,6 +404,7 @@ function buildSuggestions(
     summary,
     focus,
     graphState,
+    businessChainContext,
   ).filter(isLibraryBackedSuggestion);
   return limitRankedSuggestions(
     rankedSuggestions,
@@ -434,12 +439,17 @@ function rankBusinessSuggestions(
   summary: DiagramSummary,
   focus: FocusContext,
   graphState: SegmentGraphState,
+  businessChainContext: BusinessChainContextDiagnostics | undefined,
 ): LocalSuggestionDraft[] {
   const context = buildBusinessSuggestionContext(summary, focus);
   if (!context.hasBusinessContext) {
     return rankTopologySuggestions(
-      suggestions.filter(
-        (suggestion) => !isGenericFunctionBlockDraft(suggestion),
+      filterBusinessChainGuardedSuggestions(
+        suggestions.filter(
+          (suggestion) => !isGenericFunctionBlockDraft(suggestion),
+        ),
+        focus,
+        businessChainContext,
       ),
     );
   }
@@ -462,9 +472,10 @@ function rankBusinessSuggestions(
     context,
     focus,
   );
-  const capabilityAwareSuggestions = filterRedundantEdgeDetectionSuggestions(
+  const capabilityAwareSuggestions = filterBusinessChainGuardedSuggestions(
     enhancedSuggestions,
     focus,
+    businessChainContext,
   );
   const presentedSuggestions = applyNodeIntentPresentations(
     capabilityAwareSuggestions,
