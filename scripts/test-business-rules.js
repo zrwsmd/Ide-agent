@@ -1991,6 +1991,35 @@ async function assertLoopSignatureCases() {
     ),
     "business presentation must not alter valid topology boundaries",
   );
+  assert.equal(missingTonSuggestion?.diagnostics?.source, "businessRules");
+  assert.ok(
+    missingTonSuggestion?.diagnostics?.ruleIds.includes("T04-ton-completion"),
+    "the returned TON suggestion should expose the rule that recommended it",
+  );
+  assert.ok(
+    missingTonSuggestion?.diagnostics?.signatureIds.includes(
+      "LS06-on-delay-missing-timer",
+    ),
+    "the returned TON suggestion should expose the matched loop signature",
+  );
+  assert.match(
+    missingTonSuggestion?.diagnostics?.reason ?? "",
+    /\S/,
+    "the returned TON suggestion should explain why it was recommended",
+  );
+  assert.ok(
+    (missingTonSuggestion?.diagnostics?.confidence ?? 0) > 0 &&
+      (missingTonSuggestion?.diagnostics?.confidence ?? 0) <= 1,
+    "diagnostic confidence should use the public 0..1 range",
+  );
+  const missingTonScore = missingTonSuggestion?.diagnostics?.score;
+  assert.equal(
+    missingTonScore?.total,
+    (missingTonScore?.topology ?? 0) +
+      (missingTonScore?.rankingRules ?? 0) +
+      (missingTonScore?.businessEvidence ?? 0),
+    "diagnostic score total should equal its component scores",
+  );
 
   for (const suggestion of [
     ...completeSuggestions,
@@ -2356,6 +2385,15 @@ async function assertStableBusinessCases() {
     "estop-ok-contact",
   );
   assert.ok(suggestedNodeTypes(estopOkSuggestions).includes("contact"));
+  const estopOkContactSuggestion = estopOkSuggestions.find(
+    (suggestion) => firstAddedNode(suggestion)?.type === "contact",
+  );
+  assert.ok(
+    estopOkContactSuggestion?.diagnostics?.ruleIds.includes(
+      "P02-healthy-permissive-normal",
+    ),
+    "a positive-logic permissive suggestion should expose its normal-contact rule",
+  );
   assert.ok(
     !suggestedNodeTypes(estopOkSuggestions).includes("negatedContact"),
     "positive-logic EStop_OK must not be inverted just because its name contains stop",

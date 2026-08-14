@@ -180,6 +180,11 @@ export async function run(): Promise<void> {
       Object.keys(firstSuggestion.addNode as Record<string, unknown>).length > 0,
     "expected addNode map in suggestion",
   );
+  assert.strictEqual(
+    firstSuggestion.diagnostics,
+    undefined,
+    "pure topology suggestions should not fabricate business diagnostics",
+  );
   assert.ok(
     !("placement" in firstSuggestion),
     "suggestion should not expose old placement field",

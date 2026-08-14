@@ -142,6 +142,23 @@ export interface LocalSuggestion {
   serialOrParallel: LocalSuggestionSerialOrParallel;
   text: string;
   addNode: Record<string, SuggestedGraphNode>;
+  diagnostics?: LocalSuggestionDiagnostics;
+}
+
+export interface LocalSuggestionDiagnostics {
+  source: "businessRules";
+  ruleIds: string[];
+  signatureIds: string[];
+  reason: string;
+  confidence: number;
+  score: LocalSuggestionScoreBreakdown;
+}
+
+export interface LocalSuggestionScoreBreakdown {
+  total: number;
+  topology: number;
+  rankingRules: number;
+  businessEvidence: number;
 }
 
 interface LocalSuggestionDraft {
@@ -168,12 +185,22 @@ interface LocalSuggestionDraft {
   serialOrParallel?: LocalSuggestionSerialOrParallel;
   addElement: LocalSuggestionAddElement;
   businessPresentation?: BusinessSuggestionPresentation;
+  businessEvidence?: BusinessSuggestionEvidence;
+  scoreBreakdown?: LocalSuggestionScoreBreakdown;
 }
 
 interface BusinessSuggestionPresentation {
   title: string;
   text: string;
   ruleId: string;
+  confidence: number;
+  reason?: string;
+}
+
+interface BusinessSuggestionEvidence {
+  ruleIds: string[];
+  signatureIds: string[];
+  reason: string;
   confidence: number;
 }
 
@@ -1535,14 +1562,17 @@ function rankBusinessSuggestions(
       !hasExistingFunctionBlockAtInsertionBoundary(suggestion, focus.segment) &&
       !hasExistingFunctionBlockInRelatedSegment(suggestion, context, focus),
   );
-  const ranked = applicableSuggestions.map((suggestion, index) => ({
-    suggestion,
-    index,
-    score: scoreBusinessSuggestion(suggestion, context, graphState),
-  }));
+  const ranked = applicableSuggestions.map((suggestion, index) => {
+    const score = scoreBusinessSuggestion(suggestion, context, graphState);
+    return {
+      suggestion: { ...suggestion, scoreBreakdown: score },
+      index,
+      score: score.total,
+    };
+  });
 
   if (!ranked.some((item) => item.score > 0)) {
-    return applicableSuggestions;
+    return ranked.map((item) => item.suggestion);
   }
 
   return ranked
@@ -1682,11 +1712,22 @@ function rankTopologySuggestions(
   suggestions: LocalSuggestionDraft[],
 ): LocalSuggestionDraft[] {
   return suggestions
-    .map((suggestion, index) => ({
-      suggestion,
-      index,
-      score: scoreTopologySuggestion(suggestion),
-    }))
+    .map((suggestion, index) => {
+      const topology = scoreTopologySuggestion(suggestion);
+      return {
+        suggestion: {
+          ...suggestion,
+          scoreBreakdown: {
+            total: topology,
+            topology,
+            rankingRules: 0,
+            businessEvidence: 0,
+          },
+        },
+        index,
+        score: topology,
+      };
+    })
     .sort((left, right) => right.score - left.score || left.index - right.index)
     .map((item) => item.suggestion);
 }
@@ -1715,9 +1756,35 @@ function addBusinessContactVariants(
       return [suggestion];
     }
 
-    const variants = [suggestion];
-    if (matchesContactPolarity("negated", context)) {
-      variants.push(replaceWithContactType(suggestion, "negatedContact"));
+    const normalRule = matchingContactPolarityRule("normal", context);
+    const variants = [
+      normalRule
+        ? {
+            ...suggestion,
+            businessEvidence: mergeBusinessEvidence(
+              suggestion.businessEvidence,
+              evidenceFromRule(
+                normalRule.id,
+                normalRule.reason || "当前业务条件需要使用常开触点",
+                0.9,
+              ),
+            ),
+          }
+        : suggestion,
+    ];
+    const negatedRule = matchingContactPolarityRule("negated", context);
+    if (negatedRule) {
+      variants.push({
+        ...replaceWithContactType(suggestion, "negatedContact"),
+        businessEvidence: mergeBusinessEvidence(
+          suggestion.businessEvidence,
+          evidenceFromRule(
+            negatedRule.id,
+            negatedRule.reason || "当前业务条件需要使用常闭触点",
+            0.9,
+          ),
+        ),
+      });
     }
 
     const hasSafetyEvidence = localBusinessTermWeight(context, "safety") > 0;
@@ -2221,10 +2288,17 @@ function matchesContactPolarity(
   polarity: "normal" | "negated",
   context: BusinessSuggestionContext,
 ): boolean {
+  return Boolean(matchingContactPolarityRule(polarity, context));
+}
+
+function matchingContactPolarityRule(
+  polarity: "normal" | "negated",
+  context: BusinessSuggestionContext,
+): BusinessContactPolarityRuleConfig | undefined {
   const matchingRules = BUSINESS_RULES_CONFIG.contactPolarityRules
     .filter((rule) => matchesContactPolarityRule(rule, context))
     .sort((left, right) => right.priority - left.priority);
-  return matchingRules[0]?.polarity === polarity;
+  return matchingRules[0]?.polarity === polarity ? matchingRules[0] : undefined;
 }
 
 function matchesContactPolarityRule(
@@ -4521,7 +4595,7 @@ function scoreBusinessSuggestion(
   suggestion: LocalSuggestionDraft,
   context: BusinessSuggestionContext,
   graphState: SegmentGraphState,
-): number {
+): LocalSuggestionScoreBreakdown {
   const addType = suggestion.addElement.nodeType;
   const addBlockType = normalizeBlockType(suggestion.addElement.blockType);
   const position = suggestion.position ?? inferPosition(suggestion);
@@ -4531,9 +4605,9 @@ function scoreBusinessSuggestion(
   const isContact = isContactNodeType(addType);
   const isFunctionBlock = addType === "functionBlock";
   const isCoil = isCoilNodeType(addType);
-  let score =
-    scoreTopologySuggestion(suggestion) +
-    scoreConfiguredRankingRules(suggestion, context);
+  const topology = scoreTopologySuggestion(suggestion);
+  const rankingRules = scoreConfiguredRankingRules(suggestion, context);
+  let businessEvidence = 0;
 
   const startSignals = businessTermWeight(
     context,
@@ -4556,109 +4630,114 @@ function scoreBusinessSuggestion(
   const doneSignals = businessTermWeight(context, "done");
 
   if (isContact) {
-    score += startSignals * (isBefore ? 3 : isParallel ? 2 : 1);
-    score += stopSignals * (isBefore ? 2 : isParallel ? 1 : 0);
-    score += doneSignals * (isAfter ? 1 : 0);
+    businessEvidence += startSignals * (isBefore ? 3 : isParallel ? 2 : 1);
+    businessEvidence += stopSignals * (isBefore ? 2 : isParallel ? 1 : 0);
+    businessEvidence += doneSignals * (isAfter ? 1 : 0);
   }
 
   if (addType === "negatedContact") {
-    score += inhibitSignals * 3;
-    score += businessTermWeight(context, "fault") * 2;
+    businessEvidence += inhibitSignals * 3;
+    businessEvidence += businessTermWeight(context, "fault") * 2;
   }
 
   if (addType === "risingContact" || addType === "fallingContact") {
-    score += startSignals * 2;
-    score += businessTermWeight(context, "enable") * 2;
+    businessEvidence += startSignals * 2;
+    businessEvidence += businessTermWeight(context, "enable") * 2;
   }
 
   if (addType === "setCoil") {
-    score += startSignals * 2;
-    score += businessTermWeight(context, "done") * 2;
-    score += businessTermWeight(context, "alarm") * 2;
-    score -= stopSignals;
+    businessEvidence += startSignals * 2;
+    businessEvidence += businessTermWeight(context, "done") * 2;
+    businessEvidence += businessTermWeight(context, "alarm") * 2;
+    businessEvidence -= stopSignals;
   }
 
   if (addType === "resetCoil") {
     const resetSignals = businessTermWeight(context, "reset");
     if (resetSignals > 0) {
-      score += resetSignals * 3;
-      score += businessTermWeight(context, "fault", "alarm", "latch") * 2;
+      businessEvidence += resetSignals * 3;
+      businessEvidence += businessTermWeight(context, "fault", "alarm", "latch") * 2;
     }
   }
 
   if (isCoil) {
-    score += doneSignals;
-    score += graphState.isPartialGraph ? 3 : 1;
+    businessEvidence += doneSignals;
+    businessEvidence += graphState.isPartialGraph ? 3 : 1;
     if (isAfter) {
-      score += 2;
+      businessEvidence += 2;
     }
   }
 
   if (isFunctionBlock) {
-    score += scoreRelatedFunctionBlockEvidence(addBlockType, context);
+    businessEvidence += scoreRelatedFunctionBlockEvidence(addBlockType, context);
 
     if (isTimerBlockType(addBlockType)) {
-      score += timerSignals * 3;
-      score += isTimerBlockType(context.focusBlockType) ? 4 : 0;
-      score += hasSegmentBlockType(context, isTimerBlockType) ? 1 : 0;
+      businessEvidence += timerSignals * 3;
+      businessEvidence += isTimerBlockType(context.focusBlockType) ? 4 : 0;
+      businessEvidence += hasSegmentBlockType(context, isTimerBlockType) ? 1 : 0;
     }
 
     if (isCounterBlockType(addBlockType)) {
-      score += counterSignals * 3;
-      score += isCounterBlockType(context.focusBlockType) ? 4 : 0;
-      score += hasSegmentBlockType(context, isCounterBlockType) ? 1 : 0;
+      businessEvidence += counterSignals * 3;
+      businessEvidence += isCounterBlockType(context.focusBlockType) ? 4 : 0;
+      businessEvidence += hasSegmentBlockType(context, isCounterBlockType) ? 1 : 0;
     }
 
     if (isLatchBlockType(addBlockType)) {
-      score += startSignals + stopSignals;
+      businessEvidence += startSignals + stopSignals;
     }
 
     if (isMotionBlockType(context.focusBlockType)) {
-      score += startSignals * 2;
-      score += businessTermWeight(context, "fault", "stop", "reset");
+      businessEvidence += startSignals * 2;
+      businessEvidence += businessTermWeight(context, "fault", "stop", "reset");
       if (isBefore) {
-        score += 4;
+        businessEvidence += 4;
       }
       if (isAfter) {
-        score -= 2;
+        businessEvidence -= 2;
       }
     }
 
     if (isTimerBlockType(context.focusBlockType) && isTimerBlockType(addBlockType)) {
-      score += 2;
+      businessEvidence += 2;
     }
 
     if (isCounterBlockType(context.focusBlockType) && isCounterBlockType(addBlockType)) {
-      score += 2;
+      businessEvidence += 2;
     }
   }
 
   if (isBefore) {
-    score += isContact ? 2 : 0;
-    score += isFunctionBlock ? 1 : 0;
+    businessEvidence += isContact ? 2 : 0;
+    businessEvidence += isFunctionBlock ? 1 : 0;
   } else if (isAfter) {
-    score += isCoil ? 2 : 0;
+    businessEvidence += isCoil ? 2 : 0;
   } else if (isParallel) {
-    score += isContact ? 2 : 1;
+    businessEvidence += isContact ? 2 : 1;
   }
 
   if (context.focusBlockType === "MC_RESET" && isBefore && isContact) {
-    score += 4;
+    businessEvidence += 4;
   }
 
   if (context.focusBlockType.startsWith("MC_") && isFunctionBlock && isAfter) {
-    score -= 3;
+    businessEvidence -= 3;
   }
 
   if (graphState.hasOutputNode && isCoil && isAfter) {
-    score -= 1;
+    businessEvidence -= 1;
   }
 
   if (graphState.isPartialGraph && isCoil) {
-    score += 1;
+    businessEvidence += 1;
   }
 
-  return score;
+  return {
+    total: topology + rankingRules + businessEvidence,
+    topology,
+    rankingRules,
+    businessEvidence,
+  };
 }
 
 function businessTermWeight(
@@ -5690,6 +5769,25 @@ function toLocalSuggestion(
   const addNode = {
     [newNodeId]: newNode,
   };
+  const evidence = mergeBusinessEvidence(
+    draft.businessEvidence,
+    evidenceFromPresentation(draft.businessPresentation),
+  );
+  const diagnostics: LocalSuggestionDiagnostics | undefined = evidence
+    ? {
+        source: "businessRules",
+        ruleIds: evidence.ruleIds,
+        signatureIds: evidence.signatureIds,
+        reason: evidence.reason,
+        confidence: evidence.confidence,
+        score: draft.scoreBreakdown ?? {
+          total: 0,
+          topology: 0,
+          rankingRules: 0,
+          businessEvidence: 0,
+        },
+      }
+    : undefined;
 
   const suggestion: LocalSuggestion = {
     id,
@@ -5700,6 +5798,7 @@ function toLocalSuggestion(
     serialOrParallel,
     text: draft.businessPresentation?.text ?? draft.placement.text,
     addNode,
+    ...(diagnostics ? { diagnostics } : {}),
   };
 
   return {
@@ -6255,9 +6354,19 @@ function replaceFunctionBlockDraft(
     nextDraft,
     context.motionAxisContext,
   );
+  const businessEvidence = mergeBusinessEvidence(
+    nextDraft.businessEvidence,
+    evidenceFromRule(
+      candidate.ruleId,
+      candidate.reason || `当前业务条件适合使用 ${candidate.name}`,
+      candidate.completionMatch ? 0.98 : 0.85,
+      candidate.completionMatch ? [candidate.completionMatch.id] : [],
+    ),
+  );
 
   return {
     ...nextDraft,
+    businessEvidence,
     businessPresentation:
       motionAxisPresentation ??
       businessPresentation ??
@@ -6457,7 +6566,65 @@ function renderBusinessPresentation(
     text,
     ruleId: input.ruleId,
     confidence: input.confidence,
+    reason: input.reason,
   };
+}
+
+function evidenceFromRule(
+  ruleId: string,
+  reason: string,
+  confidence: number,
+  signatureIds: string[] = [],
+): BusinessSuggestionEvidence {
+  return {
+    ruleIds: [primaryRuleId(ruleId)],
+    signatureIds: uniqueStringList(signatureIds),
+    reason,
+    confidence: normalizeDiagnosticConfidence(confidence),
+  };
+}
+
+function evidenceFromPresentation(
+  presentation: BusinessSuggestionPresentation | undefined,
+): BusinessSuggestionEvidence | undefined {
+  if (!presentation?.ruleId) {
+    return undefined;
+  }
+  return evidenceFromRule(
+    presentation.ruleId,
+    presentation.reason || presentation.text,
+    presentation.confidence,
+  );
+}
+
+function mergeBusinessEvidence(
+  left: BusinessSuggestionEvidence | undefined,
+  right: BusinessSuggestionEvidence | undefined,
+): BusinessSuggestionEvidence | undefined {
+  if (!left) {
+    return right;
+  }
+  if (!right) {
+    return left;
+  }
+  return {
+    ruleIds: uniqueStringList([...left.ruleIds, ...right.ruleIds]),
+    signatureIds: uniqueStringList([
+      ...left.signatureIds,
+      ...right.signatureIds,
+    ]),
+    reason: right.reason || left.reason,
+    confidence: Math.max(left.confidence, right.confidence),
+  };
+}
+
+function primaryRuleId(ruleId: string): string {
+  return ruleId.split(":", 1)[0].trim();
+}
+
+function normalizeDiagnosticConfidence(confidence: number): number {
+  const normalized = confidence > 1 ? confidence / 100 : confidence;
+  return Math.max(0, Math.min(1, normalized));
 }
 
 function renderBusinessTemplate(

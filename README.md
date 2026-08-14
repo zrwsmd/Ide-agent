@@ -588,6 +588,7 @@ LD/FBD 图建议统一返回 `ide-agent.graph-completion.v1` 结构：
 - `suggestions[].serialOrParallel`：新增方式，当前主要是 `serial`、`parallel`、`replace`。
 - `suggestions[].text`：人类可读的建议说明，方便前端列表直接展示。
 - `suggestions[].addNode`：建议新增的节点 map，key 是新增节点 id，value 是节点对象，格式尽量贴近 `transLd.txt` 中的节点格式，但不包含 `sourceIds` / `targetIds`。
+- `suggestions[].diagnostics`：可选的业务推荐依据。命中业务规则时包含 `ruleIds`、`signatureIds`、`reason`、`confidence` 和评分明细；纯拓扑建议不返回，也不输出未推荐候选的拒绝原因。
 
 ## 当前限制和 TODO
 

@@ -119,6 +119,16 @@ const result = await getLocalGraphSuggestions({
 - `payload.suggestions`：真正用于渲染和落地的建议数组。
 - `payload.suggestions[].title`：适合列表展示的短标题。
 - `payload.suggestions[].text`：完整说明文字，需要详细提示时再展示。
+- `payload.suggestions[].diagnostics`：可选。只有建议确实命中业务规则时才返回，用于说明“为什么推荐这条建议”；纯结构建议不返回。
+
+`diagnostics` 的字段：
+
+- `source`：固定为 `businessRules`。
+- `ruleIds`：实际促成该建议的业务规则 id。
+- `signatureIds`：实际命中的回路签名 id；不依赖签名的建议为空数组。
+- `reason`：面向用户或调试界面的推荐依据。
+- `confidence`：业务依据可信度，范围为 `0..1`。
+- `score`：最终排序分及其 `topology`、`rankingRules`、`businessEvidence` 三部分。该字段仅解释已返回建议，不包含未命中候选或拒绝原因。
 
 ## Suggestion 结构
 

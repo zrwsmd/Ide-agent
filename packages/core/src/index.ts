@@ -21,6 +21,8 @@ export type {
   LocalGraphSuggestionRequest,
   LocalGraphSuggestionResult,
   LocalSuggestion,
+  LocalSuggestionDiagnostics,
+  LocalSuggestionScoreBreakdown,
   LocalSuggestionPosition,
   LocalSuggestionSerialOrParallel,
   SuggestedGraphNode,

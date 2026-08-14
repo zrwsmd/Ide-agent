@@ -2201,12 +2201,6 @@
       "status": "planned",
       "capabilityNeeded": ["projectLibraryMetadata", "runtimeLibraryResolver", "missingLibraryAction"],
       "fallback": "当前只返回存在于 st-library-info-data.json 的元素，不声称目标 PLC 工程已经加载对应外部库。"
-    },
-    {
-      "id": "V2-rule-diagnostics",
-      "status": "planned",
-      "capabilityNeeded": ["ruleTraceSchema", "rejectedCandidateTrace", "scoreBreakdown"],
-      "fallback": "当前仅规则配置保留 id 和 reason，不输出未命中规则的拒绝链与完整评分明细。"
     }
   ]
 }
