@@ -99,6 +99,9 @@ import {
   createSuggestedNodeId,
 } from "./SuggestedNodeFactory";
 import { createSuggestionDedupeKey } from "./SuggestionDedupeKey";
+import {
+  filterRedundantEdgeDetectionSuggestions,
+} from "./EdgeDetectionSuggestionFilter";
 
 export type {
   LocalSuggestion,
@@ -456,8 +459,12 @@ function rankBusinessSuggestions(
     context,
     focus,
   );
-  const presentedSuggestions = applyNodeIntentPresentations(
+  const capabilityAwareSuggestions = filterRedundantEdgeDetectionSuggestions(
     enhancedSuggestions,
+    focus,
+  );
+  const presentedSuggestions = applyNodeIntentPresentations(
+    capabilityAwareSuggestions,
     context,
   );
   const applicableSuggestions = presentedSuggestions.filter(

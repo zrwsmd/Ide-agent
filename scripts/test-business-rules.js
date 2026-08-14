@@ -1719,6 +1719,38 @@ async function assertExpandedBusinessCoverageCases() {
         },
       ],
     ),
+    coveragePou(
+      "COVERAGE_EXISTING_RISING_EDGE_DESCRIPTOR",
+      "segment-coverage-existing-rising-edge-descriptor",
+      "产品完成计数使用上升沿单次触发",
+      [
+        {
+          name: "Existing_Product_Rising_Edge",
+          type: "BOOL",
+          scope: "VAR",
+          nodeType: "risingContact",
+        },
+      ],
+    ),
+    coveragePou(
+      "COVERAGE_EXISTING_FALLING_EDGE_DESCRIPTOR",
+      "segment-coverage-existing-falling-edge-descriptor",
+      "许可信号下降沿失效瞬间触发",
+      [
+        {
+          name: "Existing_Permit_Falling_Edge",
+          type: "BOOL",
+          scope: "VAR",
+          nodeType: "fallingContact",
+        },
+      ],
+    ),
+    coverageEdgeFunctionBlockPou(
+      "COVERAGE_EXISTING_R_TRIG_DESCRIPTOR",
+      "segment-coverage-existing-r-trig-descriptor",
+      "产品完成计数使用上升沿单次触发",
+      "R_TRIG",
+    ),
   ];
 
   const tempDir = fs.mkdtempSync(
@@ -1855,6 +1887,52 @@ async function assertExpandedBusinessCoverageCases() {
       "selecting an existing edge without descriptor evidence must not cascade another edge",
     );
 
+    const existingRisingEdgeSuggestions = await suggestionsFor(
+      diagramPath,
+      "segment-coverage-existing-rising-edge-descriptor",
+      "segment-coverage-existing-rising-edge-descriptor-node-0",
+    );
+    assert.ok(
+      !suggestedNodeTypes(existingRisingEdgeSuggestions).includes(
+        "risingContact",
+      ),
+      "an existing rising-edge contact must satisfy explicit rising-edge intent",
+    );
+    assert.ok(
+      !functionBlockTypes(existingRisingEdgeSuggestions).includes("R_TRIG"),
+      "an existing rising-edge contact must not be followed by equivalent R_TRIG detection",
+    );
+
+    const existingFallingEdgeSuggestions = await suggestionsFor(
+      diagramPath,
+      "segment-coverage-existing-falling-edge-descriptor",
+      "segment-coverage-existing-falling-edge-descriptor-node-0",
+    );
+    assert.ok(
+      !suggestedNodeTypes(existingFallingEdgeSuggestions).includes(
+        "fallingContact",
+      ),
+      "an existing falling-edge contact must satisfy explicit falling-edge intent",
+    );
+    assert.ok(
+      !functionBlockTypes(existingFallingEdgeSuggestions).includes("F_TRIG"),
+      "an existing falling-edge contact must not be followed by equivalent F_TRIG detection",
+    );
+
+    const existingRTrigSuggestions = await suggestionsFor(
+      diagramPath,
+      "segment-coverage-existing-r-trig-descriptor",
+      "segment-coverage-existing-r-trig-descriptor-node-0",
+    );
+    assert.ok(
+      !suggestedNodeTypes(existingRTrigSuggestions).includes("risingContact"),
+      "an existing R_TRIG must satisfy equivalent rising-contact intent",
+    );
+    assert.ok(
+      !functionBlockTypes(existingRTrigSuggestions).includes("R_TRIG"),
+      "an existing R_TRIG must not cascade another R_TRIG",
+    );
+
     assert.ok(
       !functionBlockTypes(modeSuggestions).includes("MUX"),
       "two-way mode selection must not be confused with indexed multiplexing",
@@ -1904,6 +1982,74 @@ function coveragePou(pouName, segmentId, label, variables) {
     pouType: "PROGRAM",
     variableList: variables.map(({ nodeType, ...variable }) => variable),
     segmentList: [{ id: segmentId, label, note: "", nodesObj }],
+  };
+}
+
+function coverageEdgeFunctionBlockPou(pouName, segmentId, label, blockType) {
+  const startId = `${segmentId}-start`;
+  const nodeId = `${segmentId}-node-0`;
+  const endId = `${segmentId}-end`;
+  return {
+    pouName,
+    pouType: "PROGRAM",
+    variableList: [
+      { name: `${blockType}_Instance`, type: blockType, scope: "VAR" },
+      { name: `${blockType}_Input`, type: "BOOL", scope: "VAR" },
+      { name: `${blockType}_Output`, type: "BOOL", scope: "VAR" },
+    ],
+    segmentList: [
+      {
+        id: segmentId,
+        label,
+        note: "",
+        nodesObj: {
+          [startId]: {
+            id: startId,
+            type: "startLine",
+            sourceIds: [],
+            targetIds: [nodeId],
+          },
+          [nodeId]: {
+            id: nodeId,
+            type: "FBDCompartment",
+            sourceIds: [startId],
+            targetIds: [endId],
+            childrenNode: {
+              type: blockType,
+              isFunction: false,
+              varName: {
+                name: "",
+                value: `${blockType}_Instance`,
+                type: blockType,
+                scope: "VAR",
+              },
+              portInputs: [
+                {
+                  name: "CLK",
+                  value: `${blockType}_Input`,
+                  type: "BOOL",
+                  scope: "VAR",
+                },
+              ],
+              portOutputs: [
+                {
+                  name: "Q",
+                  value: `${blockType}_Output`,
+                  type: "BOOL",
+                  scope: "VAR",
+                },
+              ],
+            },
+          },
+          [endId]: {
+            id: endId,
+            type: "endLine",
+            sourceIds: [nodeId],
+            targetIds: [],
+          },
+        },
+      },
+    ],
   };
 }
 
