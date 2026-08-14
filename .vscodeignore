@@ -10,6 +10,7 @@ node_modules/**
 !dist/node_modules/@ide-agent/core/dist/**
 packages/**
 docs/**
+tmp/**
 ladder-examples/**
 example/**
 .gitignore

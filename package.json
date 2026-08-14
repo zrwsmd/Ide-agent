@@ -184,6 +184,7 @@
     "test:edit-rect-suggestions": "npm run compile && node scripts/test-edit-rect-suggestions.js",
     "test:business-rules": "npm run compile && node scripts/test-business-rules.js",
     "test:business-rules-schema": "node scripts/test-business-rules-schema.js",
+    "analyze:business-coverage": "npm run compile:core && node scripts/analyze-business-suggestion-coverage.js",
     "watch": "tsc -watch -p ./",
     "package": "vsce package"
   },
