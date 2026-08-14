@@ -476,7 +476,7 @@ businessRules.json 是 Ide-agent 本地建议功能使用的业务规则配置�
       "resolvedEvidenceScore": 4,
       "partialEvidenceScore": 1,
       "highConfidenceRoleBonus": 2,
-      "nodeIntentTitleTemplate": "{chainName}：{placementAction} {businessName}{elementType}",
+      "nodeIntentTitleTemplate": "{placementAction} {businessName}{elementType}",
       "nodeIntentTextTemplate": "在“{chainName}”业务链中，最终动作是 {actionName}；{baseText}"
     }
 

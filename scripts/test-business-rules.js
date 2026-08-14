@@ -153,8 +153,7 @@ function assertActiveRuleCandidatesExistInLibrary() {
     resolvedEvidenceScore: 4,
     partialEvidenceScore: 1,
     highConfidenceRoleBonus: 2,
-    nodeIntentTitleTemplate:
-      "{chainName}：{placementAction} {businessName}{elementType}",
+    nodeIntentTitleTemplate: "{placementAction} {businessName}{elementType}",
     nodeIntentTextTemplate:
       "在“{chainName}”业务链中，最终动作是 {actionName}；{baseText}",
   });
@@ -2221,10 +2220,7 @@ async function assertBusinessChainContextCases() {
       "the resolved chain should retain at least one feedback-confirmation suggestion",
     );
     for (const suggestion of chainPresentedSuggestions) {
-      assert.match(
-        suggestion.title,
-        /^送料轴绝对定位：(前串联|后串联) 反馈确认/,
-      );
+      assert.match(suggestion.title, /^(前串联|后串联) 反馈确认/);
       assert.match(
         suggestion.text,
         /最终动作是 MC_MoveAbsolute \(Mc_Move_Absolute_Feed\)/,

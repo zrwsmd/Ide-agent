@@ -698,7 +698,7 @@
     "resolvedEvidenceScore": 4,
     "partialEvidenceScore": 1,
     "highConfidenceRoleBonus": 2,
-    "nodeIntentTitleTemplate": "{chainName}：{placementAction} {businessName}{elementType}",
+    "nodeIntentTitleTemplate": "{placementAction} {businessName}{elementType}",
     "nodeIntentTextTemplate": "在“{chainName}”业务链中，最终动作是 {actionName}；{baseText}"
   },
   "motionCommandProfiles": [

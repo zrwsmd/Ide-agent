@@ -370,8 +370,7 @@ const FALLBACK_BUSINESS_CHAIN_ENHANCEMENT: BusinessChainEnhancementConfig = {
   resolvedEvidenceScore: 4,
   partialEvidenceScore: 1,
   highConfidenceRoleBonus: 2,
-  nodeIntentTitleTemplate:
-    "{chainName}: {placementAction} {businessName}{elementType}",
+  nodeIntentTitleTemplate: "{placementAction} {businessName}{elementType}",
   nodeIntentTextTemplate:
     "In the {chainName} business chain, the final action is {actionName}; {baseText}",
 };
