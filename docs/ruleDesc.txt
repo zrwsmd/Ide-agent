@@ -38,7 +38,7 @@
 前提（决定动不动手）：
   - 选中的节点要能认出是"启动/停止/计数完成"等角色；
   - 候选的变量必须和它"同一台设备/同一组"才建议，跨设备不补；
-  - 涉及安全/急停/复位/故障的场合不补（excludedTerms）；
+  - 是否排除安全、急停、复位或故障语义，由每条具体规则自己的 excludedTerms 决定，不能一概而论；
   - 已经存在自保持、停止条件、复位或完成输出时，不再重复建议；
   - 认不出真实动作输出时，退回普通的结构建议，不瞎猜。
 
@@ -79,7 +79,7 @@
   - 选中的节点要能认出是"故障/超时"信号，且词义带 fault/alarm/超时 等；
   - 报警/锁存变量必须和它"同一台设备/同一组"才建议；
   - 该报警或锁存当前路径还没输出；已存在的就不重复建议；
-  - 涉及安全/复位语义的场合不补。
+  - 是否排除安全或复位语义，由对应 faultResponseRule 的 excludedTerms 决定。
 
 
 三.faultResetRules 通俗说明
@@ -145,13 +145,13 @@
 另外，如果同设备还有相反动作（比如正转/反转、开/关），规则还可能建议：
   补相反动作常闭触点做互锁 -> 避免两个方向同时输出。
 
-也就是：deviceLoopRules 管"能不能动"的安全放行检查，补的都是前置"条件触点"。
+也就是：deviceLoopRules 管"动作能不能放行"的条件和联锁检查，补的都是前置"条件触点"。
 
 前提（决定动不动手）：
   - 选中的节点要是"动作命令"，且词义属于某个动作；
   - 候选条件变量必须与动作命令"同一台设备/同一组"，跨设备不串；
   - 该条件当前路径还没用；已存在的就不重复建议；
-  - 排除 stop/reset/安全 语义；安全回路不自动生成；
+  - 具体排除哪些 stop、reset 或安全语义，要看对应 deviceLoopRule 的 excludedTerms；这不是经过认证的安全回路生成器；
   - 注意：反馈/到位信号是"动作的结果"，不会被当成启动前置条件。
 
 ===== 四个规则整体分工 =====
@@ -200,7 +200,7 @@
    同一个 POU 里凡是 AXIS 指向同一根轴的 MC 块，都按各自档案收集触发和状态端口
    （MC_Power:Enable / MC_MoveAbsolute:Execute+Done+Active+Busy+Error / MC_Stop 且标记为锁轴）。
 
-4) 这些上下文只用来"描述"和"去重"，不决定补哪个块
+4) 这些上下文主要用来"描述"和"去重"，不单独决定补哪个块
    - 文案：明确区分 MC_Power 的 Enable 是"持续保持型使能"，不按 Execute 上升沿使用
      （LocalGraphSuggestionCore.ts:3230），并附上同轴已有命令和真实状态端口说明，
      有证据时把置信度抬到 96。
@@ -208,8 +208,9 @@
      是否已存在，存在就不重复推荐（LocalGraphSuggestionCore.ts:1562）。
 
 所以：选中 MC_Power，会建议运动功能块吗？
-- 会。"缺哪个 MC 块"由 loopSignatures(LS09 缺 MC_Stop)+libraryRules 决定，不是这份档案。
-- 这份档案(motionCommandProfiles)只负责：
+  - 不一定。只有当前轴、停止/运动命令、减速度等条件同时命中 loopSignatures（例如 LS09），
+    再由 libraryRules 通过端口和库文件校验后，才会推荐具体 MC 功能块；不是选中 MC_Power 就必然推荐。
+  - 这份档案(motionCommandProfiles)只负责：
    ① 分清 Enable(持续使能) 与 Execute(上升沿命令)；
    ② 给运动建议配准真实状态端口(Done/Active/Busy/Error)的说明；
    ③ 做同轴同命令去重，避免重复补 MC_Stop 等。
@@ -231,14 +232,14 @@
                                        (permitSignal 许可/readySignal 就绪/
                                         runFeedback 运行反馈/completionSignal 完成/
                                         faultSignal 故障/inhibitSignal 阻断/modeSignal 模式)
-                                       -> 这些信号不能被绕过去
+                                       -> 当这些角色证据达到中或高强度时，不能被并联绕过去；低强度证据不会直接拦截
   relatedCapabilityIdentityRoles       相关能力要"同身份"的角色
                                        (axisReference 轴/deviceReference 设备)
                                        -> 同轴/同设备才算数
   identityScopedCapabilityBlockTypes  需要"同身份限定"的功能块类型
                                        (MC_Power / MC_Reset / MC_Home)
   relatedCapabilityMinSharedReferences 相关能力最少共享引用数(2)
-                                       -> 证据不足不算可靠链
+                                       -> 普通能力关联的共享引用不足时，不算可靠链；需要同轴/同设备身份的运动块另有身份校验
 
 ===== 举个选中的例子 =====
 
@@ -246,7 +247,7 @@
   你选中一个 contact 触点，引擎在算"要不要并联一个旁路支路"。
   系统发现这个候选会绕过 permitSignal(运行许可) 或 faultSignal(故障联锁) 这类
   受保护角色——并联进去就等于"不管有没有许可、有没有故障都能走通这条支路"，危险。
-  -> parallelBypassProtectedRoles 红线：这类并联旁路候选被直接过滤掉，不推荐。
+  -> parallelBypassProtectedRoles 红线：当被旁路的角色证据不是低强度时，这类并联旁路候选会被过滤掉，不推荐。
      安全上"许可/故障联锁不能随便被旁路"。
 
 例 2：跨轴/跨设备不认
@@ -258,15 +259,16 @@
 
 例 3：证据不足不认
   一个候选想证明"这是同一条可靠的业务链"，但共享的引用不够。
-  -> relatedCapabilityMinSharedReferences: 2：至少要共享 2 个引用
-     (比如同轴 + 同动作输出变量)才够格当"可靠业务链"。
+  -> 对不属于身份限定运动块的普通能力，relatedCapabilityMinSharedReferences: 2
+     表示至少要共享 2 个引用才够格当"可靠业务链"；MC_Power、MC_Reset、MC_Home
+     等身份限定块优先检查是否能确认同一根轴或同一设备。
      证据不足就降级/不进入增强文案，退回普通拓扑建议。
 
 一句话（选中节点视角）：
   你选中某个节点时，businessChainGuards 不去"补"任何东西，而是给生成出来的
   业务链候选把关——凡是会绕过许可/故障/联锁等受保护信号的并联旁路、跨轴/跨设备的
-  MC 关联、或共享证据不足的关联，一律过滤/降级，宁可退回普通结构建议，也不给
-  危险或混乱的推荐。
+  MC 关联、或共享证据不足的关联，会被过滤或降级，宁可退回普通结构建议，也不给
+  危险或混乱的业务增强文案。
 
 它和 businessChainEnhancement 配套：一个负责"拦坏候选"，一个负责"给可靠候选加分、配文案"。
 
@@ -342,7 +344,8 @@
      faultResponseRules 才能判断回路缺不缺东西。
 
 你再选中变量 Pid_Kp：
-  - prefixRoles 看到 Pid_ -> pidController，"这是 PID 实例的参数"。
+  - suffixRoles 看到 _Kp -> controllerParameter，"这是 PID 参数"；只有变量类型本身是 PID
+    且名称满足前缀规则时，才会识别为 pidController 实例。
 
 它和 blockPortRoleRules 的分工(两套认角色的来源)：
   variablePatterns   从"变量名字/标签/注释"认角色
@@ -350,8 +353,8 @@
   两者合起来，给 loopSignatures / deviceLoopRules / faultResponseRules /
   actionLifecycleRules / businessChainGuards 提供"谁是PV、谁是SP、谁是启动命令"的可靠证据。
 
-一句话：variablePatterns 是"靠变量名字猜角色"的地基规则。没有它，
-后面那些"缺不缺回路、该不该补报警"的判断都认不出变量是干嘛的。
+一句话：variablePatterns 是"靠变量名字和说明信息识别角色"的重要证据来源。命名证据不足时，
+引擎仍可通过功能块端口、类型、拓扑和区段上下文识别一部分业务，但判断会更保守。
 
 
 九.loopSignatures 通俗说明
@@ -365,7 +368,7 @@ commandSignal...)组装成"一套完整回路该有哪些环节"，用来判断�
 它分两类 kind：
 
   observed   (识别已存在的回路)  LS02 温度PID  LS03 定时器  LS04 运动命令
-             条件齐了就知道"这里已经是个完整回路"，只当上下文，不再重复推荐
+             条件齐了就知道"这里已经是个完整回路"，作为上下文，并在对应区段已有同类能力时抑制重复候选
   completion (识别缺哪个环节)    LS05/LS10 缺PID  LS06/07/08 缺TON/TOF/TP
              LS09 缺MC_Stop  LS11/12/14/15 缺反馈超时TON  LS13 缺选择器SEL
 
@@ -379,7 +382,8 @@ commandSignal...)组装成"一套完整回路该有哪些环节"，用来判断�
 ===== 举个选中的例子 =====
 
 你选中一个温度 PID 回路里的触点。引擎先通过 variablePatterns + blockPortRoleRules
-认出现有变量：Tank_Temp_PV(过程值)、Temp_SP(设定值)、Valve_Out(调节量)，物理量是"温度"，
+认出现有变量：Tank_Temp_PV(过程值)、Tank_Temp_SP(设定值)、Tank_Temp_MV(调节量)，物理量是"温度"，
+这些变量共享 Tank_Temp 命名分组（也可以通过 groupId、deviceId 或功能块端口建立分组），
 而且还没看到 PID 块：
   -> 命中 LS05(有 PV+SP+MV 但缺控制器，businessRules.json:762)
   -> 交给 libraryRules 建议"补 PID 块"。
@@ -408,7 +412,8 @@ commandSignal...)组装成"一套完整回路该有哪些环节"，用来判断�
 
 一句话：它是"这个信号该用常开还是常闭触点"的"极性决定规则"。
 前面那些规则(businessChainGuards/deviceLoopRules...)只决定"要不要补/补哪个触点"，
-它专门决定"补的时候画成常开还是常闭"。它只管极性，不管排序、不管业务文案。
+它专门决定"补的时候画成常开还是常闭"。它不直接生成业务文案；命中后会留下局部业务证据，
+当前排序会据此把它放在纯结构建议前面，但它的排序层级低于有完整业务意图或具体变量的建议。
 
 两条规则：
   P01-permissive-inhibit-negated  运行许可/联锁链路里的抑制条件(stop/fault/alarm/negated)
@@ -434,7 +439,8 @@ contactPolarityRules 定这个触点画常开还是常闭：
 它和前后规则的关系(它是补触点的"最后一环")：
   前面规则           决定"补不补、补哪个触点"
   contactPolarityRules 决定"这个触点画常开还是常闭"
-  业务文案/排序       归 nodeIntentRules / rankingRules 管(它不碰)
+  业务文案             主要归 nodeIntentRules / 各业务规则的 presentation 管
+  排序                 由统一评分器处理，会综合 rankingRules、业务证据和业务链分
 
 一句话：contactPolarityRules 只管"补出来的触点用常开还是常闭"——
 抑制条件用常闭(切断许可)，健康/就绪用常开(放行)。
@@ -447,7 +453,8 @@ contactPolarityRules 定这个触点画常开还是常闭：
 前面规则管"补什么块/触点"，它专注在 contact/negatedContact/risingContact/
 fallingContact/setCoil/resetCoil/coil 这些图元上，判断"这个图元在图里是干嘛用的"
 (业务意图)，据此配上业务文案；证据不足就退回结构文案。
-它不管常开常闭(归 contactPolarityRules)、不管排序(归 rankingRules)。
+它不直接决定常开常闭(归 contactPolarityRules)；命中可靠业务意图并生成文案后，会参与排序层级，
+最终顺序仍由统一评分器决定。
 
 13 条对应：
 
@@ -494,7 +501,7 @@ fallingContact/setCoil/resetCoil/coil 这些图元上，判断"这个图元在�
   触点什么时候该补             -> deviceLoopRules / actionLifecycleRules 等
   触点画常开还是常闭           -> contactPolarityRules
   这个图元是干嘛的 + 文案       -> nodeIntentRules
-  排序                         -> rankingRules
+  排序                         -> rankingRules 加分，并由统一评分器综合业务证据、业务链分和拓扑分
 
 一句话：nodeIntentRules 专门给"触点/线圈/沿"配上"业务意图 + 文案"——
 命中就给"运行许可/故障锁存/启动脉冲..."这种业务文案，证据不足退回结构描述。
@@ -517,7 +524,7 @@ fallingContact/setCoil/resetCoil/coil 这些图元上，判断"这个图元在�
   portRequirements      端口要求+类型(IN:BOOL、PT:TIME、Q:BOOL...，allowCreateParameter
                         表示可自动建参)
   requiredAnyDataTypes / requiredTypeCapabilities  需要的数据类型/轴能力
-  priority / baseScore  排序优先级与基础分
+  priority / baseScore  规则内部选择候选时使用的优先级和基础分，不等于最终全局展示分
   reason/fallback/presentation  说明文案、降级行为、标题模板
 
 共 43 条，按族分类：
@@ -535,7 +542,7 @@ fallingContact/setCoil/resetCoil/coil 这些图元上，判断"这个图元在�
 
 你选中一个温度 PID 回路里的触点，loopSignatures 已判定缺 PID(LS05)：
   -> 命中 P02-temperature-pid-completion(businessRules.json:1889)
-  -> 推荐 PID，端口要求 XOUT，基础分115、优先级90，文案"补充温度PID调节"
+  -> 推荐 PID，端口要求 XOUT，规则内部基础分115、优先级90，文案"补充温度PID调节"
 
 再如链里有"timer+onDelay"但还没放 TON：
   -> 命中 T01(businessRules.json:1432)，按词义推荐 TON
@@ -548,7 +555,7 @@ fallingContact/setCoil/resetCoil/coil 这些图元上，判断"这个图元在�
   前段 variablePatterns/blockPortRoleRules  认角色
       loopSignatures                        判断"缺哪个环节"
   本段 libraryRules                         把"缺环节"落成"推荐哪个具体功能块"
-                                             (含端口/类型/评分)-> 输出 suggestions
+                                             (含端口/类型和候选内部评分)-> 输出 suggestions
   配套 businessChainGuards 把关过滤 / businessChainEnhancement 加分文案 /
       rankingRules 排序 / contactPolarityRules·nodeIntentRules 处理触点/线圈
 
@@ -582,8 +589,9 @@ fallingContact/setCoil/resetCoil/coil 这些图元上，判断"这个图元在�
   - 若要补"复位线圈"                      -> R03 加分
   - 带"healthy/ready"的常开触点           -> R05 加分，排更前
 
-把每个候选的 baseScore 加上这些加权分，最终按总分降序展示，
-让"符合启动/停止/复位习惯"的建议优先出现在前端列表里。
+这些规则的加分会进入统一评分；最终排序还会综合拓扑分、业务证据分、业务链分，
+并先区分"完整业务建议、局部业务证据、纯结构兜底"三个层级，
+让符合启动/停止/复位习惯且业务证据更完整的建议优先出现在前端列表里。
 
 它和前面规则的分工(最后一环之一)：
   前面规则决定"补什么、什么图元、什么极性、什么文案"
@@ -614,10 +622,10 @@ fallingContact/setCoil/resetCoil/coil 这些图元上，判断"这个图元在�
 ===== 举个选中的例子 =====
 
 你选中一个触点/线圈，它属于一条结构完整的业务链
-(比如"启动->输出"，角色证据充分、且和 businessChainGuards 确认属同组可靠链)：
+(比如"启动->输出"，角色证据充分，且上下文分析确认属于同一组)：
   - 完整链   -> resolvedPresentationScore(6) + resolvedEvidenceScore(4) 加分，
                 文案用权威模板
-  - 只有部分证据 -> 给小分(2/1)，文案更谨慎
+  - 只有部分证据 -> 只给小分(2/1)；不会自动套用完整链模板，文案仍按原业务规则决定
   - 角色置信度高 -> 额外 highConfidenceRoleBonus(2)
   - 文案按 nodeIntentTextTemplate 生成：
     "在'XX业务链'中，最终动作是XXX；……"
