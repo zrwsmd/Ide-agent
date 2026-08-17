@@ -27,6 +27,9 @@ const {
 const {
   filterBusinessChainGuardedSuggestions,
 } = require("../packages/core/dist/graph/BusinessChainSuggestionGuard");
+const {
+  rankBusinessSuggestionScores,
+} = require("../packages/core/dist/graph/BusinessSuggestionScoring");
 
 const rootDir = path.resolve(__dirname, "..");
 const fixturePath = path.join(
@@ -112,6 +115,7 @@ const libraryElements = new Map(
 
 async function main() {
   assertActiveRuleCandidatesExistInLibrary();
+  assertReliableBusinessRankingCases();
   assertVariableRoleEvidenceCases();
   assertBusinessEvidenceNormalizationCases();
   assertExplicitIdGroupingCases();
@@ -130,6 +134,118 @@ async function main() {
   assertBusinessChainSuggestionGuardCases();
   await assertTimestampDiagramWhenAvailable();
   console.log("[test-business-rules] passed");
+}
+
+function assertReliableBusinessRankingCases() {
+  const context = {
+    focusTerms: new Set(["start", "run"]),
+    nearbyTerms: new Set(),
+    segmentTerms: new Set(["run"]),
+    pouTerms: new Set(),
+    focusBlockType: "",
+    segmentBlockTypes: new Set(),
+    relatedTerms: new Set(),
+    relatedBlockTypes: new Set(),
+  };
+  const graphState = {
+    hasLogicNode: true,
+    hasOutputNode: true,
+    isPartialGraph: false,
+  };
+  const fallback = rankingDraft("fallback");
+  const business = {
+    ...rankingDraft("business"),
+    businessPresentation: {
+      title: "Reliable business suggestion",
+      text: "Reliable business suggestion",
+      ruleId: "TEST-reliable-business",
+      confidence: 90,
+    },
+  };
+  const polarityOnly = {
+    ...rankingDraft("polarity-only"),
+    businessEvidence: {
+      ruleIds: ["TEST-contact-polarity"],
+      signatureIds: [],
+      reason: "Business context supports a negated contact",
+      confidence: 0.9,
+    },
+  };
+  const lowConfidence = {
+    ...rankingDraft("low-confidence"),
+    businessPresentation: {
+      title: "Low-confidence business suggestion",
+      text: "Low-confidence business suggestion",
+      ruleId: "TEST-low-confidence-business",
+      confidence: 0.5,
+    },
+  };
+
+  const reliableRanked = rankBusinessSuggestionScores(
+    [fallback, business],
+    context,
+    graphState,
+  );
+  assert.equal(
+    reliableRanked[0]?.id,
+    "business",
+    "reliable business suggestions must rank ahead of structural fallbacks",
+  );
+
+  const tieredRanked = rankBusinessSuggestionScores(
+    [fallback, polarityOnly, business],
+    context,
+    graphState,
+  );
+  assert.deepStrictEqual(
+    tieredRanked.map((suggestion) => suggestion.id),
+    ["business", "polarity-only", "fallback"],
+    "complete business intent must rank ahead of polarity-only evidence and structural fallbacks",
+  );
+
+  const lowConfidenceRanked = rankBusinessSuggestionScores(
+    [fallback, lowConfidence],
+    context,
+    graphState,
+  );
+  assert.equal(
+    lowConfidenceRanked[0]?.id,
+    "fallback",
+    "low-confidence business matches must not bypass normal score ordering",
+  );
+}
+
+function rankingDraft(id) {
+  return {
+    id,
+    mode: "contactBefore",
+    confidence: 1,
+    placement: {
+      relationToFocus: "beforeSelected",
+      anchorNodeId: "selected-contact",
+      anchorNodeVar: "Start_Request",
+      insertAfterNodeId: "start-line",
+      insertBeforeNodeId: "selected-contact",
+      parallelToNodeId: "",
+      branchFromNodeId: "",
+      branchToNodeId: "",
+      portName: "",
+      text: "Structural fallback",
+    },
+    position: "front",
+    serialOrParallel: "serial",
+    addElement: {
+      nodeType: "contact",
+      displayLabel: "Normal contact",
+      variableSource: "newVariable",
+      variableName: "???",
+      dataType: "BOOL",
+      userInputRequired: true,
+      blockType: "",
+      instanceSource: "",
+      instanceName: "",
+    },
+  };
 }
 
 function assertActiveRuleCandidatesExistInLibrary() {

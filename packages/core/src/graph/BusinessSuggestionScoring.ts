@@ -20,6 +20,10 @@ import type {
   SegmentGraphState,
 } from "./LocalSuggestionModels";
 
+const RELIABLE_BUSINESS_CONFIDENCE = 0.8;
+const RELIABLE_BUSINESS_EVIDENCE_TIER = 1;
+const COMPLETE_BUSINESS_INTENT_TIER = 2;
+
 export function rankTopologySuggestions(
   suggestions: LocalSuggestionDraft[],
 ): LocalSuggestionDraft[] {
@@ -68,16 +72,70 @@ export function rankBusinessSuggestionScores(
       suggestion: { ...suggestion, scoreBreakdown: score },
       index,
       score: score.total,
+      businessTier: businessRankingTier(suggestion),
     };
   });
 
-  if (!ranked.some((item) => item.score > 0)) {
+  if (
+    !ranked.some((item) => item.score > 0) &&
+    !ranked.some((item) => item.businessTier > 0)
+  ) {
     return ranked.map((item) => item.suggestion);
   }
 
   return ranked
-    .sort((left, right) => right.score - left.score || left.index - right.index)
+    .sort(
+      (left, right) =>
+        right.businessTier - left.businessTier ||
+        right.score - left.score ||
+        left.index - right.index,
+    )
     .map((item) => item.suggestion);
+}
+
+function businessRankingTier(suggestion: LocalSuggestionDraft): number {
+  const presentationConfidence = normalizeBusinessConfidence(
+    suggestion.businessPresentation?.confidence,
+  );
+  const evidenceConfidence = normalizeBusinessConfidence(
+    suggestion.businessEvidence?.confidence,
+  );
+  if (
+    presentationConfidence >= RELIABLE_BUSINESS_CONFIDENCE ||
+    (evidenceConfidence >= RELIABLE_BUSINESS_CONFIDENCE &&
+      hasConcreteBusinessCandidate(suggestion))
+  ) {
+    return COMPLETE_BUSINESS_INTENT_TIER;
+  }
+  if (evidenceConfidence >= RELIABLE_BUSINESS_CONFIDENCE) {
+    return RELIABLE_BUSINESS_EVIDENCE_TIER;
+  }
+  return 0;
+}
+
+function hasConcreteBusinessCandidate(
+  suggestion: LocalSuggestionDraft,
+): boolean {
+  if (
+    suggestion.addElement.nodeType === "functionBlock" &&
+    suggestion.addElement.blockType.trim()
+  ) {
+    return true;
+  }
+
+  const variableName = suggestion.addElement.variableName.trim();
+  return (
+    suggestion.addElement.variableSource === "existingVariable" &&
+    Boolean(variableName) &&
+    variableName !== "???"
+  );
+}
+
+function normalizeBusinessConfidence(confidence: number | undefined): number {
+  if (typeof confidence !== "number" || !Number.isFinite(confidence)) {
+    return 0;
+  }
+  return confidence > 1 ? confidence / 100 : confidence;
 }
 
 function scoreBusinessSuggestion(
